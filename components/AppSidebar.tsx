@@ -80,7 +80,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
       )}
 
       <aside className={`
-        fixed top-0 left-0 z-40 h-screen w-56 bg-brand-light flex flex-col
+        fixed top-0 left-0 z-40 h-screen w-56 bg-brand-light border-r border-brown/10 flex flex-col
         transition-transform duration-200
         ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0
