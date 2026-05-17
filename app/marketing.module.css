@@ -24,7 +24,17 @@
   color: #1C1A10; text-decoration: none;
   display: flex; align-items: center; gap: 10px;
 }
-.navLogoImg { height: 52px; width: auto; }
+.navLogoImg {
+  height: 52px; width: auto;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.navLogoImgVisible {
+  opacity: 1;
+  transform: scale(1);
+}
+.navCtaMobile { display: none; }
 .navLinks { display: flex; align-items: center; gap: 36px; }
 .navLinks a {
   font-size: 13px; color: #7A7050; text-decoration: none;
@@ -526,6 +536,7 @@
 @media (max-width: 900px) {
   .nav { padding: 16px 24px; }
   .navLinks { display: none; }
+  .navCtaMobile { display: inline-block; }
   .hero { padding: 100px 24px 60px; }
   .kernelWrap { width: 220px; height: 220px; }
   .transformSection { grid-template-columns: 1fr; padding: 80px 24px; gap: 48px; }

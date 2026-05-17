@@ -10,12 +10,16 @@ interface RainPiece {
 
 export default function MarketingPage() {
   const [scrolled, setScrolled] = useState(false);
+  const [pastHero, setPastHero] = useState(false);
   const [popState, setPopState] = useState<"idle" | "popping" | "popped">("idle");
   const [showFlash, setShowFlash] = useState(false);
   const [rainPieces, setRainPieces] = useState<RainPiece[]>([]);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
+    const onScroll = () => {
+      setScrolled(window.scrollY > 40);
+      setPastHero(window.scrollY > window.innerHeight * 0.75);
+    };
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -85,7 +89,11 @@ export default function MarketingPage() {
       {/* Nav */}
       <nav className={`${styles.nav} ${scrolled ? styles.navScrolled : ""}`}>
         <a href="#" className={styles.navLogo}>
-          <img src="/kernel.png" alt="" className={styles.navLogoImg} />
+          <img
+            src="/kernel.png"
+            alt=""
+            className={`${styles.navLogoImg} ${pastHero ? styles.navLogoImgVisible : ""}`}
+          />
           Kernel
         </a>
         <div className={styles.navLinks}>
@@ -93,6 +101,8 @@ export default function MarketingPage() {
           <a href="#pricing">Pricing</a>
           <Link href="/login" className={styles.navCta}>Log in</Link>
         </div>
+        {/* Mobile-only login button — always visible */}
+        <Link href="/login" className={`${styles.navCta} ${styles.navCtaMobile}`}>Log in</Link>
       </nav>
 
       {/* Hero */}
