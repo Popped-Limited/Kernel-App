@@ -228,7 +228,7 @@ export default function SAQQuestionsPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="border-b border-gray-200 bg-white shadow-sm sticky top-0 z-10">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 sm:px-6 min-h-[68px]">
           <div className="flex items-center gap-3">
             <Link href="/home" className="btn-ghost text-xs px-2">
               ← Dashboard

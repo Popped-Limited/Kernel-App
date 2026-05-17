@@ -26,7 +26,7 @@ export default function AdminChecklistsPage() {
   return (
     <>
       <header className="border-b border-gray-200 bg-white shadow-sm">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 sm:px-6 min-h-[68px]">
           <div className="flex items-center gap-3">
             <Link href="/home" className="btn-ghost text-xs px-2">← Dashboard</Link>
             <h1 className="text-base font-semibold text-gray-900">Edit Checklists</h1>
