@@ -165,36 +165,39 @@
 
 /* PILLS */
 .pillsSection {
-  padding: 56px 52px;
+  padding: 56px 32px;
   overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 .pillsGrid {
-  max-width: 960px; margin: 0 auto;
+  width: 100%;
   display: flex; flex-direction: column; gap: 14px;
-  align-items: center;
 }
 .pillsRow {
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;
+  display: flex; width: 100%; gap: 12px;
 }
 .pill {
-  display: inline-flex; align-items: center;
-  padding: 11px 24px;
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px 20px;
   border-radius: 40px;
   background: #FDFAF2;
   border: 1px solid rgba(200,168,75,0.35);
-  font-size: 14px; font-weight: 500; letter-spacing: 0.015em;
+  font-size: 16px; font-weight: 500; letter-spacing: 0.01em;
   color: #1C1A10;
+  white-space: nowrap;
   opacity: 0;
   transform: scale(0);
-  box-shadow: 0 2px 12px rgba(200,168,75,0.08);
+  box-shadow: 0 2px 16px rgba(200,168,75,0.1);
 }
 .pillsActive .pill {
   animation: pillPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 @keyframes pillPop {
   0%   { transform: scale(0) rotate(-8deg); opacity: 0; }
-  55%  { transform: scale(1.12) rotate(3deg); opacity: 1; }
-  75%  { transform: scale(0.96) rotate(-1deg); }
+  55%  { transform: scale(1.1) rotate(3deg); opacity: 1; }
+  75%  { transform: scale(0.97) rotate(-1deg); }
   100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import styles from "./marketing.module.css";
 
@@ -50,6 +50,16 @@ export default function MarketingPage() {
   const PILLS_ROW2 = ["Inventory management", "Ingredient costing", "QR code checklists", "Supplier approvals"];
   const pillsRef = useRef<HTMLDivElement>(null);
   const [pillsActive, setPillsActive] = useState(false);
+
+  // Randomised delays — shuffle 8 evenly-spaced slots once on mount
+  const pillDelays = useMemo(() => {
+    const slots = [0, 0.27, 0.54, 0.81, 1.08, 1.35, 1.62, 1.89];
+    for (let i = slots.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [slots[i], slots[j]] = [slots[j], slots[i]];
+    }
+    return slots;
+  }, []);
 
   useEffect(() => {
     const el = pillsRef.current;
@@ -157,7 +167,7 @@ export default function MarketingPage() {
               <span
                 key={item}
                 className={styles.pill}
-                style={{ animationDelay: `${i * 0.27}s` }}
+                style={{ animationDelay: `${pillDelays[i]}s` }}
               >
                 {item}
               </span>
@@ -168,7 +178,7 @@ export default function MarketingPage() {
               <span
                 key={item}
                 className={styles.pill}
-                style={{ animationDelay: `${(i + 4) * 0.27}s` }}
+                style={{ animationDelay: `${pillDelays[i + 4]}s` }}
               >
                 {item}
               </span>
