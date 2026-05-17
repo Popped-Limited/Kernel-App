@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import styles from "./marketing.module.css";
 
@@ -46,8 +46,20 @@ export default function MarketingPage() {
     setTimeout(() => setRainPieces([]), 5000);
   }
 
-  const TICKER_ROW1 = ["SALSA compliance", "Batch traceability", "Goods in & out", "Production records"];
-  const TICKER_ROW2 = ["Inventory management", "Ingredient costing", "QR code checklists", "Supplier approvals"];
+  const PILLS_ROW1 = ["SALSA compliance", "Batch traceability", "Goods in & out", "Production records"];
+  const PILLS_ROW2 = ["Inventory management", "Ingredient costing", "QR code checklists", "Supplier approvals"];
+  const pillsRef = useRef<HTMLDivElement>(null);
+  const [pillsActive, setPillsActive] = useState(false);
+
+  useEffect(() => {
+    const el = pillsRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setPillsActive(true); obs.disconnect(); }
+    }, { threshold: 0.3 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   const FEATURES_ALL = [
     "Unlimited QR code checklists",
@@ -134,30 +146,31 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* Ticker — 2 staggered rows */}
-      <div className={styles.tickerWrap}>
-        {/* Row 1 — scrolls left */}
-        <div className={styles.tickerRow}>
-          <div className={styles.tickerInner}>
-            {[...TICKER_ROW1, ...TICKER_ROW1, ...TICKER_ROW1].map((item, i) => (
-              <span key={i} style={{ display: "inline-flex", alignItems: "center" }}>
-                <span className={styles.tickerItem}>{item}</span>
-                <span className={styles.tickerSep}>
-                  <img src="/popcorn.png" alt="" className={styles.tickerSepImg} />
-                </span>
+      {/* Popping pills */}
+      <div
+        ref={pillsRef}
+        className={`${styles.pillsSection} ${pillsActive ? styles.pillsActive : ""}`}
+      >
+        <div className={styles.pillsGrid}>
+          <div className={styles.pillsRow}>
+            {PILLS_ROW1.map((item, i) => (
+              <span
+                key={item}
+                className={styles.pill}
+                style={{ animationDelay: `${i * 0.27}s` }}
+              >
+                {item}
               </span>
             ))}
           </div>
-        </div>
-        {/* Row 2 — scrolls right */}
-        <div className={styles.tickerRow}>
-          <div className={styles.tickerInnerReverse}>
-            {[...TICKER_ROW2, ...TICKER_ROW2, ...TICKER_ROW2].map((item, i) => (
-              <span key={i} style={{ display: "inline-flex", alignItems: "center" }}>
-                <span className={styles.tickerItem}>{item}</span>
-                <span className={styles.tickerSep}>
-                  <img src="/popcorn.png" alt="" className={styles.tickerSepImg} />
-                </span>
+          <div className={styles.pillsRow}>
+            {PILLS_ROW2.map((item, i) => (
+              <span
+                key={item}
+                className={styles.pill}
+                style={{ animationDelay: `${(i + 4) * 0.27}s` }}
+              >
+                {item}
               </span>
             ))}
           </div>
