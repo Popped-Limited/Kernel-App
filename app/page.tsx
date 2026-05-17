@@ -252,6 +252,16 @@ export default function MarketingPage() {
               </p>
             </div>
           </div>
+
+          {/* Dashboard screenshot */}
+          <div className={`${styles.screenshotWrap} ${styles.fadeIn}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/dashboard-screenshot.png"
+              alt="Kernel dashboard"
+              className={styles.screenshotImg}
+            />
+          </div>
         </div>
       </section>
 
