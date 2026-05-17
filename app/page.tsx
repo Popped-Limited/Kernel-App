@@ -46,11 +46,8 @@ export default function MarketingPage() {
     setTimeout(() => setRainPieces([]), 5000);
   }
 
-  const TICKER_ITEMS = [
-    "SALSA compliance", "Batch traceability", "Goods in & out",
-    "Production records", "Inventory management", "Ingredient costing",
-    "QR code checklists", "Supplier approvals",
-  ];
+  const TICKER_ROW1 = ["SALSA compliance", "Batch traceability", "Goods in & out", "Production records"];
+  const TICKER_ROW2 = ["Inventory management", "Ingredient costing", "QR code checklists", "Supplier approvals"];
 
   const FEATURES_ALL = [
     "Unlimited QR code checklists",
@@ -137,15 +134,33 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* Ticker — large flowing brand font, no background */}
-      <div className={styles.ticker}>
-        <div className={styles.tickerInner}>
-          {[...TICKER_ITEMS, ...TICKER_ITEMS].map((item, i) => (
-            <span key={i}>
-              <span className={styles.tickerItem}>{item}</span>
-              <span className={styles.tickerSep}>✦</span>
-            </span>
-          ))}
+      {/* Ticker — 2 staggered rows */}
+      <div className={styles.tickerWrap}>
+        {/* Row 1 — scrolls left */}
+        <div className={styles.tickerRow}>
+          <div className={styles.tickerInner}>
+            {[...TICKER_ROW1, ...TICKER_ROW1, ...TICKER_ROW1].map((item, i) => (
+              <span key={i} style={{ display: "inline-flex", alignItems: "center" }}>
+                <span className={styles.tickerItem}>{item}</span>
+                <span className={styles.tickerSep}>
+                  <img src="/popcorn.png" alt="" className={styles.tickerSepImg} />
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+        {/* Row 2 — scrolls right */}
+        <div className={styles.tickerRow}>
+          <div className={styles.tickerInnerReverse}>
+            {[...TICKER_ROW2, ...TICKER_ROW2, ...TICKER_ROW2].map((item, i) => (
+              <span key={i} style={{ display: "inline-flex", alignItems: "center" }}>
+                <span className={styles.tickerItem}>{item}</span>
+                <span className={styles.tickerSep}>
+                  <img src="/popcorn.png" alt="" className={styles.tickerSepImg} />
+                </span>
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -230,6 +245,30 @@ export default function MarketingPage() {
             <span className={styles.featureTag}>Alerts</span>
             <div className={styles.featureTitle}>Missed check alerts</div>
             <div className={styles.featureDesc}>Get an email the moment a check is overdue. Nothing falls through the cracks on a busy production day.</div>
+          </div>
+        </div>
+      </section>
+
+      {/* Dashboard Showcase */}
+      <section className={styles.showcase}>
+        <div className={styles.showcaseInner}>
+          <div className={`${styles.fadeIn}`}>
+            <p className={styles.showcaseLabel}>The platform</p>
+            <h2 className={styles.showcaseHeadline}>
+              Built for the way you<br /><em>actually work.</em>
+            </h2>
+            <p className={styles.showcaseSub}>
+              Clean, fast, and designed for food production — not accountants or enterprise IT teams.
+            </p>
+          </div>
+          <div className={`${styles.browserMockup} ${styles.fadeIn}`}>
+            <div className={styles.browserBar}>
+              <div className={styles.browserDot} style={{ background: "#FF5F57" }} />
+              <div className={styles.browserDot} style={{ background: "#FEBC2E" }} />
+              <div className={styles.browserDot} style={{ background: "#28C840" }} />
+              <span className={styles.browserUrl}>kernelapp.co.uk/dashboard</span>
+            </div>
+            <img src="/dashboard-screenshot.png" alt="Kernel dashboard" className={styles.screenshotImg} />
           </div>
         </div>
       </section>

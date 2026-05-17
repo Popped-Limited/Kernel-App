@@ -43,15 +43,15 @@
   min-height: 100vh;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center;
-  padding: 120px 52px 60px;
+  padding: 100px 52px 40px;
   position: relative; overflow: hidden;
 }
 
 /* KERNEL/POPCORN IMAGE ANIMATION */
 .kernelWrap {
   position: relative;
-  width: 280px; height: 280px;
-  margin-bottom: 24px;
+  width: 240px; height: 240px;
+  margin-bottom: 16px;
   cursor: pointer;
   user-select: none;
 }
@@ -112,7 +112,7 @@
 
 .heroEyebrow {
   font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
-  color: #C89A18; margin-bottom: 24px; margin-top: 52px;
+  color: #C89A18; margin-bottom: 20px; margin-top: 16px;
   opacity: 0; animation: fadeUp 0.8s 0.2s forwards;
 }
 .heroHeadline {
@@ -163,31 +163,45 @@
   100% { transform: translateY(110vh) rotate(540deg) scale(1); opacity: 0; }
 }
 
-/* TICKER — large flowing text, no background */
-.ticker {
+/* TICKER — 2 rows, staggered, large brand font */
+.tickerWrap {
   overflow: hidden;
-  padding: 48px 0;
-  position: relative;
+  padding: 40px 0;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.tickerRow {
+  overflow: hidden;
+  white-space: nowrap;
 }
 .tickerInner {
-  display: inline-flex; align-items: center; gap: 0;
-  animation: ticker 40s linear infinite;
+  display: inline-flex; align-items: center;
+  animation: tickerLeft 22s linear infinite;
+  white-space: nowrap;
+}
+.tickerInnerReverse {
+  display: inline-flex; align-items: center;
+  animation: tickerRight 26s linear infinite;
   white-space: nowrap;
 }
 .tickerItem {
   font-family: var(--font-instrument-serif), Georgia, serif;
   font-style: italic;
-  font-size: clamp(40px, 5vw, 72px);
+  font-size: clamp(28px, 3.5vw, 52px);
   color: #C89A18;
   letter-spacing: -0.02em;
-  padding: 0 32px;
-  opacity: 0.85;
+  padding: 0 20px;
+  opacity: 0.9;
 }
 .tickerSep {
-  font-size: clamp(20px, 2.5vw, 36px);
-  color: #D4A840;
-  opacity: 0.4;
-  padding: 0 8px;
+  display: inline-flex; align-items: center;
+  padding: 0 4px;
+}
+.tickerSepImg {
+  height: clamp(28px, 3vw, 44px);
+  width: auto;
+  object-fit: contain;
+  opacity: 0.85;
+  vertical-align: middle;
 }
 
 /* TRANSFORM */
@@ -459,9 +473,68 @@
   from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-@keyframes ticker {
+@keyframes tickerLeft {
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
+}
+@keyframes tickerRight {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(0); }
+}
+
+/* DASHBOARD SHOWCASE */
+.showcase {
+  background: #EDE5D0;
+  padding: 100px 52px;
+}
+.showcaseInner {
+  max-width: 1100px; margin: 0 auto;
+}
+.showcaseLabel {
+  font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+  color: #C89A18; margin-bottom: 16px; text-align: center;
+}
+.showcaseHeadline {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: clamp(32px, 4vw, 52px);
+  letter-spacing: -0.02em; text-align: center;
+  color: #1C1A10; margin-bottom: 16px; line-height: 1.1;
+}
+.showcaseHeadline em { font-style: italic; color: #C89A18; }
+.showcaseSub {
+  font-size: 16px; color: #7A7050; text-align: center;
+  max-width: 480px; margin: 0 auto 64px; line-height: 1.6;
+}
+.browserMockup {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 40px 100px rgba(28,26,16,0.18), 0 8px 24px rgba(28,26,16,0.08);
+  border: 1px solid rgba(200,168,75,0.2);
+}
+.browserBar {
+  background: #F7F2E8;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid rgba(200,168,75,0.15);
+}
+.browserDot {
+  width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0;
+}
+.browserUrl {
+  background: rgba(200,168,75,0.1);
+  border-radius: 6px;
+  padding: 4px 14px;
+  font-size: 12px;
+  color: #7A7050;
+  margin-left: 10px;
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.01em;
+}
+.screenshotImg {
+  width: 100%;
+  display: block;
 }
 
 @media (max-width: 900px) {
