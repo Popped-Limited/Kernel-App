@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "./marketing.module.css";
 
@@ -45,31 +45,6 @@ export default function MarketingPage() {
     setRainPieces(pieces);
     setTimeout(() => setRainPieces([]), 5000);
   }
-
-  const PILLS_ROW1 = ["SALSA compliance", "Batch traceability", "Goods in & out", "Production records"];
-  const PILLS_ROW2 = ["Inventory management", "Ingredient costing", "QR code checklists", "Supplier approvals"];
-  const pillsRef = useRef<HTMLDivElement>(null);
-  const [pillsActive, setPillsActive] = useState(false);
-
-  // Randomised delays — shuffle 8 evenly-spaced slots once on mount
-  const pillDelays = useMemo(() => {
-    const slots = [0, 0.27, 0.54, 0.81, 1.08, 1.35, 1.62, 1.89];
-    for (let i = slots.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [slots[i], slots[j]] = [slots[j], slots[i]];
-    }
-    return slots;
-  }, []);
-
-  useEffect(() => {
-    const el = pillsRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) { setPillsActive(true); obs.disconnect(); }
-    }, { threshold: 0.3 });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
 
   const FEATURES_ALL = [
     "Unlimited QR code checklists",
@@ -155,37 +130,6 @@ export default function MarketingPage() {
           <a href="#transform" className={styles.btnGhost}>See how it works →</a>
         </div>
       </section>
-
-      {/* Popping pills */}
-      <div
-        ref={pillsRef}
-        className={`${styles.pillsSection} ${pillsActive ? styles.pillsActive : ""}`}
-      >
-        <div className={styles.pillsGrid}>
-          <div className={styles.pillsRow}>
-            {PILLS_ROW1.map((item, i) => (
-              <span
-                key={item}
-                className={styles.pill}
-                style={{ animationDelay: `${pillDelays[i]}s` }}
-              >
-                {item}
-              </span>
-            ))}
-          </div>
-          <div className={styles.pillsRow}>
-            {PILLS_ROW2.map((item, i) => (
-              <span
-                key={item}
-                className={styles.pill}
-                style={{ animationDelay: `${pillDelays[i + 4]}s` }}
-              >
-                {item}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
 
       {/* Transform */}
       <section className={styles.transformSection} id="transform">
