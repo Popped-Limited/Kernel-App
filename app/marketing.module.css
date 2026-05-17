@@ -51,7 +51,7 @@
 .kernelWrap {
   position: relative;
   width: 240px; height: 240px;
-  margin-bottom: 16px;
+  margin-bottom: 56px;
   cursor: pointer;
   user-select: none;
 }
