@@ -189,7 +189,7 @@ export default function MarketingPage() {
             <p className={styles.stateTag}>Before Kernel</p>
             <ul className={styles.stateItems}>
               <li>Paper checklists that go missing</li>
-              <li>£400+/month for basic compliance software</li>
+              <li>££££/month across fragmented tools</li>
               <li>Spreadsheets for stock and costing</li>
               <li>No traceability until audit day panic</li>
               <li>Hours lost on admin every week</li>
@@ -278,25 +278,25 @@ export default function MarketingPage() {
         <div className={`${styles.pricingTop} ${styles.fadeIn}`}>
           <p className={styles.pricingEyebrow}>Pricing</p>
           <h2 className={styles.pricingHeadline}>
-            Honestly.<br /><em>It&apos;s a no-brainer.</em>
+            Everything in one place.<br /><em>One simple price.</em>
           </h2>
           <p className={styles.pricingSub}>
-            Other platforms charge £300–500/month for this. We don&apos;t.
-            Everything included. No hidden fees. Cancel any time.
+            No modules. No add-ons. No surprises.
+            Every feature, from day one.
           </p>
         </div>
 
         {/* Value comparison bar */}
         <div className={`${styles.valueBar} ${styles.fadeIn}`}>
           <div className={styles.valueBarItem}>
-            <p className={styles.valueBarLabel}>Other compliance platforms</p>
-            <div className={`${styles.valueBarPrice} ${styles.crossed}`}>£400<span style={{ fontSize: "0.4em" }}>/mo</span></div>
-            <p className={styles.valueBarNote}>For something worse</p>
+            <p className={styles.valueBarLabel}>Fragmented software</p>
+            <div className={`${styles.valueBarPrice} ${styles.crossed}`}>££££<span style={{ fontSize: "0.4em" }}>/mo</span></div>
+            <p className={styles.valueBarNote}>Compliance tool + stock system + traceability + records…</p>
           </div>
           <div className={styles.valueBarItem}>
             <p className={styles.valueBarLabel}>Kernel</p>
             <div className={`${styles.valueBarPrice} ${styles.kernel}`}>£79<span style={{ fontSize: "0.4em" }}>/mo</span></div>
-            <p className={styles.valueBarNote}><strong>Everything. Nothing held back.</strong></p>
+            <p className={styles.valueBarNote}><strong>All of the above. One login.</strong></p>
           </div>
         </div>
 
