@@ -1,299 +1,400 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
-import styles from "./marketing.module.css";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import type { Checklist, Submission, IngredientLot, Ingredient, Dispatch } from "@/lib/types";
+import { frequencyLabel, frequencyBadgeColor } from "@/lib/utils";
+import AppSidebar from "@/components/AppSidebar";
 
-const KernelCanvas = dynamic(() => import("@/components/KernelCanvas"), { ssr: false });
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-interface RainPiece {
-  id: number;
-  left: number;
-  size: number;
-  duration: number;
-  delay: number;
-}
+const SKUS = [
+  "Garlic Chilli Oil",
+  "Garlic Chilli Oil with Beef",
+  "Sichuan Chilli Crisp",
+  "Sichuan Chilli Crisp Double Heat",
+  "Hunan Salted Chillies",
+];
 
-export default function MarketingPage() {
-  const [scrolled, setScrolled] = useState(false);
-  const [popped, setPopped] = useState(false);
-  const [showFlash, setShowFlash] = useState(false);
-  const [rainPieces, setRainPieces] = useState<RainPiece[]>([]);
-  const fadeRefs = useRef<(HTMLElement | null)[]>([]);
+const NAV = [
+  {
+    title: "Production",
+    items: [
+      { label: "Goods In", href: "/admin/goods-in" },
+      { label: "Goods Out", href: "/admin/goods-out" },
+      { label: "Raw Materials", href: "/admin/stock" },
+    ],
+  },
+  {
+    title: "Compliance",
+    items: [
+      { label: "Suppliers", href: "/admin/suppliers" },
+      { label: "Traceability", href: "/admin/traceability" },
+    ],
+  },
+  {
+    title: "Records",
+    items: [
+      { label: "All Submissions", href: "/dashboard" },
+      { label: "Print QR Codes", href: "/print-qr" },
+    ],
+  },
+  {
+    title: "Admin",
+    items: [
+      { label: "Manage Checklists", href: "/admin/checklists" },
+    ],
+  },
+];
 
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+const FREQ_GROUPS = [
+  { key: "daily",      label: "Daily",                      freqs: ["per_shift_am", "per_shift_pm", "per_shift_eod"] },
+  { key: "weekly",     label: "Weekly",                     freqs: ["weekly"]                                        },
+  { key: "adhoc",      label: "Adhoc",                      freqs: ["adhoc", "monthly"]                              },
+  { key: "production", label: "Production & Traceability",  freqs: ["per_batch", "per_delivery", "per_dispatch"]     },
+  { key: "people",     label: "People",                     freqs: ["per_new_start"]                                 },
+  { key: "incidents",  label: "Incidents",                  freqs: ["per_complaint", "per_corrective_action"]        },
+] as const;
 
-  useEffect(() => {
-    const obs = new IntersectionObserver(
-      (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add(styles.visible); }),
-      { threshold: 0.1 }
-    );
-    document.querySelectorAll(`.${styles.fadeIn}`).forEach((el) => obs.observe(el));
-    return () => obs.disconnect();
-  }, []);
+const GROUP_STYLE = { header: "border-brand/50 bg-brand-light text-brown", dot: "bg-brand", badge: "bg-brand-light text-brown" };
 
-  function triggerPop() {
-    if (popped) return;
-    setPopped(true);
-    setShowFlash(true);
-    setTimeout(() => setShowFlash(false), 200);
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-    const pieces: RainPiece[] = Array.from({ length: 28 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      size: 20 + Math.random() * 24,
-      duration: 1.5 + Math.random() * 1.5,
-      delay: i * 0.08,
-    }));
-    setRainPieces(pieces);
-    setTimeout(() => setRainPieces([]), 4500);
+interface SkuStock { name: string; produced: number; dispatched: number; inStock: number }
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
+export default function Dashboard() {
+  const [checklists, setChecklists]         = useState<Checklist[]>([]);
+  const [recentSubs, setRecentSubs]         = useState<(Submission & { checklist: Checklist })[]>([]);
+  const [pendingSignOff, setPendingSignOff] = useState<(Submission & { checklist: Checklist })[]>([]);
+  const [openDrafts, setOpenDrafts]         = useState<Array<{ id: string; checklist_id: string; started_by: string; last_saved_at: string; checklist?: Checklist }>>([]);
+  const [skuStock, setSkuStock]             = useState<SkuStock[]>([]);
+  const [loading, setLoading]               = useState(true);
+  const [sidebarOpen, setSidebarOpen]       = useState(false);
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    const [clRes, subRes, draftRes, dispRes, batchSubRes] = await Promise.all([
+      supabase.from("checklists").select("*").eq("active", true).order("name"),
+      supabase.from("submissions").select("*, checklist:checklists(*)").order("submitted_at", { ascending: false }).limit(50),
+      supabase.from("batch_drafts").select("*, checklist:checklists(name, category)").order("last_saved_at", { ascending: false }).limit(10),
+      supabase.from("dispatches").select("product, total_units"),
+      supabase.from("submissions").select("id, checklist:checklists(name, category), answers(value, question:questions(type, label))").eq("checklists.category", "Production"),
+    ]);
+
+    if (clRes.data) setChecklists(clRes.data as Checklist[]);
+
+    if (subRes.data) {
+      const all = subRes.data as (Submission & { checklist: Checklist })[];
+      setRecentSubs(all.filter(s => s.checklist).slice(0, 8));
+      setPendingSignOff(all.filter(s => s.checklist && !s.signed_off_at).slice(0, 20));
+    }
+
+    if (draftRes.data) setOpenDrafts(draftRes.data as never);
+
+    if (batchSubRes.data && dispRes.data) {
+      const dispatched: Record<string, number> = {};
+      for (const d of (dispRes.data as { product: string; total_units: number }[]))
+        dispatched[d.product] = (dispatched[d.product] ?? 0) + d.total_units;
+
+      const produced: Record<string, number> = {};
+      for (const sub of (batchSubRes.data as never as Array<{ checklist: { name: string; category: string } | null; answers: Array<{ value: string | null; question: { type: string } | null }> }>)) {
+        if (sub.checklist?.category !== "Production") continue;
+        const sku = sub.checklist.name.replace(" — Production Record", "");
+        for (const ans of (sub.answers ?? [])) {
+          if (ans.question?.type !== "packing_runs" || !ans.value) continue;
+          try {
+            const rows = JSON.parse(ans.value);
+            if (Array.isArray(rows)) for (const r of rows) produced[sku] = (produced[sku] ?? 0) + (Number(r.jars_used) || 0);
+          } catch { /* ignore */ }
+        }
+      }
+
+      setSkuStock(SKUS.map(name => {
+        const p = produced[name] ?? 0;
+        const d = dispatched[name] ?? 0;
+        return { name, produced: p, dispatched: d, inStock: Math.max(0, p - d) };
+      }));
+    }
+
+    setLoading(false);
   }
 
+  const todayCount = recentSubs.filter(s => new Date(s.submitted_at).toDateString() === new Date().toDateString()).length;
+  const freqSet = new Set(FREQ_GROUPS.flatMap(g => g.freqs));
+  const uncategorised = checklists.filter(cl => !freqSet.has(cl.frequency));
+
   return (
-    <div className={styles.page}>
-      {/* Flash */}
-      <div className={`${styles.popFlash} ${showFlash ? styles.popFlashActive : ""}`} />
+    <div className="flex min-h-screen bg-brand-cream">
 
-      {/* Popcorn rain */}
-      {rainPieces.map((p) => (
-        <div
-          key={p.id}
-          className={styles.popcornPiece}
-          style={{
-            left: `${p.left}vw`,
-            fontSize: p.size,
-            animationDuration: `${p.duration}s`,
-            animationDelay: `${p.delay}s`,
-          }}
-        >
-          🍿
-        </div>
-      ))}
+      {/* ── Sidebar ──────────────────────────────────────────────────────── */}
+      <AppSidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Nav */}
-      <nav className={`${styles.nav} ${scrolled ? styles.navScrolled : ""}`}>
-        <a href="#" className={styles.navLogo}>
-          <img src="/kernel.png" alt="" className={styles.navLogoImg} />
-          Kernel
-        </a>
-        <div className={styles.navLinks}>
-          <a href="#features">Features</a>
-          <a href="#pricing">Pricing</a>
-          <Link href="/login" className={styles.navCta}>Log in</Link>
-        </div>
-      </nav>
+      {/* ── Main ─────────────────────────────────────────────────────────── */}
+      <div className="flex-1 lg:ml-56 flex flex-col min-h-screen">
 
-      {/* Hero */}
-      <section className={styles.hero}>
-        <div style={{ marginBottom: 48 }}>
-          <KernelCanvas popped={popped} onPop={triggerPop} />
+        {/* Mobile top bar */}
+        <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-gray-200 flex items-center justify-between px-4 py-3">
+          <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded text-gray-600 hover:bg-gray-100">
+            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <rect y="3" width="20" height="2" rx="1"/><rect y="9" width="20" height="2" rx="1"/><rect y="15" width="20" height="2" rx="1"/>
+            </svg>
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/kernel.png" alt="Kernel" className="h-7 w-auto" />
+          <div className="w-8" />
         </div>
-        <p className={styles.heroEyebrow}>The operating system for food makers</p>
-        <h1 className={styles.heroHeadline}>
-          Stop being a kernel.<br /><em>Start being popcorn.</em>
-        </h1>
-        <p className={styles.heroSub}>
-          You&apos;re full of potential — buried under compliance paperwork, spreadsheets, and
-          software that costs a fortune and wasn&apos;t built for you. Kernel handles the
-          infrastructure so you can focus on what you actually make.
-        </p>
-        <div className={styles.heroActions}>
-          <Link href="/login" className={styles.btnPrimary}>Log in to Kernel</Link>
-          <a href="#transform" className={styles.btnGhost}>See how it works →</a>
-        </div>
-        <button className={styles.popHint} onClick={triggerPop}>🍿 click to pop</button>
-      </section>
 
-      {/* Ticker */}
-      <div className={styles.ticker}>
-        <div className={styles.tickerInner}>
-          {[
-            "SALSA compliance", "Batch traceability", "Goods in & out",
-            "Production records", "Inventory management", "Ingredient costing",
-            "QR code checklists", "SALSA compliance", "Batch traceability",
-            "Goods in & out", "Production records", "Inventory management",
-            "Ingredient costing", "QR code checklists",
-          ].map((item, i) => (
-            <span key={i}>
-              <span className={styles.tickerItem}>{item}</span>
-              <span className={styles.tickerCorn}>🌽</span>
-            </span>
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-6xl w-full mx-auto space-y-6">
+
+          {/* ── Header ─────────────────────────────────────────────────── */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
+              <p className="text-sm text-gray-500">{new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
+            </div>
+            <Link href="/admin/goods-in" className="btn-primary text-sm hidden sm:inline-flex">+ Goods In</Link>
+          </div>
+
+          {/* ── Alert strip ────────────────────────────────────────────── */}
+          {pendingSignOff.length > 0 && (
+            <Link href="/dashboard?filter=pending" className="flex items-center gap-3 rounded-xl border border-brand/50 bg-brand-light px-4 py-3 hover:bg-brand transition">
+              <span className="h-2 w-2 rounded-full bg-brand-dark shrink-0" />
+              <p className="text-sm font-medium text-brown">
+                {pendingSignOff.length} submission{pendingSignOff.length !== 1 ? "s" : ""} awaiting sign-off
+              </p>
+              <span className="ml-auto text-xs text-brown/70">Review →</span>
+            </Link>
+          )}
+
+          {/* ── Stats ──────────────────────────────────────────────────── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <StatCard label="Today's submissions" value={todayCount} loading={loading} href="/dashboard" />
+            <StatCard label="Awaiting sign-off" value={pendingSignOff.length} loading={loading} href="/dashboard?filter=pending" warn={pendingSignOff.length > 0} />
+            <StatCard label="Active checklists" value={checklists.length} loading={loading} />
+            <StatCard label="In-progress batches" value={openDrafts.length} loading={loading} warn={openDrafts.length > 0} />
+          </div>
+
+          {/* ── In-progress batches ────────────────────────────────────── */}
+          {openDrafts.length > 0 && (
+            <section>
+              <h2 className="text-sm font-semibold text-gray-700 mb-2">In Progress</h2>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {openDrafts.map(d => {
+                  const mins = Math.round((Date.now() - new Date(d.last_saved_at).getTime()) / 60000);
+                  const ago = mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
+                  return (
+                    <div key={d.id} className="flex items-center gap-3 rounded-xl border border-brand/50 bg-brand-light px-4 py-3 transition">
+                      <span className="h-2 w-2 rounded-full bg-brand-dark shrink-0 animate-pulse" />
+                      <Link href={`/checklist/${d.checklist_id}`} className="flex-1 min-w-0 hover:opacity-80 transition">
+                        <p className="text-sm font-medium text-brown truncate">{(d.checklist as Checklist | undefined)?.name ?? "Batch record"}</p>
+                        <p className="text-xs text-brown/60">{d.started_by} · {ago}</p>
+                      </Link>
+                      <Link href={`/checklist/${d.checklist_id}`} className="text-xs text-brown/70 shrink-0 hover:text-brown transition">Continue →</Link>
+                      <button
+                        onClick={async () => {
+                          if (!confirm("Delete this in-progress draft? This can't be undone.")) return;
+                          await supabase.from("batch_drafts").delete().eq("id", d.id);
+                          load();
+                        }}
+                        className="shrink-0 ml-1 rounded p-1 text-brown/40 hover:text-red-600 hover:bg-red-50 transition"
+                        title="Delete draft"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9a1 1 0 001 1h6a1 1 0 001-1l1-9"/>
+                        </svg>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* ── Checklists ─────────────────────────────────────────────── */}
+          <section>
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">Checklists</h2>
+            <div className="space-y-3">
+              {FREQ_GROUPS.map(group => {
+                const items = checklists.filter(cl => (group.freqs as readonly string[]).includes(cl.frequency));
+                if (items.length === 0) return null;
+                const styles = GROUP_STYLE;
+                return (
+                  <ChecklistGroup
+                    key={group.key}
+                    label={group.label}
+                    items={items}
+                    styles={styles}
+                    loading={loading}
+                  />
+                );
+              })}
+              {uncategorised.length > 0 && (
+                <ChecklistGroup
+                  label="Other"
+                  items={uncategorised}
+                  styles={GROUP_STYLE}
+                  loading={loading}
+                />
+              )}
+            </div>
+          </section>
+
+          {/* ── Stock + Recent ─────────────────────────────────────────── */}
+          <div className="grid gap-6 lg:grid-cols-2">
+
+            {/* Finished goods stock */}
+            <section className="card overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-700">Finished Goods</h3>
+                <Link href="/admin/goods-out" className="text-xs text-brown/70 hover:text-brown hover:underline">Log dispatch →</Link>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {loading
+                  ? <div className="p-4 text-center text-sm text-gray-400">Loading…</div>
+                  : skuStock.map(sku => (
+                    <div key={sku.name} className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{sku.name}</p>
+                        <p className="text-xs text-gray-400">{sku.produced} produced · {sku.dispatched} dispatched</p>
+                      </div>
+                      <p className={`text-lg font-bold tabular-nums shrink-0 ${sku.inStock === 0 ? "text-gray-300" : "text-gray-900"}`}>
+                        {sku.inStock}
+                      </p>
+                    </div>
+                  ))
+                }
+              </div>
+            </section>
+
+            {/* Recent activity */}
+            <section className="card overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-700">Recent Submissions</h3>
+                <Link href="/dashboard" className="text-xs text-brown/70 hover:text-brown hover:underline">View all →</Link>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {loading
+                  ? <div className="p-4 text-center text-sm text-gray-400">Loading…</div>
+                  : recentSubs.length === 0
+                    ? <div className="p-4 text-center text-sm text-gray-400">No submissions yet.</div>
+                    : recentSubs.map(s => {
+                        const dt = new Date(s.submitted_at);
+                        const isToday = dt.toDateString() === new Date().toDateString();
+                        const timeStr = isToday
+                          ? dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+                          : dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+                        return (
+                          <Link key={s.id} href={`/submission/${s.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{s.checklist?.name}</p>
+                              <p className="text-xs text-gray-400">{s.submitted_by} · {timeStr}</p>
+                            </div>
+                            {!s.signed_off_at && (
+                              <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-brown">Pending</span>
+                            )}
+                          </Link>
+                        );
+                      })
+                }
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// ── Checklist group ───────────────────────────────────────────────────────────
+
+function ChecklistGroup({
+  label, items, styles, loading,
+}: {
+  label: string;
+  items: Checklist[];
+  styles: { header: string; dot: string; badge: string };
+  loading: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="card overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`w-full flex items-center gap-3 px-4 py-3 border-b text-left transition hover:opacity-90 ${styles.header}`}
+      >
+        <span className={`h-2 w-2 rounded-full shrink-0 ${styles.dot}`} />
+        <span className="text-sm font-semibold flex-1">{label}</span>
+        <span className={`text-xs font-medium rounded-full px-2 py-0.5 ${styles.badge}`}>{items.length}</span>
+        <ChevronIcon open={open} />
+      </button>
+      {open && !loading && (
+        <div className="divide-y divide-gray-100">
+          {items.map(cl => (
+            <div key={cl.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{cl.name}</p>
+                <p className="text-xs text-gray-400">{frequencyLabel(cl.frequency as never)}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Link href={`/checklist/${cl.id}`} className="btn-primary text-xs py-1 px-3">Start</Link>
+                <Link href={`/print-qr?id=${cl.id}`} className="btn-ghost text-xs py-1 px-2">QR</Link>
+              </div>
+            </div>
           ))}
         </div>
-      </div>
-
-      {/* Transform */}
-      <section className={styles.transformSection} id="transform">
-        <div className={styles.fadeIn}>
-          <p className={styles.transformLabel}>The transformation</p>
-          <h2 className={styles.transformHeadline}>
-            Every food maker starts as a <em>kernel</em>
-          </h2>
-          <div className={styles.transformBody}>
-            <p>
-              Packed with potential. A great product, real craft, genuine passion. But buried under
-              the weight of running a food business — compliance audits, paper records, expensive
-              software that wasn&apos;t built for someone like you.
-            </p>
-            <p>
-              A kernel has everything it needs to become something incredible. It just needs the
-              right conditions. That&apos;s what Kernel gives you — the infrastructure, the records,
-              the compliance backbone — so you can pop.
-            </p>
-          </div>
-        </div>
-        <div className={`${styles.fadeIn} ${styles.fadeDelay}`}>
-          <div className={`${styles.stateCard} ${styles.stateBefore}`}>
-            <p className={styles.stateTag}>Before Kernel</p>
-            <ul className={styles.stateItems}>
-              <li>Paper checklists that go missing</li>
-              <li>£400+/month for basic compliance software</li>
-              <li>Spreadsheets for stock and costing</li>
-              <li>No traceability until audit day panic</li>
-              <li>Hours lost on admin every week</li>
-            </ul>
-          </div>
-          <div className={styles.stateArrow}>↓</div>
-          <div className={`${styles.stateCard} ${styles.stateAfter}`}>
-            <p className={styles.stateTag}>After Kernel</p>
-            <ul className={styles.stateItems}>
-              <li>QR codes, digital sign-offs, full audit trail</li>
-              <li>From £29/month — everything included</li>
-              <li>Live stock value, auto-deducting inventory</li>
-              <li>Full traceability with a single search</li>
-              <li>Focus on making great food</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className={styles.features} id="features">
-        <p className={`${styles.featuresLabel} ${styles.fadeIn}`}>Everything in one place</p>
-        <h2 className={`${styles.featuresHeadline} ${styles.fadeIn}`}>
-          Not just compliance.<br /><em>The whole operation.</em>
-        </h2>
-        <div className={`${styles.featuresGrid} ${styles.fadeIn}`}>
-          <div className={styles.featureCard}>
-            <div className={styles.featureIcon}>📋</div>
-            <span className={styles.featureTag}>Compliance</span>
-            <div className={styles.featureTitle}>SALSA-ready checklists</div>
-            <div className={styles.featureDesc}>
-              QR codes at every station. Staff scan, fill in, submit. Missed check alerts,
-              digital sign-offs, full audit trail.
-            </div>
-          </div>
-          <div className={styles.featureCard}>
-            <div className={styles.featureIcon}>📦</div>
-            <span className={styles.featureTag}>Supply chain</span>
-            <div className={styles.featureTitle}>Goods in & out</div>
-            <div className={styles.featureDesc}>
-              Log every delivery and dispatch. Assign ingredient codes. Photo evidence
-              attached to every record.
-            </div>
-          </div>
-          <div className={styles.featureCard}>
-            <div className={styles.featureIcon}>🔍</div>
-            <span className={styles.featureTag}>Traceability</span>
-            <div className={styles.featureTitle}>Full forward & backward trace</div>
-            <div className={styles.featureDesc}>
-              Search any ingredient — see every batch it went into. Search any batch — see
-              exactly where it was dispatched. Recall-ready in seconds.
-            </div>
-          </div>
-          <div className={`${styles.featureCard} ${styles.featureCardSpan2}`}>
-            <div className={styles.featureIcon}>🏭</div>
-            <span className={styles.featureTag}>Production</span>
-            <div className={styles.featureTitle}>Digital production records & inventory</div>
-            <div className={styles.featureDesc}>
-              Log every production run, assign batch codes, track every ingredient used.
-              Inventory deducts automatically when you make a batch. Assign costs to
-              ingredients and Kernel calculates your live stock value — ready for
-              end-of-month bookkeeping without a single spreadsheet.
-            </div>
-          </div>
-          <div className={styles.featureCard}>
-            <div className={styles.featureIcon}>🔔</div>
-            <span className={styles.featureTag}>Alerts</span>
-            <div className={styles.featureTitle}>Missed check alerts</div>
-            <div className={styles.featureDesc}>
-              Get an email the moment a check is overdue. Nothing falls through the cracks
-              on a busy production day.
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section className={styles.pricing} id="pricing">
-        <div className={`${styles.pricingTop} ${styles.fadeIn}`}>
-          <h2 className={styles.pricingHeadline}>Priced for food businesses, not enterprises</h2>
-          <p className={styles.pricingSub}>Everything included. No per-user fees. Cancel any time.</p>
-        </div>
-        <div className={`${styles.pricingGrid} ${styles.fadeIn}`}>
-          <div className={styles.pricingCard}>
-            <span className={styles.planBadge}>Starter</span>
-            <p className={styles.planName}>Small producers</p>
-            <div className={styles.planPrice}><sup>£</sup>29<span>/mo</span></div>
-            <p className={styles.planDesc}>Everything you need to pass your SALSA audit and run a clean, compliant operation.</p>
-            <ul className={styles.planFeatures}>
-              <li>Up to 25 checklists</li>
-              <li>5 team members</li>
-              <li>Goods in & out records</li>
-              <li>QR code generation</li>
-              <li>Email alerts</li>
-            </ul>
-            <Link href="/login" className={styles.planBtn}>Get started</Link>
-          </div>
-          <div className={`${styles.pricingCard} ${styles.pricingCardFeatured}`}>
-            <span className={styles.planBadge}>Growth</span>
-            <p className={styles.planName}>Most popular</p>
-            <div className={styles.planPrice}><sup>£</sup>79<span>/mo</span></div>
-            <p className={styles.planDesc}>Full traceability, production records, inventory and costing. The complete picture.</p>
-            <ul className={styles.planFeatures}>
-              <li>Unlimited checklists & team members</li>
-              <li>Full forward & backward traceability</li>
-              <li>Production records & batch logging</li>
-              <li>Inventory with auto-deduction</li>
-              <li>Ingredient costing & stock value</li>
-            </ul>
-            <Link href="/login" className={styles.planBtn}>Get started</Link>
-          </div>
-          <div className={styles.pricingCard}>
-            <span className={styles.planBadge}>Scale</span>
-            <p className={styles.planName}>Multi-site operations</p>
-            <div className={styles.planPrice}><sup>£</sup>199<span>/mo</span></div>
-            <p className={styles.planDesc}>Multiple sites, advanced reporting, API access and priority support.</p>
-            <ul className={styles.planFeatures}>
-              <li>Everything in Growth</li>
-              <li>Multi-site support</li>
-              <li>Advanced analytics</li>
-              <li>API access</li>
-              <li>Priority support & onboarding</li>
-            </ul>
-            <Link href="/login" className={styles.planBtn}>Talk to us</Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className={styles.footer}>
-        <div className={styles.footerLogo}>
-          <img src="/kernel.png" alt="" className={styles.footerLogoImg} />
-          Kernel
-        </div>
-        <div className={styles.footerLinks}>
-          <a href="#features">Features</a>
-          <a href="#pricing">Pricing</a>
-          <Link href="/login">Log in</Link>
-        </div>
-        <p className={styles.footerCopy}>© 2026 Kernel. Built for food manufacturers.</p>
-      </footer>
+      )}
     </div>
+  );
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function SignOutButton() {
+  const router = useRouter();
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
+  return (
+    <button onClick={handleLogout} className="w-full flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-gray-400 hover:bg-white/10 hover:text-white transition-colors">
+      <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 11l3-3-3-3M13 8H6" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+      Sign out
+    </button>
+  );
+}
+
+function StatCard({ label, value, loading, warn, href }: {
+  label: string; value: number; loading: boolean; warn?: boolean; href?: string;
+}) {
+  const cardCls = warn ? "border-brand/50 bg-brand-light" : "border-gray-200 bg-white";
+  const valCls  = warn ? "text-brown" : "text-gray-900";
+  const lblCls  = warn ? "text-brown/70" : "text-gray-500";
+  const inner = (
+    <>
+      <p className={`text-xs font-semibold uppercase tracking-wide ${lblCls}`}>{label}</p>
+      {loading
+        ? <div className="mt-2 h-8 w-14 animate-pulse rounded bg-gray-200" />
+        : <p className={`mt-1 text-3xl font-bold ${valCls}`}>{value}</p>
+      }
+    </>
+  );
+  const cls = `rounded-xl border-2 p-4 shadow-sm transition ${cardCls} ${href ? "hover:shadow-md cursor-pointer" : ""}`;
+  if (href) return <Link href={href} className={cls}>{inner}</Link>;
+  return <div className={cls}>{inner}</div>;
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg className={`h-4 w-4 opacity-60 transition-transform ${open ? "rotate-90" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 4l4 4-4 4"/>
+    </svg>
   );
 }
