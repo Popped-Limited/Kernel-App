@@ -24,7 +24,7 @@
   color: #1C1A10; text-decoration: none;
   display: flex; align-items: center; gap: 10px;
 }
-.navLogoImg { height: 28px; width: auto; }
+.navLogoImg { height: 44px; width: auto; }
 .navLinks { display: flex; align-items: center; gap: 36px; }
 .navLinks a {
   font-size: 13px; color: #7A7050; text-decoration: none;
