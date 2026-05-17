@@ -230,7 +230,7 @@ export default function SAQQuestionsPage() {
       <header className="border-b border-gray-200 bg-white shadow-sm sticky top-0 z-10">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <Link href="/" className="btn-ghost text-xs px-2">
+            <Link href="/home" className="btn-ghost text-xs px-2">
               ← Dashboard
             </Link>
             <h1 className="text-base font-semibold text-gray-900">SAQ Questions</h1>

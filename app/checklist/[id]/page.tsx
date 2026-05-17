@@ -354,7 +354,7 @@ export default function ChecklistPage() {
           <p className="mt-2 text-sm text-gray-600">
             {checklist.name} has been recorded.
           </p>
-          <a href="/" className="btn-primary mt-6 w-full">
+          <a href="/home" className="btn-primary mt-6 w-full">
             Return to dashboard
           </a>
         </div>

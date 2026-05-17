@@ -55,7 +55,7 @@ function PrintQRContent() {
     <PortalShell>
       <div className="border-b border-gray-200 bg-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/" className="btn-ghost text-xs px-2">← Dashboard</Link>
+          <Link href="/home" className="btn-ghost text-xs px-2">← Dashboard</Link>
           <span className="text-sm font-semibold text-gray-900">Print QR Codes</span>
         </div>
       </div>

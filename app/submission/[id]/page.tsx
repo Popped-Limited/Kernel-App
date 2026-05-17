@@ -111,7 +111,7 @@ export default function SubmissionPage() {
       <header className="border-b border-gray-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
-            <Link href="/" className="btn-ghost text-xs px-2">
+            <Link href="/home" className="btn-ghost text-xs px-2">
               ← Dashboard
             </Link>
             <span className="text-gray-300">/</span>
