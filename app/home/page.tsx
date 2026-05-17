@@ -325,7 +325,7 @@ function ChecklistGroup({
     <div className="card overflow-hidden">
       <button
         onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center gap-3 px-4 py-3 border-b text-left transition hover:opacity-90 ${styles.header}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 border-b text-left transition hover:opacity-90 focus:outline-none ${styles.header}`}
       >
         <span className={`h-2 w-2 rounded-full shrink-0 ${styles.dot}`} />
         <span className="text-sm font-semibold flex-1">{label}</span>

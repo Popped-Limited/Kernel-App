@@ -9,6 +9,9 @@
   body {
     @apply bg-brand-cream text-gray-900 antialiased;
   }
+  button:focus, button:focus-visible {
+    outline: none;
+  }
 }
 
 @layer components {
