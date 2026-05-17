@@ -249,26 +249,31 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* Dashboard Showcase */}
+      {/* Founder story */}
       <section className={styles.showcase}>
         <div className={styles.showcaseInner}>
-          <div className={`${styles.fadeIn}`}>
-            <p className={styles.showcaseLabel}>The platform</p>
-            <h2 className={styles.showcaseHeadline}>
-              Built for the way you<br /><em>actually work.</em>
-            </h2>
-            <p className={styles.showcaseSub}>
-              Clean, fast, and designed for food production — not accountants or enterprise IT teams.
-            </p>
-          </div>
-          <div className={`${styles.browserMockup} ${styles.fadeIn}`}>
-            <div className={styles.browserBar}>
-              <div className={styles.browserDot} style={{ background: "#FF5F57" }} />
-              <div className={styles.browserDot} style={{ background: "#FEBC2E" }} />
-              <div className={styles.browserDot} style={{ background: "#28C840" }} />
-              <span className={styles.browserUrl}>kernelapp.co.uk/dashboard</span>
+          <div className={`${styles.founderSection} ${styles.fadeIn}`}>
+            <div className={styles.founderLeft}>
+              <p className={styles.showcaseLabel}>Why Kernel exists</p>
+              <h2 className={styles.showcaseHeadline}>
+                Built by a food founder.<br /><em>For food founders.</em>
+              </h2>
             </div>
-            <img src="/dashboard-screenshot.png" alt="Kernel dashboard" className={styles.screenshotImg} />
+            <div className={styles.founderRight}>
+              <p className={styles.founderBody}>
+                We know what you need because we are you. The pre-audit panic. The paper checklists
+                that disappear. The spreadsheet you&apos;re still updating at 10pm instead of working
+                on your next product.
+              </p>
+              <p className={styles.founderBody}>
+                Kernel wasn&apos;t designed by enterprise software teams. It was built by someone
+                who lived every one of those problems — and got tired of waiting for a solution
+                that actually fit.
+              </p>
+              <p className={styles.founderQuote}>
+                &ldquo;We built the tool we always needed. Now it&apos;s yours.&rdquo;
+              </p>
+            </div>
           </div>
         </div>
       </section>
