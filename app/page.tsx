@@ -1,31 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import styles from "./marketing.module.css";
 
-const KernelCanvas = dynamic(() => import("@/components/KernelCanvas"), { ssr: false });
-
 interface RainPiece {
-  id: number;
-  left: number;
-  size: number;
-  duration: number;
-  delay: number;
+  id: number; left: number; size: number; duration: number; delay: number;
 }
 
 export default function MarketingPage() {
   const [scrolled, setScrolled] = useState(false);
-  const [popped, setPopped] = useState(false);
+  const [popState, setPopState] = useState<"idle" | "popping" | "popped">("idle");
   const [showFlash, setShowFlash] = useState(false);
   const [rainPieces, setRainPieces] = useState<RainPiece[]>([]);
-  const fadeRefs = useRef<(HTMLElement | null)[]>([]);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => {
@@ -38,41 +30,62 @@ export default function MarketingPage() {
   }, []);
 
   function triggerPop() {
-    if (popped) return;
-    setPopped(true);
+    if (popState !== "idle") return;
+    setPopState("popping");
     setShowFlash(true);
-    setTimeout(() => setShowFlash(false), 200);
+    setTimeout(() => setShowFlash(false), 180);
+    setTimeout(() => setPopState("popped"), 580);
 
-    const pieces: RainPiece[] = Array.from({ length: 28 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      size: 20 + Math.random() * 24,
-      duration: 1.5 + Math.random() * 1.5,
-      delay: i * 0.08,
+    const pieces: RainPiece[] = Array.from({ length: 24 }, (_, i) => ({
+      id: i, left: Math.random() * 100,
+      size: 40 + Math.random() * 40,
+      duration: 1.8 + Math.random() * 1.4,
+      delay: i * 0.1,
     }));
     setRainPieces(pieces);
-    setTimeout(() => setRainPieces([]), 4500);
+    setTimeout(() => setRainPieces([]), 5000);
   }
+
+  const TICKER_ITEMS = [
+    "SALSA compliance", "Batch traceability", "Goods in & out",
+    "Production records", "Inventory management", "Ingredient costing",
+    "QR code checklists", "Supplier approvals",
+  ];
+
+  const FEATURES_ALL = [
+    "Unlimited QR code checklists",
+    "Full SALSA audit trail",
+    "Goods in & out logging",
+    "Full forward & backward traceability",
+    "Production records & batch logging",
+    "Auto-deducting inventory",
+    "Ingredient costing & live stock value",
+    "Supplier approval management",
+    "Missed check email alerts",
+    "Julian code tracking",
+  ];
 
   return (
     <div className={styles.page}>
       {/* Flash */}
       <div className={`${styles.popFlash} ${showFlash ? styles.popFlashActive : ""}`} />
 
-      {/* Popcorn rain */}
+      {/* Popcorn rain — uses the actual popcorn image */}
       {rainPieces.map((p) => (
-        <div
+        <img
           key={p.id}
+          src="/popcorn.png"
+          alt=""
           className={styles.popcornPiece}
           style={{
             left: `${p.left}vw`,
-            fontSize: p.size,
+            width: p.size,
+            height: p.size,
+            objectFit: "contain",
             animationDuration: `${p.duration}s`,
             animationDelay: `${p.delay}s`,
           }}
-        >
-          🍿
-        </div>
+        />
       ))}
 
       {/* Nav */}
@@ -90,9 +103,25 @@ export default function MarketingPage() {
 
       {/* Hero */}
       <section className={styles.hero}>
-        <div style={{ marginBottom: 48 }}>
-          <KernelCanvas popped={popped} onPop={triggerPop} />
+        {/* Kernel / Popcorn image */}
+        <div className={styles.kernelWrap} onClick={triggerPop}>
+          {popState === "popped" ? (
+            <img src="/popcorn.png" alt="Popcorn" className={styles.popcornReveal} />
+          ) : (
+            <img
+              src="/kernel.png"
+              alt="Kernel — click to pop"
+              className={popState === "popping" ? styles.kernelPopping : styles.kernelImg}
+            />
+          )}
+          {popState === "idle" && (
+            <div className={styles.clickHint}>
+              <span className={styles.clickHintArrow}>☝️</span>
+              click me
+            </div>
+          )}
         </div>
+
         <p className={styles.heroEyebrow}>The operating system for food makers</p>
         <h1 className={styles.heroHeadline}>
           Stop being a kernel.<br /><em>Start being popcorn.</em>
@@ -106,22 +135,15 @@ export default function MarketingPage() {
           <Link href="/login" className={styles.btnPrimary}>Log in to Kernel</Link>
           <a href="#transform" className={styles.btnGhost}>See how it works →</a>
         </div>
-        <button className={styles.popHint} onClick={triggerPop}>🍿 click to pop</button>
       </section>
 
-      {/* Ticker */}
+      {/* Ticker — large flowing brand font, no background */}
       <div className={styles.ticker}>
         <div className={styles.tickerInner}>
-          {[
-            "SALSA compliance", "Batch traceability", "Goods in & out",
-            "Production records", "Inventory management", "Ingredient costing",
-            "QR code checklists", "SALSA compliance", "Batch traceability",
-            "Goods in & out", "Production records", "Inventory management",
-            "Ingredient costing", "QR code checklists",
-          ].map((item, i) => (
+          {[...TICKER_ITEMS, ...TICKER_ITEMS].map((item, i) => (
             <span key={i}>
               <span className={styles.tickerItem}>{item}</span>
-              <span className={styles.tickerCorn}>🌽</span>
+              <span className={styles.tickerSep}>✦</span>
             </span>
           ))}
         </div>
@@ -136,14 +158,14 @@ export default function MarketingPage() {
           </h2>
           <div className={styles.transformBody}>
             <p>
-              Packed with potential. A great product, real craft, genuine passion. But buried under
-              the weight of running a food business — compliance audits, paper records, expensive
-              software that wasn&apos;t built for someone like you.
+              Packed with potential. A great product, real craft, genuine passion. But buried
+              under the weight of running a food business — compliance audits, paper records,
+              expensive software that wasn&apos;t built for someone like you.
             </p>
             <p>
-              A kernel has everything it needs to become something incredible. It just needs the
-              right conditions. That&apos;s what Kernel gives you — the infrastructure, the records,
-              the compliance backbone — so you can pop.
+              A kernel has everything it needs to become something incredible. It just needs
+              the right conditions. That&apos;s what Kernel gives you — the infrastructure,
+              the records, the compliance backbone — so you can pop.
             </p>
           </div>
         </div>
@@ -163,7 +185,7 @@ export default function MarketingPage() {
             <p className={styles.stateTag}>After Kernel</p>
             <ul className={styles.stateItems}>
               <li>QR codes, digital sign-offs, full audit trail</li>
-              <li>From £29/month — everything included</li>
+              <li>From £79/month — everything included</li>
               <li>Live stock value, auto-deducting inventory</li>
               <li>Full traceability with a single search</li>
               <li>Focus on making great food</li>
@@ -183,48 +205,31 @@ export default function MarketingPage() {
             <div className={styles.featureIcon}>📋</div>
             <span className={styles.featureTag}>Compliance</span>
             <div className={styles.featureTitle}>SALSA-ready checklists</div>
-            <div className={styles.featureDesc}>
-              QR codes at every station. Staff scan, fill in, submit. Missed check alerts,
-              digital sign-offs, full audit trail.
-            </div>
+            <div className={styles.featureDesc}>QR codes at every station. Staff scan, fill in, submit. Missed check alerts, digital sign-offs, full audit trail.</div>
           </div>
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>📦</div>
             <span className={styles.featureTag}>Supply chain</span>
             <div className={styles.featureTitle}>Goods in & out</div>
-            <div className={styles.featureDesc}>
-              Log every delivery and dispatch. Assign ingredient codes. Photo evidence
-              attached to every record.
-            </div>
+            <div className={styles.featureDesc}>Log every delivery and dispatch. Assign Julian codes. Full supplier approval management built in.</div>
           </div>
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>🔍</div>
             <span className={styles.featureTag}>Traceability</span>
             <div className={styles.featureTitle}>Full forward & backward trace</div>
-            <div className={styles.featureDesc}>
-              Search any ingredient — see every batch it went into. Search any batch — see
-              exactly where it was dispatched. Recall-ready in seconds.
-            </div>
+            <div className={styles.featureDesc}>Search any ingredient — see every batch it went into. Search any batch — see exactly where it was dispatched. Recall-ready in seconds.</div>
           </div>
           <div className={`${styles.featureCard} ${styles.featureCardSpan2}`}>
             <div className={styles.featureIcon}>🏭</div>
             <span className={styles.featureTag}>Production</span>
             <div className={styles.featureTitle}>Digital production records & inventory</div>
-            <div className={styles.featureDesc}>
-              Log every production run, assign batch codes, track every ingredient used.
-              Inventory deducts automatically when you make a batch. Assign costs to
-              ingredients and Kernel calculates your live stock value — ready for
-              end-of-month bookkeeping without a single spreadsheet.
-            </div>
+            <div className={styles.featureDesc}>Log every production run, assign batch codes, track every ingredient used. Inventory deducts automatically when you make a batch. Assign costs to ingredients and Kernel calculates your live stock value — ready for end-of-month bookkeeping without a single spreadsheet.</div>
           </div>
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>🔔</div>
             <span className={styles.featureTag}>Alerts</span>
             <div className={styles.featureTitle}>Missed check alerts</div>
-            <div className={styles.featureDesc}>
-              Get an email the moment a check is overdue. Nothing falls through the cracks
-              on a busy production day.
-            </div>
+            <div className={styles.featureDesc}>Get an email the moment a check is overdue. Nothing falls through the cracks on a busy production day.</div>
           </div>
         </div>
       </section>
@@ -232,53 +237,86 @@ export default function MarketingPage() {
       {/* Pricing */}
       <section className={styles.pricing} id="pricing">
         <div className={`${styles.pricingTop} ${styles.fadeIn}`}>
-          <h2 className={styles.pricingHeadline}>Priced for food businesses, not enterprises</h2>
-          <p className={styles.pricingSub}>Everything included. No per-user fees. Cancel any time.</p>
+          <p className={styles.pricingEyebrow}>Pricing</p>
+          <h2 className={styles.pricingHeadline}>
+            Honestly.<br /><em>It&apos;s a no-brainer.</em>
+          </h2>
+          <p className={styles.pricingSub}>
+            Other platforms charge £300–500/month for this. We don&apos;t.
+            Everything included. No hidden fees. Cancel any time.
+          </p>
         </div>
+
+        {/* Value comparison bar */}
+        <div className={`${styles.valueBar} ${styles.fadeIn}`}>
+          <div className={styles.valueBarItem}>
+            <p className={styles.valueBarLabel}>Other compliance platforms</p>
+            <div className={`${styles.valueBarPrice} ${styles.crossed}`}>£400<span style={{ fontSize: "0.4em" }}>/mo</span></div>
+            <p className={styles.valueBarNote}>For something worse</p>
+          </div>
+          <div className={styles.valueBarItem}>
+            <p className={styles.valueBarLabel}>Kernel</p>
+            <div className={`${styles.valueBarPrice} ${styles.kernel}`}>£79<span style={{ fontSize: "0.4em" }}>/mo</span></div>
+            <p className={styles.valueBarNote}><strong>Everything. Nothing held back.</strong></p>
+          </div>
+        </div>
+
         <div className={`${styles.pricingGrid} ${styles.fadeIn}`}>
+          {/* Solo */}
           <div className={styles.pricingCard}>
-            <span className={styles.planBadge}>Starter</span>
-            <p className={styles.planName}>Small producers</p>
-            <div className={styles.planPrice}><sup>£</sup>29<span>/mo</span></div>
-            <p className={styles.planDesc}>Everything you need to pass your SALSA audit and run a clean, compliant operation.</p>
+            <div className={styles.planHeader}>
+              <span className={styles.planBadge}>Solo</span>
+              <div className={styles.planName}>Just you.</div>
+              <p className={styles.planTagline}>Every single feature. One user. The full Kernel experience, nothing removed.</p>
+            </div>
+            <div className={styles.priceRow}>
+              <span className={styles.priceCurrency}>£</span>
+              <span className={styles.priceAmount}>79</span>
+              <span className={styles.pricePer}>/mo</span>
+            </div>
+            <p className={styles.priceContext}>1 user · <strong>All features included</strong> · Cancel any time</p>
+            <div className={styles.planDivider} />
             <ul className={styles.planFeatures}>
-              <li>Up to 25 checklists</li>
-              <li>5 team members</li>
-              <li>Goods in & out records</li>
-              <li>QR code generation</li>
-              <li>Email alerts</li>
+              {FEATURES_ALL.map((f) => (
+                <li key={f} className={styles.planFeatureItem}>
+                  <span className={styles.planCheck}>✓</span> {f}
+                </li>
+              ))}
             </ul>
             <Link href="/login" className={styles.planBtn}>Get started</Link>
           </div>
+
+          {/* Team — featured */}
           <div className={`${styles.pricingCard} ${styles.pricingCardFeatured}`}>
-            <span className={styles.planBadge}>Growth</span>
-            <p className={styles.planName}>Most popular</p>
-            <div className={styles.planPrice}><sup>£</sup>79<span>/mo</span></div>
-            <p className={styles.planDesc}>Full traceability, production records, inventory and costing. The complete picture.</p>
+            <div className={styles.planHeader}>
+              <span className={styles.planBadge}><span className={styles.planPopularDot} /> Team</span>
+              <div className={styles.planName}>You and your team.</div>
+              <p className={styles.planTagline}>Five users. One platform. Everyone on the same page, every shift.</p>
+            </div>
+            <div className={styles.priceRow}>
+              <span className={styles.priceCurrency}>£</span>
+              <span className={styles.priceAmount}>149</span>
+              <span className={styles.pricePer}>/mo</span>
+            </div>
+            <p className={styles.priceContext}>5 users · <strong>All features included</strong> · Cancel any time</p>
+            <div className={styles.planDivider} />
             <ul className={styles.planFeatures}>
-              <li>Unlimited checklists & team members</li>
-              <li>Full forward & backward traceability</li>
-              <li>Production records & batch logging</li>
-              <li>Inventory with auto-deduction</li>
-              <li>Ingredient costing & stock value</li>
+              {FEATURES_ALL.map((f) => (
+                <li key={f} className={styles.planFeatureItem}>
+                  <span className={styles.planCheck}>✓</span> {f}
+                </li>
+              ))}
+              <li className={styles.planFeatureItem}>
+                <span className={styles.planCheck}>✓</span> 5 team members
+              </li>
             </ul>
             <Link href="/login" className={styles.planBtn}>Get started</Link>
-          </div>
-          <div className={styles.pricingCard}>
-            <span className={styles.planBadge}>Scale</span>
-            <p className={styles.planName}>Multi-site operations</p>
-            <div className={styles.planPrice}><sup>£</sup>199<span>/mo</span></div>
-            <p className={styles.planDesc}>Multiple sites, advanced reporting, API access and priority support.</p>
-            <ul className={styles.planFeatures}>
-              <li>Everything in Growth</li>
-              <li>Multi-site support</li>
-              <li>Advanced analytics</li>
-              <li>API access</li>
-              <li>Priority support & onboarding</li>
-            </ul>
-            <Link href="/login" className={styles.planBtn}>Talk to us</Link>
           </div>
         </div>
+
+        <p className={styles.guarantee}>
+          🔒 &nbsp;No long contracts. No setup fees. Cancel any time.
+        </p>
       </section>
 
       {/* Footer */}
