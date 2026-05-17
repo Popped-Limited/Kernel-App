@@ -268,7 +268,7 @@
 .featureDesc { font-size: 14px; line-height: 1.7; color: #7A7050; }
 
 /* ── PRICING ─────────────────────────────────────────────────── */
-.pricing { padding: 0 52px 140px; max-width: 1100px; margin: 0 auto; }
+.pricing { padding: 120px 52px 140px; max-width: 1100px; margin: 0 auto; }
 
 .pricingTop { text-align: center; margin-bottom: 24px; }
 .pricingEyebrow {
