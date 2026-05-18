@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PREFIXES = ["/login", "/api/auth", "/_next", "/favicon.ico", "/logo.png", "/kernel.png", "/kernel.svg", "/saq/"];
+const PUBLIC_PREFIXES = ["/login", "/api/auth", "/_next", "/favicon.ico", "/logo.png", "/kernel.png", "/kernel.svg", "/saq/", "/c/"];
 
 async function expectedToken(): Promise<string> {
   const secret = process.env.AUTH_SECRET ?? "fallback-secret";

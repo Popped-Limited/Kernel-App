@@ -33,6 +33,27 @@ export default function EditChecklistPage() {
   const [metaDesc, setMetaDesc] = useState("");
   const [metaCategory, setMetaCategory] = useState("");
 
+  // Guest / public access
+  const [togglingGuest, setTogglingGuest] = useState(false);
+
+  async function enableGuestAccess() {
+    setTogglingGuest(true);
+    const token = crypto.randomUUID();
+    const { data } = await supabase
+      .from("checklists").update({ public_token: token }).eq("id", id).select("*").single();
+    if (data) setChecklist(data as Checklist);
+    setTogglingGuest(false);
+  }
+
+  async function disableGuestAccess() {
+    if (!confirm("This will break any existing QR codes pointing to the public link. Continue?")) return;
+    setTogglingGuest(true);
+    const { data } = await supabase
+      .from("checklists").update({ public_token: null }).eq("id", id).select("*").single();
+    if (data) setChecklist(data as Checklist);
+    setTogglingGuest(false);
+  }
+
   // Question being added/edited (null = none open)
   const [editingQ, setEditingQ] = useState<Partial<Question> | null>(null);
   const [editingQId, setEditingQId] = useState<string | null>(null); // null = new
@@ -244,6 +265,56 @@ export default function EditChecklistPage() {
                 <p className="mt-1 text-xs text-gray-400">{FREQUENCIES.find(f => f.value === checklist.frequency)?.label ?? checklist.frequency}</p>
               </div>
               <button onClick={() => setEditingMeta(true)} className="btn-secondary text-xs shrink-0">Edit details</button>
+            </div>
+          )}
+        </div>
+
+        {/* ── Guest / public access ── */}
+        <div className="card p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="font-semibold text-gray-900">Guest access</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Allow visitors to complete this checklist via a public link — no Kernel login required.
+              </p>
+            </div>
+            {checklist.public_token ? (
+              <button
+                onClick={disableGuestAccess}
+                disabled={togglingGuest}
+                className="btn-secondary text-xs shrink-0 text-red-500 hover:text-red-700"
+              >
+                {togglingGuest ? "Disabling…" : "Disable"}
+              </button>
+            ) : (
+              <button
+                onClick={enableGuestAccess}
+                disabled={togglingGuest}
+                className="btn-primary text-xs shrink-0"
+              >
+                {togglingGuest ? "Enabling…" : "Enable"}
+              </button>
+            )}
+          </div>
+
+          {checklist.public_token && (
+            <div className="mt-4 rounded-lg bg-brand/10 border border-brand/20 px-4 py-3 space-y-2">
+              <p className="text-xs font-medium text-gray-700">Public link</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs text-gray-600 bg-white border border-gray-200 rounded px-2 py-1.5 truncate">
+                  {typeof window !== "undefined" ? window.location.origin : ""}/c/{checklist.public_token}
+                </code>
+                <button
+                  onClick={() => {
+                    const url = `${window.location.origin}/c/${checklist.public_token}`;
+                    navigator.clipboard.writeText(url);
+                  }}
+                  className="btn-secondary text-xs shrink-0"
+                >
+                  Copy
+                </button>
+              </div>
+              <p className="text-xs text-gray-400">Share this link or generate a QR code — visitors won't need to log in.</p>
             </div>
           )}
         </div>

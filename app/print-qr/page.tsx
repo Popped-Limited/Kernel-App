@@ -81,7 +81,9 @@ function PrintQRContent() {
 
 function GridCard({ checklist, baseUrl }: { checklist: Checklist; baseUrl: string }) {
   const [qrSrc, setQrSrc] = useState<string>("");
-  const url = `${baseUrl}/checklist/${checklist.id}`;
+  const url = checklist.public_token
+    ? `${baseUrl}/c/${checklist.public_token}`
+    : `${baseUrl}/checklist/${checklist.id}`;
 
   useEffect(() => {
     QRCode.toDataURL(url, {
@@ -130,7 +132,11 @@ function SinglePrintView({
   const [qrSrc, setQrSrc] = useState<string>("");
   const hasPrinted = useRef(false);
 
-  const url = checklist ? `${appUrl}/checklist/${checklist.id}` : "";
+  const url = checklist
+    ? checklist.public_token
+      ? `${appUrl}/c/${checklist.public_token}`
+      : `${appUrl}/checklist/${checklist.id}`
+    : "";
 
   useEffect(() => {
     if (!url) return;

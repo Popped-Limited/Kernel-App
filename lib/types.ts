@@ -34,6 +34,7 @@ export interface Checklist {
   category: string | null;
   active: boolean;
   created_at: string;
+  public_token: string | null;
 }
 
 export interface Question {
