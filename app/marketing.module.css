@@ -61,8 +61,7 @@
 .kernelWrap {
   position: relative;
   width: 240px; height: 240px;
-  margin-bottom: 56px;
-  cursor: pointer;
+  margin-bottom: 32px;
   user-select: none;
 }
 .kernelImg {

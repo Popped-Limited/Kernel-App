@@ -33,6 +33,13 @@ export default function MarketingPage() {
     return () => obs.disconnect();
   }, []);
 
+  // Auto-pop after 3 seconds
+  useEffect(() => {
+    const t = setTimeout(() => triggerPop(), 3000);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function triggerPop() {
     if (popState !== "idle") return;
     setPopState("popping");
@@ -117,12 +124,6 @@ export default function MarketingPage() {
               alt="Kernel — click to pop"
               className={popState === "popping" ? styles.kernelPopping : styles.kernelImg}
             />
-          )}
-          {popState === "idle" && (
-            <div className={styles.clickHint}>
-              <span className={styles.clickHintArrow}>☝️</span>
-              click me
-            </div>
           )}
         </div>
 
