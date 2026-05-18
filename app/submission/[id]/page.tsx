@@ -20,7 +20,6 @@ export default function SubmissionPage() {
   const [loading, setLoading] = useState(true);
   const [signingOff, setSigningOff] = useState(false);
   const [managerName, setManagerName] = useState("Tom Palmer");
-  const [showSignOff, setShowSignOff] = useState(false);
   const [notes, setNotes] = useState("");
   const [pendingIds, setPendingIds] = useState<string[]>([]);
 
@@ -78,7 +77,6 @@ export default function SubmissionPage() {
 
     if (!error) {
       await Promise.all([load(), loadPending()]);
-      setShowSignOff(false);
     } else {
       alert("Sign-off failed — please try again.");
     }
@@ -188,54 +186,35 @@ export default function SubmissionPage() {
 
         {/* Sign off */}
         {!isSigned && (
-          <div className="card p-5">
-            {!showSignOff ? (
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-gray-900">Ready to sign off?</p>
-                  <p className="text-sm text-gray-500">Review the answers above, then sign off to confirm.</p>
-                </div>
-                <button onClick={() => setShowSignOff(true)} className="btn-primary">
-                  Sign off
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <h3 className="font-semibold text-gray-900">Manager Sign-Off</h3>
-                <div>
-                  <label className="label">Your name</label>
-                  <input
-                    type="text"
-                    value={managerName}
-                    onChange={(e) => setManagerName(e.target.value)}
-                    className="input"
-                    placeholder="Manager name"
-                  />
-                </div>
-                <div>
-                  <label className="label">Notes (optional)</label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={3}
-                    className="input resize-none"
-                    placeholder="Any notes or observations…"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleSignOff}
-                    disabled={signingOff || !managerName.trim()}
-                    className="btn-primary flex-1"
-                  >
-                    {signingOff ? "Signing off…" : "Confirm sign-off"}
-                  </button>
-                  <button onClick={() => setShowSignOff(false)} className="btn-secondary">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
+          <div className="card p-5 space-y-4">
+            <h3 className="font-semibold text-gray-900">Manager Sign-Off</h3>
+            <div>
+              <label className="label">Your name</label>
+              <input
+                type="text"
+                value={managerName}
+                onChange={(e) => setManagerName(e.target.value)}
+                className="input"
+                placeholder="Manager name"
+              />
+            </div>
+            <div>
+              <label className="label">Notes <span className="text-gray-400 font-normal">(optional)</span></label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                className="input resize-none"
+                placeholder="Any notes or observations…"
+              />
+            </div>
+            <button
+              onClick={handleSignOff}
+              disabled={signingOff || !managerName.trim()}
+              className="btn-primary w-full"
+            >
+              {signingOff ? "Signing off…" : "Sign off"}
+            </button>
           </div>
         )}
       </main>
