@@ -26,7 +26,7 @@ function PrintQRContent() {
   const appUrl =
     typeof window !== "undefined"
       ? window.location.origin
-      : process.env.NEXT_PUBLIC_APP_URL ?? "https://yep-compliance.vercel.app";
+      : process.env.NEXT_PUBLIC_APP_URL ?? "https://kernelapp.co.uk";
 
   useEffect(() => {
     async function load() {

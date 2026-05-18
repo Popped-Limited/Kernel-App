@@ -126,8 +126,8 @@ function SubmissionsPageInner() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const label = dateFrom && dateTo
-        ? `yep-compliance-${dateFrom}-to-${dateTo}`
-        : `yep-compliance-export-${new Date().toISOString().slice(0, 10)}`;
+        ? `kernel-export-${dateFrom}-to-${dateTo}`
+        : `kernel-export-${new Date().toISOString().slice(0, 10)}`;
       a.href = url;
       a.download = `${label}.csv`;
       a.click();
