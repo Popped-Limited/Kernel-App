@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Ingredient, IngredientLot } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import DocUploader from "@/components/DocUploader";
@@ -28,6 +29,7 @@ const EMPTY_ITEM: IngredientWithLots = {
 };
 
 export default function RawMaterialsPage() {
+  const { orgId } = useOrganisation();
   const [items, setItems]           = useState<IngredientWithLots[]>([]);
   const [suppliers, setSuppliers]   = useState<Supplier[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -118,7 +120,7 @@ export default function RawMaterialsPage() {
     };
 
     const { error } = isNew
-      ? await supabase.from("ingredients").insert(payload)
+      ? await supabase.from("ingredients").insert({ ...payload, organisation_id: orgId })
       : await supabase.from("ingredients").update(payload).eq("id", editing.id);
 
     setSaving(false);

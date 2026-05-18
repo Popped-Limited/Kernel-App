@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Dispatch, Submission, Checklist } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
@@ -29,6 +30,7 @@ function emptyRow(): ProductRow {
 }
 
 export default function GoodsOutPage() {
+  const { orgId } = useOrganisation();
   const [recentDispatches, setRecentDispatches] = useState<Dispatch[]>([]);
   const [batchSubmissions, setBatchSubmissions] = useState<(Submission & { checklist: Checklist })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,6 +115,7 @@ export default function GoodsOutPage() {
       dispatched_by: dispatchedBy.trim(),
       notes: notes.trim() || null,
       batch_submission_id: row.batchSubmissionId || null,
+      organisation_id: orgId,
     }));
 
     const { error } = await supabase.from("dispatches").insert(inserts);

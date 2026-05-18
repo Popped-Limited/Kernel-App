@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Ingredient, IngredientLot } from "@/lib/types";
 import { formatDate, todayJulianCode } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ function emptyRow(): IngredientRow {
 interface Supplier { id: string; name: string }
 
 export default function GoodsInPage() {
+  const { orgId } = useOrganisation();
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [recentLots, setRecentLots] = useState<(IngredientLot & { ingredient: Ingredient })[]>([]);
@@ -115,6 +117,7 @@ export default function GoodsInPage() {
         supplier: supplierName,
         best_before_date: row.bestBefore || null,
         created_by: loggedBy.trim(),
+        organisation_id: orgId,
       };
     });
 

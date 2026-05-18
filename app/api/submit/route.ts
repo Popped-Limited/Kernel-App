@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -9,10 +9,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
+  // Look up the checklist to get its organisation_id
+  const { data: cl } = await supabase
+    .from("checklists")
+    .select("organisation_id")
+    .eq("id", checklist_id)
+    .single();
+
   // Create submission
   const { data: submission, error: subErr } = await supabase
     .from("submissions")
-    .insert({ checklist_id, submitted_by, signed_off_by: null, signed_off_at: null, notes: null })
+    .insert({ checklist_id, submitted_by, signed_off_by: null, signed_off_at: null, notes: null, organisation_id: cl?.organisation_id ?? null })
     .select("id")
     .single();
 
@@ -26,6 +33,7 @@ export async function POST(req: NextRequest) {
     submission_id: submission.id,
     question_id: a.question_id,
     value: a.value,
+    organisation_id: cl?.organisation_id ?? null,
   }));
 
   const { error: ansErr } = await supabase.from("answers").insert(answerRows);

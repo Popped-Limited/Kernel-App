@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useOrganisation } from "@/contexts/OrganisationContext";
 import DocUploader from "@/components/DocUploader";
 import RiskCalculator from "@/components/RiskCalculator";
 import SAQResponsesViewer from "@/components/SAQResponsesViewer";
@@ -100,6 +101,7 @@ function DateCell({ dateStr }: { dateStr: string | null }) {
 }
 
 export default function SuppliersPage() {
+  const { orgId } = useOrganisation();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<SupplierType | "all">("all");
@@ -186,7 +188,7 @@ export default function SuppliersPage() {
     if (isNew) {
       const { data: created } = await supabase
         .from("suppliers")
-        .insert(payload)
+        .insert({ ...payload, organisation_id: orgId })
         .select()
         .single();
       setSaving(false);

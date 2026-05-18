@@ -4,12 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { ChecklistFrequency } from "@/lib/types";
 import { FREQUENCIES } from "@/lib/constants";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
 
 export default function NewChecklistPage() {
   const router = useRouter();
+  const { orgId } = useOrganisation();
   const [name, setName] = useState("");
   const [frequency, setFrequency] = useState<ChecklistFrequency>("adhoc");
   const [category, setCategory] = useState("");
@@ -23,7 +25,7 @@ export default function NewChecklistPage() {
     setSaving(true);
     const { data, error: err } = await supabase
       .from("checklists")
-      .insert({ name: name.trim(), frequency, description: description.trim() || null, category: category.trim() || null, active: true })
+      .insert({ name: name.trim(), frequency, description: description.trim() || null, category: category.trim() || null, active: true, organisation_id: orgId })
       .select("id")
       .single();
     setSaving(false);

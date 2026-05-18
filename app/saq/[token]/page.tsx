@@ -13,6 +13,7 @@ interface SupplierRow {
   saq_token: string | null;
   saq_completed: boolean;
   saq_date: string | null;
+  organisation_id: string | null;
 }
 
 interface QuestionDef {
@@ -138,6 +139,7 @@ export default function SAQPage() {
       supplier_id: supplier.id,
       responses: answers,
       submitted_at: now,
+      organisation_id: supplier.organisation_id,
     });
 
     await supabase.from("suppliers").update({

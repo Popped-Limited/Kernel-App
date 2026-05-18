@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Checklist, Question, QuestionType, ChecklistFrequency } from "@/lib/types";
 import { FREQUENCIES, QUESTION_TYPES } from "@/lib/constants";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
@@ -20,6 +21,7 @@ const BLANK_QUESTION: Omit<Question, "id" | "checklist_id" | "created_at"> = {
 export default function EditChecklistPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { orgId } = useOrganisation();
 
   const [checklist, setChecklist] = useState<Checklist | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -117,6 +119,7 @@ export default function EditChecklistPage() {
       order_index: editingQ.order_index ?? questions.length,
       options: editingQ.options ?? null,
       hint: editingQ.hint?.trim() || null,
+      organisation_id: orgId,
     };
 
     if (editingQId) {

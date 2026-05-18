@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import AppSidebar from "@/components/AppSidebar";
+import { OrganisationProvider } from "@/contexts/OrganisationContext";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
+    <OrganisationProvider>
     <div className="flex min-h-screen bg-brand-cream">
       <AppSidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -30,5 +32,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {children}
       </div>
     </div>
+    </OrganisationProvider>
   );
 }
