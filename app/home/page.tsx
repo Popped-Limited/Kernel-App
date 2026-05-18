@@ -78,10 +78,6 @@ export default function Dashboard() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    // Ensure session is loaded before querying
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log("[Kernel] session user:", session?.user?.email ?? "none (anon)");
-
     const [clRes, subRes, draftRes, dispRes, batchSubRes] = await Promise.all([
       supabase.from("checklists").select("*").eq("active", true).order("name"),
       supabase.from("submissions").select("*, checklist:checklists(*)").order("submitted_at", { ascending: false }).limit(50),
@@ -90,7 +86,6 @@ export default function Dashboard() {
       supabase.from("submissions").select("id, checklist:checklists(name, category), answers(value, question:questions(type, label))").eq("checklists.category", "Production"),
     ]);
 
-    console.log("[Kernel] checklists:", clRes.data?.length ?? "null", clRes.error ?? "");
     if (clRes.data) setChecklists(clRes.data as Checklist[]);
 
     if (subRes.data) {
