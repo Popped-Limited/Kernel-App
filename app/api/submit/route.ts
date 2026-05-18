@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -9,10 +9,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const db = createServerClient();
-
   // Create submission
-  const { data: submission, error: subErr } = await db
+  const { data: submission, error: subErr } = await supabase
     .from("submissions")
     .insert({ checklist_id, submitted_by, signed_off_by: null, signed_off_at: null, notes: null })
     .select("id")
@@ -30,11 +28,11 @@ export async function POST(req: NextRequest) {
     value: a.value,
   }));
 
-  const { error: ansErr } = await db.from("answers").insert(answerRows);
+  const { error: ansErr } = await supabase.from("answers").insert(answerRows);
 
   if (ansErr) {
     console.error("Answer insert error:", ansErr);
-    await db.from("submissions").delete().eq("id", submission.id);
+    await supabase.from("submissions").delete().eq("id", submission.id);
     return NextResponse.json({ error: "Failed to save answers" }, { status: 500 });
   }
 
@@ -42,13 +40,13 @@ export async function POST(req: NextRequest) {
   const ingredientAnswers = answers.filter((a) => a.value);
   if (ingredientAnswers.length > 0) {
     const questionIds = ingredientAnswers.map((a) => a.question_id);
-    const { data: questions } = await db
+    const { data: questions } = await supabase
       .from("questions")
       .select("id, type")
       .in("id", questionIds);
 
     const ingredientQIds = new Set(
-      (questions ?? []).filter((q) => q.type === "ingredient_table").map((q) => q.id)
+      (questions ?? []).filter((q: { id: string; type: string }) => q.type === "ingredient_table").map((q: { id: string; type: string }) => q.id)
     );
 
     for (const answer of answers) {
@@ -62,14 +60,14 @@ export async function POST(req: NextRequest) {
             if (!lotUse.lot_id || !lotUse.weight_g) continue;
             const used = Number(lotUse.weight_g);
             if (!used || used <= 0) continue;
-            const { data: lot } = await db
+            const { data: lot } = await supabase
               .from("ingredient_lots")
               .select("quantity_remaining_g")
               .eq("id", lotUse.lot_id)
               .single();
             if (lot) {
               const newRemaining = Math.max(0, (lot.quantity_remaining_g as number) - used);
-              await db.from("ingredient_lots")
+              await supabase.from("ingredient_lots")
                 .update({ quantity_remaining_g: newRemaining })
                 .eq("id", lotUse.lot_id);
             }

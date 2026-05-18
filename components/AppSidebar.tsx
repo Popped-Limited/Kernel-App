@@ -39,9 +39,14 @@ const NAV = [
 ];
 
 function SignOutButton() {
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  }
+
   return (
     <button
-      onClick={() => { localStorage.clear(); window.location.href = "/login"; }}
+      onClick={handleSignOut}
       className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-brown/70 hover:bg-brown/10 hover:text-brown transition-colors text-left"
     >
       <svg className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">

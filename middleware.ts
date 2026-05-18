@@ -1,21 +1,18 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PREFIXES = ["/login", "/api/auth", "/_next", "/favicon.ico", "/logo.png", "/kernel.png", "/kernel.svg", "/saq/", "/c/"];
-
-async function expectedToken(): Promise<string> {
-  const secret = process.env.AUTH_SECRET ?? "fallback-secret";
-  const password = process.env.AUTH_PASSWORD ?? "changeme";
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(password));
-  return Buffer.from(sig).toString("base64");
-}
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/auth/",
+  "/api/auth",
+  "/_next",
+  "/favicon.ico",
+  "/logo.png",
+  "/kernel.png",
+  "/kernel.svg",
+  "/saq/",
+  "/c/",
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -24,17 +21,41 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get("compliance_auth")?.value;
-  const expected = await expectedToken();
+  let response = NextResponse.next({ request });
 
-  if (token !== expected) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("from", pathname);
-    return NextResponse.redirect(url);
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/login";
+    redirectUrl.searchParams.set("from", pathname);
+    return NextResponse.redirect(redirectUrl);
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {

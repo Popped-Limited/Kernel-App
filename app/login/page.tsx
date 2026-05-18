@@ -2,12 +2,15 @@
 
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const from = searchParams.get("from") ?? "/";
+  const from = searchParams.get("from") ?? "/home";
 
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,17 +21,14 @@ function LoginForm() {
     setLoading(true);
     setError("");
 
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, from }),
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
 
-    const data = await res.json();
-
-    if (!res.ok) {
+    if (authError) {
       setLoading(false);
-      setError("Incorrect password — please try again.");
+      setError("Incorrect email or password.");
       setPassword("");
       return;
     }
@@ -37,7 +37,8 @@ function LoginForm() {
     setPopState("popping");
     setTimeout(() => setPopState("popped"), 550);
     setTimeout(() => {
-      router.push(data.redirect ?? "/dashboard");
+      const dest = from && from !== "/login" ? from : "/home";
+      router.push(dest);
       router.refresh();
     }, 1400);
   }
@@ -86,6 +87,20 @@ function LoginForm() {
       <div className="card p-6 mt-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="input"
+              placeholder="you@example.com"
+              autoFocus
+              autoComplete="email"
+              disabled={loading || popState !== "idle"}
+            />
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
               type="password"
@@ -93,7 +108,6 @@ function LoginForm() {
               onChange={e => setPassword(e.target.value)}
               className="input"
               placeholder="Enter password"
-              autoFocus
               autoComplete="current-password"
               disabled={loading || popState !== "idle"}
             />
@@ -105,12 +119,21 @@ function LoginForm() {
 
           <button
             type="submit"
-            disabled={loading || !password || popState !== "idle"}
+            disabled={loading || !email || !password || popState !== "idle"}
             className="btn-primary w-full"
           >
             {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
+
+        <div className="mt-4 text-center">
+          <Link
+            href="/auth/forgot"
+            className="text-sm text-brown/60 hover:text-brown transition-colors"
+          >
+            Forgot password?
+          </Link>
+        </div>
       </div>
     </>
   );

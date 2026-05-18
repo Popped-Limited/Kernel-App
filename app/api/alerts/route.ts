@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import type { Checklist } from "@/lib/types";
 import { Resend } from "resend";
 
@@ -27,7 +27,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const db = createServerClient();
   const resend = new Resend(process.env.RESEND_API_KEY);
   const now = new Date();
   const todayStart = new Date(now);
@@ -42,7 +41,7 @@ export async function POST(req: NextRequest) {
     if (now.getUTCHours() < sched.expectedHour + 1) continue;
 
     // Find the checklist
-    const { data: checklists } = await db
+    const { data: checklists } = await supabase
       .from("checklists")
       .select("*")
       .eq("frequency", sched.frequency)
@@ -52,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     for (const cl of checklists as Checklist[]) {
       // Check if there's been a submission today
-      const { data: submissions } = await db
+      const { data: submissions } = await supabase
         .from("submissions")
         .select("id")
         .eq("checklist_id", cl.id)
@@ -72,14 +71,14 @@ export async function POST(req: NextRequest) {
     weekStart.setUTCDate(weekStart.getUTCDate() - 7);
     weekStart.setUTCHours(0, 0, 0, 0);
 
-    const { data: weeklyChecklists } = await db
+    const { data: weeklyChecklists } = await supabase
       .from("checklists")
       .select("*")
       .eq("frequency", "weekly")
       .eq("active", true);
 
     for (const cl of (weeklyChecklists ?? []) as Checklist[]) {
-      const { data: submissions } = await db
+      const { data: submissions } = await supabase
         .from("submissions")
         .select("id")
         .eq("checklist_id", cl.id)
@@ -98,7 +97,7 @@ export async function POST(req: NextRequest) {
 
   // Log alerts
   for (const m of missed) {
-    await db.from("alert_log").insert({
+    await supabase.from("alert_log").insert({
       checklist_id: m.id,
       recipient: ALERT_EMAIL,
       message: `Missed check: ${m.name}`,
