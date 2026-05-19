@@ -346,14 +346,14 @@ export default function MarketingPage() {
             <div className={styles.planHeader}>
               <span className={styles.planBadge}><span className={styles.planPopularDot} /> 7-day free trial</span>
               <div className={styles.planName}>One flat price.</div>
-              <p className={styles.planTagline}>Try free for 7 days, then £99/month. Every feature, unlimited users, no surprises.</p>
+              <p className={styles.planTagline}>Try free for 7 days, then £99/month. Every feature, unlimited users, no surprises. Card required to start.</p>
             </div>
             <div className={styles.priceRow}>
               <span className={styles.priceCurrency}>£</span>
               <span className={styles.priceAmount}>99</span>
               <span className={styles.pricePer}>/mo</span>
             </div>
-            <p className={styles.priceContext}><strong>7-day free trial</strong> · Cancel any time</p>
+            <p className={styles.priceContext}><strong>7-day free trial</strong> · Card required · Cancel any time</p>
             <div className={styles.planDivider} />
             <ul className={styles.planFeatures}>
               {FEATURES_ALL.map((f) => (
