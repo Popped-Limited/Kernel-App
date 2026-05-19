@@ -501,6 +501,74 @@
   display: block;
 }
 
+/* MARKET COMPARISON — three-col "gap we fill" table */
+.marketComparison {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(200,168,75,0.2);
+  margin: 48px 0 56px;
+}
+.marketCol {
+  padding: 36px 32px;
+  background: #FDFAF2;
+  border-right: 1px solid rgba(200,168,75,0.15);
+}
+.marketCol:last-child { border-right: none; }
+.marketColKernel { background: #1C1A10; }
+
+.marketColEyebrow {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: #C89A18; margin-bottom: 8px; font-weight: 600;
+}
+.marketColKernel .marketColEyebrow { color: rgba(232,192,64,0.6); }
+
+.marketColName {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 20px; letter-spacing: -0.01em; color: #1C1A10;
+  margin-bottom: 20px; line-height: 1.2;
+}
+.marketColKernel .marketColName { color: #F7F2E8; }
+
+.marketColPrice {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 44px; letter-spacing: -0.03em;
+  color: #B0A890; line-height: 1;
+}
+.marketColPriceCrossed {
+  text-decoration: line-through;
+  text-decoration-color: rgba(150,120,80,0.4);
+}
+.marketColKernel .marketColPrice { color: #E8C040; }
+
+.marketColNote {
+  font-size: 12px; color: #7A7050;
+  margin-top: 4px; margin-bottom: 28px;
+}
+.marketColKernel .marketColNote { color: rgba(247,242,232,0.35); }
+
+.marketColList { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.marketColList li {
+  font-size: 13px; display: flex; align-items: flex-start;
+  gap: 8px; line-height: 1.4; color: #7A7050;
+}
+.marketColKernel .marketColList li { color: rgba(247,242,232,0.7); }
+
+.mcBullet {
+  width: 16px; height: 16px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; flex-shrink: 0; margin-top: 1px;
+}
+.mcNo  { background: rgba(180,150,100,0.12); color: #B0A058; }
+.mcYes { background: rgba(200,168,75,0.15);  color: #C89A18; }
+.marketColKernel .mcYes { background: rgba(232,192,64,0.2); color: #E8C040; }
+
+/* SINGLE PRICING CARD */
+.pricingSingle { display: flex; justify-content: center; }
+.pricingSingle .pricingCard { max-width: 560px; width: 100%; }
+
 /* TRANSFORM CARDS wrapper (desktop: plain block, mobile: carousel) */
 .transformCards { display: block; }
 .transformCard { display: block; }
@@ -627,6 +695,37 @@
     flex: 0 0 82vw !important;
     max-width: 360px;
   }
+
+  /* Market comparison — horizontal carousel */
+  .marketComparison {
+    display: flex !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: 24px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 0 24px 4px;
+    border-radius: 0;
+    border: none;
+    background: transparent;
+    gap: 12px;
+    margin: 24px 0 40px;
+  }
+  .marketComparison::-webkit-scrollbar { display: none; }
+  .marketComparison .marketCol {
+    scroll-snap-align: start;
+    flex: 0 0 78vw !important;
+    max-width: 320px;
+    border-radius: 16px;
+    border: 1px solid rgba(200,168,75,0.2) !important;
+  }
+  .marketComparison .marketColKernel {
+    border-color: rgba(232,192,64,0.2) !important;
+  }
+
+  /* Single pricing card */
+  .pricingSingle { padding: 0 24px; }
+  .pricingSingle .pricingCard { max-width: 100%; }
 
   /* Showcase / founder section */
   .showcase { padding: 64px 0; }

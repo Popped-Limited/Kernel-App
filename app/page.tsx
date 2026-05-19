@@ -170,9 +170,9 @@ export default function MarketingPage() {
           </h2>
           <div className={styles.transformBody}>
             <p>
-              Packed with potential. A great product, real craft, genuine passion. But buried
-              under the weight of running a food business — compliance audits, paper records,
-              expensive software that wasn&apos;t built for someone like you.
+              Packed with potential. A great product, real craft, genuine passion. But stuck
+              between two bad options — the chaos of spreadsheets and paper records, or enterprise
+              software at £300–500 a month that was built for factories with 50 staff, not founders.
             </p>
             <p>
               A kernel has everything it needs to become something incredible. It just needs
@@ -188,7 +188,7 @@ export default function MarketingPage() {
                 <p className={styles.stateTag}>Before Kernel</p>
                 <ul className={styles.stateItems}>
                   <li>Paper checklists that go missing</li>
-                  <li>££££/month across fragmented tools</li>
+                  <li>Enterprise software at £300–500/month</li>
                   <li>Spreadsheets for stock and costing</li>
                   <li>No traceability until audit day panic</li>
                   <li>Hours lost on admin every week</li>
@@ -201,7 +201,7 @@ export default function MarketingPage() {
                 <p className={styles.stateTag}>After Kernel</p>
                 <ul className={styles.stateItems}>
                   <li>QR codes, digital sign-offs, full audit trail</li>
-                  <li>From £79/month — everything included</li>
+                  <li>£99/month — everything included</li>
                   <li>Live stock value, auto-deducting inventory</li>
                   <li>Full traceability with a single search</li>
                   <li>Focus on making great food</li>
@@ -275,9 +275,10 @@ export default function MarketingPage() {
                 on your next product.
               </p>
               <p className={styles.founderBody}>
-                Kernel wasn&apos;t designed by enterprise software teams. It was built by someone
-                who lived every one of those problems — and got tired of waiting for a solution
-                that actually fit.
+                Kernel started as an internal tool for Yep Kitchen — a small food brand that was
+                paying over £400 a month for compliance software designed for factories. We got
+                tired of waiting for something that actually fit, so we built it ourselves. Every
+                feature exists because a real food business needed it.
               </p>
               <p className={styles.founderQuote}>
                 &ldquo;We built the tool we always needed. Now it&apos;s yours.&rdquo;
@@ -292,63 +293,68 @@ export default function MarketingPage() {
         <div className={`${styles.pricingTop} ${styles.fadeIn}`}>
           <p className={styles.pricingEyebrow}>Pricing</p>
           <h2 className={styles.pricingHeadline}>
-            Everything in one place.<br /><em>One simple price.</em>
+            One price.<br /><em>Everything included.</em>
           </h2>
           <p className={styles.pricingSub}>
-            No modules. No add-ons. No surprises.
-            Every feature, from day one.
+            Small food businesses are stuck between two bad choices.
+            We built the third option.
           </p>
         </div>
 
-        <div className={`${styles.valueBar} ${styles.fadeIn}`}>
-          <div className={styles.valueBarItem}>
-            <p className={styles.valueBarLabel}>Fragmented software</p>
-            <div className={`${styles.valueBarPrice} ${styles.crossed}`}>££££<span style={{ fontSize: "0.4em" }}>/mo</span></div>
-            <p className={styles.valueBarNote}>Compliance tool + stock system + traceability + records…</p>
+        {/* Market gap comparison */}
+        <div className={`${styles.marketComparison} ${styles.fadeIn}`}>
+          <div className={styles.marketCol}>
+            <p className={styles.marketColEyebrow}>Option 1</p>
+            <p className={styles.marketColName}>Spreadsheets &amp; paper</p>
+            <div className={styles.marketColPrice}>£0</div>
+            <p className={styles.marketColNote}>per month</p>
+            <ul className={styles.marketColList}>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Records go missing before audits</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>No real traceability system</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>No digital sign-offs</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>One inspection away from crisis</li>
+            </ul>
           </div>
-          <div className={styles.valueBarItem}>
-            <p className={styles.valueBarLabel}>Kernel</p>
-            <div className={`${styles.valueBarPrice} ${styles.kernel}`}>£79<span style={{ fontSize: "0.4em" }}>/mo</span></div>
-            <p className={styles.valueBarNote}><strong>All of the above. One login.</strong></p>
+          <div className={styles.marketCol}>
+            <p className={styles.marketColEyebrow}>Option 2</p>
+            <p className={styles.marketColName}>Enterprise software</p>
+            <div className={`${styles.marketColPrice} ${styles.marketColPriceCrossed}`}>£300–500</div>
+            <p className={styles.marketColNote}>per month</p>
+            <ul className={styles.marketColList}>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Fully compliant</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Built for 50+ staff factories</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Takes months to set up</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Wasn&apos;t built for you</li>
+            </ul>
+          </div>
+          <div className={`${styles.marketCol} ${styles.marketColKernel}`}>
+            <p className={styles.marketColEyebrow}>The third option</p>
+            <p className={styles.marketColName}>Kernel</p>
+            <div className={styles.marketColPrice}>£99</div>
+            <p className={styles.marketColNote}>per month</p>
+            <ul className={styles.marketColList}>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Fully compliant</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Built for small producers</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Set up in a day</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Built by one of you</li>
+            </ul>
           </div>
         </div>
 
-        <div className={`${styles.pricingGrid} ${styles.fadeIn}`}>
-          <div className={styles.pricingCard}>
-            <div className={styles.planHeader}>
-              <span className={styles.planBadge}>Solo</span>
-              <div className={styles.planName}>Just you.</div>
-              <p className={styles.planTagline}>Every single feature. One user. The full Kernel experience, nothing removed.</p>
-            </div>
-            <div className={styles.priceRow}>
-              <span className={styles.priceCurrency}>£</span>
-              <span className={styles.priceAmount}>79</span>
-              <span className={styles.pricePer}>/mo</span>
-            </div>
-            <p className={styles.priceContext}>1 user · <strong>All features included</strong> · Cancel any time</p>
-            <div className={styles.planDivider} />
-            <ul className={styles.planFeatures}>
-              {FEATURES_ALL.map((f) => (
-                <li key={f} className={styles.planFeatureItem}>
-                  <span className={styles.planCheck}>✓</span> {f}
-                </li>
-              ))}
-            </ul>
-            <Link href="/login" className={styles.planBtn}>Get started</Link>
-          </div>
-
+        {/* Single pricing card */}
+        <div className={`${styles.pricingSingle} ${styles.fadeIn}`}>
           <div className={`${styles.pricingCard} ${styles.pricingCardFeatured}`}>
             <div className={styles.planHeader}>
-              <span className={styles.planBadge}><span className={styles.planPopularDot} /> Team</span>
-              <div className={styles.planName}>You and your team.</div>
-              <p className={styles.planTagline}>Five users. One platform. Everyone on the same page, every shift.</p>
+              <span className={styles.planBadge}><span className={styles.planPopularDot} /> Everything included</span>
+              <div className={styles.planName}>One flat price.</div>
+              <p className={styles.planTagline}>Every feature from day one. Unlimited users. No setup fee. No surprises.</p>
             </div>
             <div className={styles.priceRow}>
               <span className={styles.priceCurrency}>£</span>
-              <span className={styles.priceAmount}>149</span>
+              <span className={styles.priceAmount}>99</span>
               <span className={styles.pricePer}>/mo</span>
             </div>
-            <p className={styles.priceContext}>5 users · <strong>All features included</strong> · Cancel any time</p>
+            <p className={styles.priceContext}>Unlimited users · <strong>All features included</strong> · Cancel any time</p>
             <div className={styles.planDivider} />
             <ul className={styles.planFeatures}>
               {FEATURES_ALL.map((f) => (
@@ -356,11 +362,8 @@ export default function MarketingPage() {
                   <span className={styles.planCheck}>✓</span> {f}
                 </li>
               ))}
-              <li className={styles.planFeatureItem}>
-                <span className={styles.planCheck}>✓</span> 5 team members
-              </li>
             </ul>
-            <Link href="/login" className={styles.planBtn}>Get started</Link>
+            <Link href="/login" className={styles.planBtn}>Get started — £99 / month</Link>
           </div>
         </div>
 
