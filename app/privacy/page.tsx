@@ -51,18 +51,17 @@ export default function PrivacyPage() {
         <div style={{ fontSize: "16px", lineHeight: "1.8", color: "#3A3520" }}>
 
           <p style={{ marginBottom: "32px" }}>
-            Kernel is operated by Kernel Ltd ("we", "us", "our"), a company registered in England
-            and Wales. We are committed to protecting your personal data and operating in compliance
-            with the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018.
-            This policy explains what data we collect, why we collect it, and what rights you have
-            over it.
+            Kernel ("we", "us", "our") is committed to protecting your personal data and operating
+            in compliance with the UK General Data Protection Regulation (UK GDPR) and the Data
+            Protection Act 2018. This policy explains what data we collect, why we collect it, and
+            what rights you have over it.
           </p>
 
           <Section title="1. Who is responsible for your data?">
             <p>
-              Kernel Ltd is the data controller for personal data processed through the Kernel
-              platform. If you have any questions about how we handle your data, please contact us
-              at <a href="mailto:privacy@kernelapp.co.uk" style={{ color: "#C89A18" }}>privacy@kernelapp.co.uk</a>.
+              Kernel is the data controller for personal data processed through the Kernel platform.
+              If you have any questions about how we handle your data, please contact us at{" "}
+              <a href="mailto:support@kernelapp.co.uk" style={{ color: "#C89A18" }}>support@kernelapp.co.uk</a>.
             </p>
           </Section>
 
@@ -140,7 +139,7 @@ export default function PrivacyPage() {
             </ul>
             <p style={{ marginTop: "16px" }}>
               To exercise any of these rights, contact us at{" "}
-              <a href="mailto:privacy@kernelapp.co.uk" style={{ color: "#C89A18" }}>privacy@kernelapp.co.uk</a>.
+              <a href="mailto:support@kernelapp.co.uk" style={{ color: "#C89A18" }}>support@kernelapp.co.uk</a>.
               We will respond within 30 days.
             </p>
           </Section>
@@ -181,9 +180,9 @@ export default function PrivacyPage() {
               marginTop: "16px",
               fontSize: "15px",
             }}>
-              <p style={{ marginBottom: "4px" }}><strong>Kernel Ltd</strong></p>
+              <p style={{ marginBottom: "4px" }}><strong>Kernel</strong></p>
               <p style={{ marginBottom: "4px", color: "#7A7050" }}>
-                <a href="mailto:privacy@kernelapp.co.uk" style={{ color: "#C89A18" }}>privacy@kernelapp.co.uk</a>
+                <a href="mailto:support@kernelapp.co.uk" style={{ color: "#C89A18" }}>support@kernelapp.co.uk</a>
               </p>
               <p style={{ color: "#7A7050" }}>kernelapp.co.uk</p>
             </div>

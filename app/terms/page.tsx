@@ -52,7 +52,7 @@ export default function TermsPage() {
 
           <p style={{ marginBottom: "32px" }}>
             These Terms of Service ("Terms") govern your access to and use of the Kernel platform
-            ("the Service"), operated by Kernel Ltd ("we", "us", "our"). By creating an account or
+            ("the Service"), operated by Kernel ("we", "us", "our"). By creating an account or
             using the Service, you agree to be bound by these Terms. Please read them carefully.
           </p>
 
@@ -120,7 +120,7 @@ export default function TermsPage() {
           <Section title="6. Intellectual property">
             <p>
               The Kernel platform — including its design, code, features, and content — is owned by
-              Kernel Ltd and protected by intellectual property law. These Terms grant you a limited,
+              Kernel and protected by intellectual property law. These Terms grant you a limited,
               non-exclusive, non-transferable licence to use the Service for your internal business
               purposes only. No other rights are granted.
             </p>
@@ -140,7 +140,7 @@ export default function TermsPage() {
               To the maximum extent permitted by applicable law:
             </p>
             <ul style={{ paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "10px" }}>
-              <li>Our total liability to you for any claim arising under these Terms is limited to the total fees you have paid to us in the 12 months preceding the claim.</li>
+              <li>Our total liability to you for any claim arising under these Terms is limited to the total fees paid in the 12 months preceding the claim.</li>
               <li>We are not liable for any indirect, consequential, incidental, or special losses, including loss of profit, revenue, or data.</li>
               <li>Nothing in these Terms limits liability for death or personal injury caused by negligence, fraud, or any liability that cannot be excluded by law.</li>
             </ul>
@@ -148,7 +148,7 @@ export default function TermsPage() {
 
           <Section title="9. Indemnity">
             <p>
-              You agree to indemnify and hold harmless Kernel Ltd and its personnel from any claims,
+              You agree to indemnify and hold harmless Kernel and its personnel from any claims,
               losses, or damages (including reasonable legal costs) arising from your use of the
               Service in breach of these Terms, or from any content you submit to the platform.
             </p>
@@ -193,9 +193,9 @@ export default function TermsPage() {
               marginTop: "16px",
               fontSize: "15px",
             }}>
-              <p style={{ marginBottom: "4px" }}><strong>Kernel Ltd</strong></p>
+              <p style={{ marginBottom: "4px" }}><strong>Kernel</strong></p>
               <p style={{ marginBottom: "4px", color: "#7A7050" }}>
-                <a href="mailto:hello@kernelapp.co.uk" style={{ color: "#C89A18" }}>hello@kernelapp.co.uk</a>
+                <a href="mailto:support@kernelapp.co.uk" style={{ color: "#C89A18" }}>support@kernelapp.co.uk</a>
               </p>
               <p style={{ color: "#7A7050" }}>kernelapp.co.uk</p>
             </div>
