@@ -11,6 +11,8 @@ const PUBLIC_PREFIXES = [
   "/kernel.png",
   "/kernel.svg",
   "/popcorn.png",
+  "/privacy",
+  "/terms",
   "/saq/",
   "/c/",
 ];

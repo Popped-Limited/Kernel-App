@@ -374,13 +374,14 @@ export default function MarketingPage() {
       {/* Footer */}
       <footer className={styles.footer}>
         <div className={styles.footerLogo}>
-          <img src="/kernel.png" alt="" className={styles.footerLogoImg} />
           Kernel
         </div>
         <div className={styles.footerLinks}>
           <a href="#features">Features</a>
           <a href="#pricing">Pricing</a>
           <Link href="/login">Log in</Link>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
         </div>
         <p className={styles.footerCopy}>© 2026 Kernel. Built for food manufacturers.</p>
       </footer>
