@@ -512,15 +512,23 @@ export default function QuestionField({ question, value, onChange, error, ingred
   }
 
   if (question.type === "packing_runs") {
-    // Read custom packaging labels from hint JSON, e.g. {"unit":"jar","closure":"lid"}
+    // Read custom packaging labels + optional display hint from hint field.
+    // Stored as JSON: {"unit":"jar","closure":"lid","hint":"optional display text"}
+    // Falls back to plain-text hint for older records.
     let packUnit = "jar";
     let packClosure = "lid";
+    let packDisplayHint: string | null = question.hint; // default: show as-is (plain text)
     try {
       const hintData = question.hint ? JSON.parse(question.hint) : null;
-      if (hintData?.unit) packUnit = hintData.unit;
-      if (hintData?.closure) packClosure = hintData.closure;
-    } catch { /* use defaults */ }
+      if (hintData && typeof hintData === "object") {
+        if (hintData.unit) packUnit = hintData.unit;
+        if (hintData.closure) packClosure = hintData.closure;
+        packDisplayHint = hintData.hint ?? null; // only show if explicitly set
+      }
+    } catch { /* plain-text hint, use as-is */ }
 
+    // Simple pluralisation — don't add "s" if word already ends in "s"
+    const pluralise = (w: string) => (w.toLowerCase().endsWith("s") ? w : w + "s");
     const unitCap = packUnit.charAt(0).toUpperCase() + packUnit.slice(1);
     const closureCap = packClosure.charAt(0).toUpperCase() + packClosure.slice(1);
 
@@ -551,7 +559,14 @@ export default function QuestionField({ question, value, onChange, error, ingred
     };
     return (
       <div>
-        {base}
+        {/* Render label manually so we don't show raw JSON hint */}
+        <div className="space-y-1 mb-1">
+          <label className="label">
+            {question.label}
+            {question.required && <span className="ml-1 text-brand">*</span>}
+          </label>
+          {packDisplayHint && <p className="text-xs text-gray-500 -mt-0.5 mb-1">{packDisplayHint}</p>}
+        </div>
         <div className="space-y-3">
           {runs.map((run, idx) => (
             <div key={idx} className={`rounded-xl border p-3 space-y-2 ${error ? "border-red-300" : "border-gray-200"}`}>
@@ -564,9 +579,9 @@ export default function QuestionField({ question, value, onChange, error, ingred
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { field: "pack_weight" as const, label: "Pack weight (g)", placeholder: "227", numeric: true },
-                  { field: "jars_used" as const, label: `No. of ${packUnit}s`, placeholder: "0", numeric: true },
+                  { field: "jars_used" as const, label: `No. of ${pluralise(packUnit)}`, placeholder: "0", numeric: true },
                   { field: "jar_batch" as const, label: `${unitCap} batch no.`, placeholder: "JB001", numeric: false },
-                  { field: "lids_count" as const, label: `No. of ${packClosure}s`, placeholder: "0", numeric: true },
+                  { field: "lids_count" as const, label: `No. of ${pluralise(packClosure)}`, placeholder: "0", numeric: true },
                   { field: "lids_batch" as const, label: `${closureCap} batch no.`, placeholder: "LB001", numeric: false },
                   { field: "packed_by" as const, label: "Packed by (initials)", placeholder: "SS", numeric: false },
                 ].map(({ field, label, placeholder, numeric }) => (

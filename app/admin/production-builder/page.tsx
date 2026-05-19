@@ -6,32 +6,98 @@ import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Ingredient } from "@/lib/types";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type CCPType = "number" | "text" | "checkbox";
+type ControlPointType = "number" | "text" | "checkbox";
 
-interface CCP {
+interface ControlPoint {
   label: string;
-  type: CCPType;
+  hint: string;     // guidance shown under the question on the form
+  type: ControlPointType;
 }
 
 interface SelectedIngredient {
   id: string;
   name: string;
   unit: "g" | "units";
-  targetWeight: string; // grams as string
+  targetWeight: string;
 }
 
-// ─── Steps ───────────────────────────────────────────────────────────────────
+interface InspectionItem {
+  label: string;
+  hint: string;
+  type: "checkbox" | "dropdown" | "text";
+  options: string[] | null;
+  required: boolean;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function simplePlural(word: string): string {
+  if (!word) return "";
+  return word.toLowerCase().endsWith("s") ? word : word + "s";
+}
+
+function emptyCP(): ControlPoint {
+  return { label: "", hint: "", type: "number" };
+}
+
+// ─── Preset inspection checks ─────────────────────────────────────────────────
+
+const INSPECTION_PRESETS: { id: string; item: InspectionItem }[] = [
+  {
+    id: "glass_check",
+    item: {
+      label: "Glass check inspection completed?",
+      hint: "",
+      type: "dropdown",
+      options: ["Completed", "Not applicable"],
+      required: true,
+    },
+  },
+  {
+    id: "containers_intact",
+    item: {
+      label: "All containers intact?",
+      hint: "",
+      type: "dropdown",
+      options: ["Yes", "No"],
+      required: true,
+    },
+  },
+  {
+    id: "not_intact_count",
+    item: {
+      label: "If any containers not intact — how many?",
+      hint: "Leave blank if all containers intact",
+      type: "text",
+      options: null,
+      required: false,
+    },
+  },
+  {
+    id: "label_verified",
+    item: {
+      label: "Labelling verified — correct batch code and best before date confirmed on label",
+      hint: "",
+      type: "checkbox",
+      options: null,
+      required: true,
+    },
+  },
+];
+
+// ─── Steps ────────────────────────────────────────────────────────────────────
 
 const STEPS = [
   { n: 1, label: "Product" },
   { n: 2, label: "Ingredients" },
-  { n: 3, label: "CCPs" },
-  { n: 4, label: "Packaging" },
+  { n: 3, label: "Control Points" },
+  { n: 4, label: "Quality" },
+  { n: 5, label: "Packaging" },
 ];
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProductionBuilderPage() {
   const router = useRouter();
@@ -41,21 +107,35 @@ export default function ProductionBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // Step 1
+  // Step 1 — Product
   const [productName, setProductName] = useState("");
   const [description, setDescription] = useState("");
+  const [includeBatchCode, setIncludeBatchCode] = useState(true);
 
-  // Step 2 — ingredients
+  // Step 2 — Ingredients
   const [allIngredients, setAllIngredients] = useState<Ingredient[]>([]);
   const [loadingIngs, setLoadingIngs] = useState(true);
   const [selected, setSelected] = useState<Record<string, SelectedIngredient>>({});
 
-  // Step 3 — CCPs
-  const [ccps, setCcps] = useState<CCP[]>([{ label: "", type: "number" }]);
+  // Step 3 — Control Points
+  const [ccps, setCcps] = useState<ControlPoint[]>([emptyCP()]);
+  const [cps, setCps] = useState<ControlPoint[]>([]);
+  const [includeCorrectiveAction, setIncludeCorrectiveAction] = useState(true);
 
-  // Step 4 — packaging
+  // Step 4 — Quality
+  const [includeWeightChecks, setIncludeWeightChecks] = useState(true);
+  const [inspectionToggles, setInspectionToggles] = useState<Record<string, boolean>>({
+    glass_check: true,
+    containers_intact: true,
+    not_intact_count: true,
+    label_verified: true,
+  });
+  const [customInspections, setCustomInspections] = useState<InspectionItem[]>([]);
+
+  // Step 5 — Packaging
   const [unitLabel, setUnitLabel] = useState("jar");
   const [closureLabel, setClosureLabel] = useState("lid");
+  const [packingLogHint, setPackingLogHint] = useState("");
   const [includeTotalUnits, setIncludeTotalUnits] = useState(true);
   const [signOffType, setSignOffType] = useState<"signature" | "checkbox">("signature");
 
@@ -71,12 +151,10 @@ export default function ProductionBuilderPage() {
       });
   }, []);
 
-  // ── Step navigation ─────────────────────────────────────────────────────────
+  // ── Validation ───────────────────────────────────────────────────────────────
 
   function validateStep(): string {
-    if (step === 1) {
-      if (!productName.trim()) return "Product name is required.";
-    }
+    if (step === 1 && !productName.trim()) return "Product name is required.";
     if (step === 2) {
       const sel = Object.values(selected);
       if (sel.length === 0) return "Select at least one ingredient.";
@@ -90,10 +168,13 @@ export default function ProductionBuilderPage() {
       for (const ccp of ccps) {
         if (!ccp.label.trim()) return "Fill in all CCP labels, or remove empty ones.";
       }
+      for (const cp of cps) {
+        if (!cp.label.trim()) return "Fill in all CP labels, or remove empty ones.";
+      }
     }
-    if (step === 4) {
-      if (!unitLabel.trim()) return "Enter a packaging unit label.";
-      if (!closureLabel.trim()) return "Enter a closure label.";
+    if (step === 5) {
+      if (!unitLabel.trim()) return "Enter a container unit label (e.g. jar).";
+      if (!closureLabel.trim()) return "Enter a closure label (e.g. lid).";
     }
     return "";
   }
@@ -110,7 +191,7 @@ export default function ProductionBuilderPage() {
     setStep((s) => s - 1);
   }
 
-  // ── Toggle / update ingredient selection ─────────────────────────────────────
+  // ── Ingredient helpers ───────────────────────────────────────────────────────
 
   function toggleIngredient(ing: Ingredient) {
     setSelected((prev) => {
@@ -119,10 +200,7 @@ export default function ProductionBuilderPage() {
         delete next[ing.id];
         return next;
       }
-      return {
-        ...prev,
-        [ing.id]: { id: ing.id, name: ing.name, unit: ing.unit, targetWeight: "" },
-      };
+      return { ...prev, [ing.id]: { id: ing.id, name: ing.name, unit: ing.unit, targetWeight: "" } };
     });
   }
 
@@ -130,21 +208,17 @@ export default function ProductionBuilderPage() {
     setSelected((prev) => prev[id] ? { ...prev, [id]: { ...prev[id], targetWeight: value } } : prev);
   }
 
-  // ── CCP helpers ──────────────────────────────────────────────────────────────
+  // ── CCP / CP helpers ─────────────────────────────────────────────────────────
 
-  function addCCP() {
-    setCcps((c) => [...c, { label: "", type: "number" }]);
+  function updateCP(list: ControlPoint[], setList: React.Dispatch<React.SetStateAction<ControlPoint[]>>, idx: number, field: keyof ControlPoint, value: string) {
+    setList(list.map((cp, i) => i === idx ? { ...cp, [field]: value } : cp));
   }
 
-  function removeCCP(idx: number) {
-    setCcps((c) => c.filter((_, i) => i !== idx));
+  function removeCP(list: ControlPoint[], setList: React.Dispatch<React.SetStateAction<ControlPoint[]>>, idx: number) {
+    setList(list.filter((_, i) => i !== idx));
   }
 
-  function updateCCP(idx: number, field: keyof CCP, value: string) {
-    setCcps((c) => c.map((ccp, i) => i === idx ? { ...ccp, [field]: value } : ccp));
-  }
-
-  // ── Create checklist ─────────────────────────────────────────────────────────
+  // ── Create checklist ──────────────────────────────────────────────────────────
 
   async function create() {
     const err = validateStep();
@@ -154,7 +228,6 @@ export default function ProductionBuilderPage() {
 
     const checklistName = `${productName.trim()} — Production Record`;
 
-    // 1. Create checklist
     const { data: cl, error: clErr } = await supabase
       .from("checklists")
       .insert({
@@ -175,9 +248,7 @@ export default function ProductionBuilderPage() {
     }
 
     const checklistId = cl.id;
-
-    // 2. Build questions array
-    const questions: Array<{
+    type QRow = {
       checklist_id: string;
       label: string;
       type: string;
@@ -186,141 +257,143 @@ export default function ProductionBuilderPage() {
       options: string[] | null;
       hint: string | null;
       organisation_id: string | null;
-    }> = [];
+    };
 
+    const questions: QRow[] = [];
     let idx = 0;
 
-    // Standard header questions
-    questions.push({
+    const q = (label: string, type: string, required: boolean, options: string[] | null = null, hint: string | null = null): QRow => ({
       checklist_id: checklistId,
-      label: "Operator name",
-      type: "text",
-      required: true,
+      label,
+      type,
+      required,
       order_index: idx++,
-      options: null,
-      hint: null,
+      options,
+      hint,
       organisation_id: orgId,
     });
 
-    questions.push({
-      checklist_id: checklistId,
-      label: "Production date",
-      type: "date",
-      required: true,
-      order_index: idx++,
-      options: null,
-      hint: null,
-      organisation_id: orgId,
-    });
+    // ── Header ──
+    if (includeBatchCode) {
+      questions.push(q("Batch code", "text", true, null, "Assign a unique batch code for this production run"));
+    }
+    questions.push(q("Operator name", "text", true));
+    questions.push(q("Production date", "date", true));
 
-    // Ingredient table
+    // ── Ingredients ──
     const ingredientOptions = Object.values(selected).map(
       (s) => `${s.name}|${s.unit === "g" ? s.targetWeight : "0"}`
     );
+    questions.push(q("Ingredients used", "ingredient_table", true, ingredientOptions));
 
-    questions.push({
-      checklist_id: checklistId,
-      label: "Ingredients used",
-      type: "ingredient_table",
-      required: true,
-      order_index: idx++,
-      options: ingredientOptions,
-      hint: null,
-      organisation_id: orgId,
-    });
+    // ── Weight checks ──
+    if (includeWeightChecks) {
+      const unitCap = unitLabel ? unitLabel.charAt(0).toUpperCase() + unitLabel.slice(1) : "Container";
+      const closureCap = closureLabel ? closureLabel.charAt(0).toUpperCase() + closureLabel.slice(1) : "Lid";
+      questions.push(q(
+        `Packaging tare weight samples — 5 ${unitCap} & ${closureCap} measurements (g)`,
+        "multi_number",
+        true,
+        ["5"],
+        `Weigh 5 ${simplePlural(unitLabel)} and enter each measurement`
+      ));
+      questions.push(q(
+        "Tare weight used (g)",
+        "number",
+        true,
+        null,
+        "Use the lightest of the 5 samples above"
+      ));
+      questions.push(q("Finished product weight — Start of run (g)", "multi_number", true, ["3"]));
+      questions.push(q("Finished product weight — Middle of run (g)", "multi_number", true, ["3"]));
+      questions.push(q("Finished product weight — End of run (g)", "multi_number", true, ["3"]));
+    }
 
-    // CCPs
+    // ── CCPs ──
     for (const ccp of ccps) {
       if (!ccp.label.trim()) continue;
-      questions.push({
-        checklist_id: checklistId,
-        label: ccp.label.trim(),
-        type: ccp.type,
-        required: true,
-        order_index: idx++,
-        options: null,
-        hint: null,
-        organisation_id: orgId,
-      });
+      questions.push(q(ccp.label.trim(), ccp.type, true, null, ccp.hint.trim() || null));
     }
 
-    // Packing log — store unit/closure labels in hint as JSON
-    const packingHint = JSON.stringify({ unit: unitLabel.trim(), closure: closureLabel.trim() });
-    questions.push({
-      checklist_id: checklistId,
-      label: "Packing log",
-      type: "packing_runs",
-      required: true,
-      order_index: idx++,
-      options: null,
-      hint: packingHint,
-      organisation_id: orgId,
-    });
+    // ── CPs ──
+    for (const cp of cps) {
+      if (!cp.label.trim()) continue;
+      questions.push(q(cp.label.trim(), cp.type, true, null, cp.hint.trim() || null));
+    }
 
-    // Total units
+    // ── Corrective action ──
+    if (includeCorrectiveAction && (ccps.some(c => c.label.trim()) || cps.some(c => c.label.trim()))) {
+      questions.push(q(
+        "Corrective action taken (if any)",
+        "text",
+        false,
+        null,
+        "Describe any corrective actions taken. Leave blank if none required."
+      ));
+    }
+
+    // ── Inspection ──
+    for (const preset of INSPECTION_PRESETS) {
+      if (!inspectionToggles[preset.id]) continue;
+      const item = preset.item;
+      questions.push(q(item.label, item.type, item.required, item.options, item.hint || null));
+    }
+    for (const custom of customInspections) {
+      if (!custom.label.trim()) continue;
+      questions.push(q(custom.label.trim(), custom.type, custom.required, custom.options, custom.hint || null));
+    }
+
+    // ── Packing log ──
+    const hint = packingLogHint.trim()
+      ? JSON.stringify({ unit: unitLabel.trim(), closure: closureLabel.trim(), hint: packingLogHint.trim() })
+      : JSON.stringify({ unit: unitLabel.trim(), closure: closureLabel.trim() });
+    questions.push(q("Packing log", "packing_runs", true, null, hint));
+
+    // ── Total units ──
     if (includeTotalUnits) {
-      questions.push({
-        checklist_id: checklistId,
-        label: "Total units produced",
-        type: "number",
-        required: true,
-        order_index: idx++,
-        options: null,
-        hint: null,
-        organisation_id: orgId,
-      });
+      questions.push(q("Total units produced", "number", true));
     }
 
-    // Sign-off
-    questions.push({
-      checklist_id: checklistId,
-      label: signOffType === "signature" ? "Supervisor sign-off" : "Quality check confirmed",
-      type: signOffType,
-      required: true,
-      order_index: idx++,
-      options: null,
-      hint: signOffType === "checkbox" ? "Tick to confirm all checks are complete and the batch is approved for packing." : null,
-      organisation_id: orgId,
-    });
+    // ── Sign-off ──
+    questions.push(q(
+      signOffType === "signature" ? "Supervisor sign-off" : "Quality check confirmed",
+      signOffType,
+      true,
+      null,
+      signOffType === "checkbox" ? "Tick to confirm all checks are complete and the batch is approved." : null
+    ));
 
-    // 3. Insert all questions
     const { error: qErr } = await supabase.from("questions").insert(questions);
-
     if (qErr) {
-      // Rollback checklist
       await supabase.from("checklists").delete().eq("id", checklistId);
       setError(qErr.message);
       setSaving(false);
       return;
     }
 
-    // Done — go to the checklist editor
     router.push(`/admin/checklists/${checklistId}`);
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <main className="flex-1 px-4 py-6 sm:px-6 max-w-2xl w-full mx-auto">
-      {/* Header */}
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Create Production Run</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Build a custom production batch checklist with ingredients, CCPs and packing log.
+          Build a production batch checklist with ingredients, CCPs, weight checks and packing log.
         </p>
       </div>
 
       {/* Step indicator */}
-      <div className="flex items-center gap-0 mb-8">
+      <div className="flex items-center mb-8">
         {STEPS.map((s, i) => (
           <div key={s.n} className="flex items-center flex-1">
             <div className="flex flex-col items-center flex-1">
               <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
-                step > s.n
-                  ? "bg-brand-dark text-white"
-                  : step === s.n
-                  ? "bg-brand text-brown border-2 border-brand-dark"
-                  : "bg-gray-100 text-gray-400"
+                step > s.n ? "bg-brand-dark text-white"
+                : step === s.n ? "bg-brand text-brown border-2 border-brand-dark"
+                : "bg-gray-100 text-gray-400"
               }`}>
                 {step > s.n ? (
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -331,13 +404,12 @@ export default function ProductionBuilderPage() {
               <span className={`mt-1 text-xs font-medium ${step === s.n ? "text-brown" : "text-gray-400"}`}>{s.label}</span>
             </div>
             {i < STEPS.length - 1 && (
-              <div className={`h-0.5 w-8 mx-1 mb-4 transition-colors ${step > s.n ? "bg-brand-dark" : "bg-gray-200"}`} />
+              <div className={`h-0.5 w-6 mx-0.5 mb-4 transition-colors ${step > s.n ? "bg-brand-dark" : "bg-gray-200"}`} />
             )}
           </div>
         ))}
       </div>
 
-      {/* Step content */}
       <div className="card p-6 space-y-5">
 
         {/* ── Step 1: Product ── */}
@@ -353,7 +425,7 @@ export default function ProductionBuilderPage() {
                 autoFocus
               />
               <p className="text-xs text-gray-400 mt-1">
-                The checklist will be saved as &ldquo;{productName.trim() || "Product name"} — Production Record&rdquo;.
+                Saved as &ldquo;{productName.trim() || "Product name"} — Production Record&rdquo;
               </p>
             </div>
             <div>
@@ -366,6 +438,12 @@ export default function ProductionBuilderPage() {
                 placeholder="Brief instructions shown at the top of the batch form…"
               />
             </div>
+            <Toggle
+              label="Include batch code field"
+              description="Adds a unique batch code field at the top of the form"
+              value={includeBatchCode}
+              onChange={setIncludeBatchCode}
+            />
           </>
         )}
 
@@ -373,7 +451,7 @@ export default function ProductionBuilderPage() {
         {step === 2 && (
           <>
             <p className="text-sm font-semibold text-gray-700">
-              Select the ingredients used in this product and enter a target weight for each.
+              Select ingredients used in this product and enter a target weight.
             </p>
             {loadingIngs ? (
               <p className="text-sm text-gray-400">Loading ingredients…</p>
@@ -385,39 +463,28 @@ export default function ProductionBuilderPage() {
             ) : (
               <div className="space-y-2">
                 {allIngredients.map((ing) => {
-                  const isSelected = !!selected[ing.id];
+                  const isSel = !!selected[ing.id];
                   return (
                     <div
                       key={ing.id}
-                      className={`rounded-xl border p-3 transition cursor-pointer ${
-                        isSelected ? "border-brand/50 bg-brand/5" : "border-gray-200 bg-white hover:border-gray-300"
-                      }`}
+                      className={`rounded-xl border p-3 transition ${isSel ? "border-brand/50 bg-brand/5" : "border-gray-200 bg-white hover:border-gray-300"}`}
                     >
                       <div className="flex items-center gap-3">
-                        {/* Checkbox toggle */}
                         <button
                           type="button"
                           onClick={() => toggleIngredient(ing)}
-                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition ${
-                            isSelected ? "border-brand-dark bg-brand-dark" : "border-gray-300"
-                          }`}
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition ${isSel ? "border-brand-dark bg-brand-dark" : "border-gray-300"}`}
                         >
-                          {isSelected && (
+                          {isSel && (
                             <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none">
                               <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                           )}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleIngredient(ing)}
-                          className="flex-1 text-left text-sm font-medium text-gray-900"
-                        >
+                        <button type="button" onClick={() => toggleIngredient(ing)} className="flex-1 text-left text-sm font-medium text-gray-900">
                           {ing.name}
                         </button>
-
-                        {/* Target weight input */}
-                        {isSelected && ing.unit === "g" && (
+                        {isSel && ing.unit === "g" && (
                           <div className="flex items-center gap-1.5 shrink-0">
                             <input
                               type="number"
@@ -432,8 +499,8 @@ export default function ProductionBuilderPage() {
                             <span className="text-xs text-gray-400">g</span>
                           </div>
                         )}
-                        {isSelected && ing.unit === "units" && (
-                          <span className="text-xs text-gray-400 shrink-0">units (no weight target)</span>
+                        {isSel && ing.unit === "units" && (
+                          <span className="text-xs text-gray-400 shrink-0">units</span>
                         )}
                       </div>
                     </div>
@@ -441,116 +508,145 @@ export default function ProductionBuilderPage() {
                 })}
               </div>
             )}
-            <p className="text-xs text-gray-400">
-              {Object.keys(selected).length} ingredient{Object.keys(selected).length !== 1 ? "s" : ""} selected
-            </p>
+            <p className="text-xs text-gray-400">{Object.keys(selected).length} ingredient{Object.keys(selected).length !== 1 ? "s" : ""} selected</p>
           </>
         )}
 
-        {/* ── Step 3: CCPs ── */}
+        {/* ── Step 3: Control Points ── */}
         {step === 3 && (
-          <>
-            <p className="text-sm font-semibold text-gray-700">
-              Add your critical control points (CCPs). These appear as questions on the batch form.
-            </p>
-            <div className="space-y-3">
-              {ccps.map((ccp, idx) => (
-                <div key={idx} className="rounded-xl border border-gray-200 p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-400 w-16 shrink-0">CCP {idx + 1}</span>
-                    <select
-                      value={ccp.type}
-                      onChange={(e) => updateCCP(idx, "type", e.target.value)}
-                      className="input py-1.5 text-sm flex-shrink-0 w-32"
-                    >
-                      <option value="number">Number</option>
-                      <option value="text">Text</option>
-                      <option value="checkbox">Checkbox</option>
-                    </select>
+          <div className="space-y-6">
+            {/* CCPs */}
+            <ControlPointSection
+              title="Critical Control Points (CCPs)"
+              description="Measurements that must be within safe limits — e.g. cooking temperature, hot fill temperature."
+              items={ccps}
+              onAdd={() => setCcps((c) => [...c, emptyCP()])}
+              onRemove={(i) => removeCP(ccps, setCcps, i)}
+              onUpdate={(i, f, v) => updateCP(ccps, setCcps, i, f, v)}
+            />
+
+            {/* CPs */}
+            <ControlPointSection
+              title="Control Points (CPs)"
+              description="Important quality checks — e.g. pH, allergen check, metal detection."
+              items={cps}
+              onAdd={() => setCps((c) => [...c, emptyCP()])}
+              onRemove={(i) => removeCP(cps, setCps, i)}
+              onUpdate={(i, f, v) => updateCP(cps, setCps, i, f, v)}
+              optional
+            />
+
+            {/* Corrective action */}
+            <div className="border-t border-gray-100 pt-4">
+              <Toggle
+                label="Include corrective action field"
+                description="Adds a free-text field after CCPs/CPs for recording any corrective actions taken"
+                value={includeCorrectiveAction}
+                onChange={setIncludeCorrectiveAction}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 4: Quality ── */}
+        {step === 4 && (
+          <div className="space-y-6">
+            {/* Weight checks */}
+            <div>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Weight checks</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Adds tare weight samples (5×) and finished product weight checks (start / middle / end of run, 3× each)
+                  </p>
+                </div>
+                <ToggleSwitch value={includeWeightChecks} onChange={setIncludeWeightChecks} />
+              </div>
+            </div>
+
+            {/* Inspection checks */}
+            <div className="border-t border-gray-100 pt-4">
+              <p className="text-sm font-semibold text-gray-800 mb-1">Inspection checks</p>
+              <p className="text-xs text-gray-500 mb-3">Toggle which inspection questions to include at the end of the form.</p>
+              <div className="space-y-2">
+                {INSPECTION_PRESETS.map((preset) => (
+                  <div key={preset.id} className="flex items-center justify-between py-1.5 px-3 rounded-lg border border-gray-100 bg-gray-50">
+                    <span className="text-sm text-gray-700 flex-1 pr-4">{preset.item.label}</span>
+                    <ToggleSwitch
+                      value={!!inspectionToggles[preset.id]}
+                      onChange={(v) => setInspectionToggles((t) => ({ ...t, [preset.id]: v }))}
+                    />
+                  </div>
+                ))}
+                {customInspections.map((item, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      className="input flex-1 text-sm"
+                      value={item.label}
+                      onChange={(e) => setCustomInspections((ci) => ci.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                      placeholder="Custom inspection label…"
+                    />
                     <button
                       type="button"
-                      onClick={() => removeCCP(idx)}
-                      className="ml-auto text-gray-300 hover:text-red-500 transition p-1"
-                      title="Remove"
+                      onClick={() => setCustomInspections((ci) => ci.filter((_, j) => j !== i))}
+                      className="text-gray-300 hover:text-red-500 p-1"
                     >
                       <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9a1 1 0 001 1h6a1 1 0 001-1l1-9"/>
                       </svg>
                     </button>
                   </div>
-                  <input
-                    className="input text-sm"
-                    value={ccp.label}
-                    onChange={(e) => updateCCP(idx, "label", e.target.value)}
-                    placeholder={
-                      ccp.type === "number" ? "e.g. Oil temperature (°C)"
-                      : ccp.type === "checkbox" ? "e.g. Allergen check completed"
-                      : "e.g. CCP label"
-                    }
-                  />
-                </div>
-              ))}
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setCustomInspections((ci) => [...ci, { label: "", hint: "", type: "checkbox", options: null, required: true }])}
+                  className="w-full rounded-xl border-2 border-dashed border-gray-200 py-2 text-sm text-gray-500 hover:border-brand hover:text-brand transition"
+                >
+                  + Add custom inspection
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={addCCP}
-              className="w-full rounded-xl border-2 border-dashed border-gray-200 py-2 text-sm text-gray-500 hover:border-brand hover:text-brand transition"
-            >
-              + Add CCP
-            </button>
-            <p className="text-xs text-gray-400">
-              You can also skip CCPs for now and add them later via the checklist editor.
-            </p>
-          </>
+          </div>
         )}
 
-        {/* ── Step 4: Packaging ── */}
-        {step === 4 && (
-          <>
+        {/* ── Step 5: Packaging ── */}
+        {step === 5 && (
+          <div className="space-y-5">
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-3">Packaging terminology</p>
+              <p className="text-sm font-semibold text-gray-700 mb-3">Packaging labels</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="label">Container / unit name</label>
-                  <input
-                    className="input"
-                    value={unitLabel}
-                    onChange={(e) => setUnitLabel(e.target.value)}
-                    placeholder="e.g. jar, bottle, tub"
-                  />
+                  <label className="label">Container / unit <span className="text-red-500">*</span></label>
+                  <input className="input" value={unitLabel} onChange={(e) => setUnitLabel(e.target.value)} placeholder="jar, bottle, tub…" />
                 </div>
                 <div>
-                  <label className="label">Closure / seal name</label>
-                  <input
-                    className="input"
-                    value={closureLabel}
-                    onChange={(e) => setClosureLabel(e.target.value)}
-                    placeholder="e.g. lid, seal, cap"
-                  />
+                  <label className="label">Closure / seal <span className="text-red-500">*</span></label>
+                  <input className="input" value={closureLabel} onChange={(e) => setClosureLabel(e.target.value)} placeholder="lid, seal, cap…" />
                 </div>
               </div>
               <p className="text-xs text-gray-400 mt-2">
-                The packing log will use these labels (e.g. &ldquo;No. of {unitLabel || "jars"}&rdquo;, &ldquo;{closureLabel || "lid"} batch no.&rdquo;).
+                Used throughout the form — e.g. &ldquo;No. of {simplePlural(unitLabel || "jars")}&rdquo;, &ldquo;{closureLabel || "Lid"} batch no.&rdquo;
               </p>
             </div>
 
+            <div>
+              <label className="label">Packing log guidance <span className="text-gray-400 font-normal">(optional)</span></label>
+              <input
+                className="input"
+                value={packingLogHint}
+                onChange={(e) => setPackingLogHint(e.target.value)}
+                placeholder={`Record each run with pack weight, ${simplePlural(unitLabel || "jar")} count, batch numbers and packer initials`}
+              />
+              <p className="text-xs text-gray-400 mt-1">Shown as a sub-heading under the packing log on the form.</p>
+            </div>
+
             <div className="border-t border-gray-100 pt-4 space-y-3">
-              <p className="text-sm font-semibold text-gray-700">Completion fields</p>
-
-              <div className="flex items-center justify-between py-1">
-                <div>
-                  <p className="text-sm text-gray-800">Total units produced</p>
-                  <p className="text-xs text-gray-400">A number field at the end of the form</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIncludeTotalUnits((v) => !v)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${includeTotalUnits ? "bg-brand-dark" : "bg-gray-300"}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${includeTotalUnits ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
-              </div>
-
+              <Toggle
+                label="Total units produced"
+                description="Adds a number field after the packing log"
+                value={includeTotalUnits}
+                onChange={setIncludeTotalUnits}
+              />
               <div>
                 <label className="label">Sign-off type</label>
                 <div className="flex gap-2">
@@ -560,9 +656,7 @@ export default function ProductionBuilderPage() {
                       type="button"
                       onClick={() => setSignOffType(t)}
                       className={`flex-1 py-2 px-3 rounded-xl border text-sm font-medium transition ${
-                        signOffType === t
-                          ? "border-brand-dark bg-brand/10 text-brown"
-                          : "border-gray-200 text-gray-500 hover:border-gray-300"
+                        signOffType === t ? "border-brand-dark bg-brand/10 text-brown" : "border-gray-200 text-gray-500 hover:border-gray-300"
                       }`}
                     >
                       {t === "signature" ? "Signature" : "Checkbox"}
@@ -572,42 +666,36 @@ export default function ProductionBuilderPage() {
               </div>
             </div>
 
-            {/* Preview summary */}
-            <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 space-y-1">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Summary</p>
-              <SummaryRow label="Product" value={`${productName.trim()} — Production Record`} />
-              <SummaryRow label="Ingredients" value={`${Object.keys(selected).length} selected`} />
-              <SummaryRow label="CCPs" value={`${ccps.filter((c) => c.label.trim()).length}`} />
-              <SummaryRow label="Packing unit" value={unitLabel || "jar"} />
-              <SummaryRow label="Closure" value={closureLabel || "lid"} />
-              <SummaryRow label="Total units field" value={includeTotalUnits ? "Yes" : "No"} />
-              <SummaryRow label="Sign-off" value={signOffType === "signature" ? "Signature" : "Checkbox"} />
+            {/* Summary */}
+            <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 space-y-1.5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Form will include</p>
+              {includeBatchCode && <SummaryRow label="Batch code" />}
+              <SummaryRow label="Operator name + production date" />
+              <SummaryRow label={`${Object.keys(selected).length} ingredient${Object.keys(selected).length !== 1 ? "s" : ""}`} />
+              {includeWeightChecks && <SummaryRow label="Weight checks (tare + finished product)" />}
+              {ccps.filter(c => c.label.trim()).length > 0 && <SummaryRow label={`${ccps.filter(c => c.label.trim()).length} CCP${ccps.filter(c => c.label.trim()).length !== 1 ? "s" : ""}`} />}
+              {cps.filter(c => c.label.trim()).length > 0 && <SummaryRow label={`${cps.filter(c => c.label.trim()).length} CP${cps.filter(c => c.label.trim()).length !== 1 ? "s" : ""}`} />}
+              {includeCorrectiveAction && <SummaryRow label="Corrective action field" />}
+              {INSPECTION_PRESETS.filter(p => inspectionToggles[p.id]).length + customInspections.filter(c => c.label.trim()).length > 0 && (
+                <SummaryRow label={`${INSPECTION_PRESETS.filter(p => inspectionToggles[p.id]).length + customInspections.filter(c => c.label.trim()).length} inspection checks`} />
+              )}
+              <SummaryRow label={`Packing log (${simplePlural(unitLabel || "jar")} + ${simplePlural(closureLabel || "lid")})`} />
+              {includeTotalUnits && <SummaryRow label="Total units produced" />}
+              <SummaryRow label={`Sign-off (${signOffType})`} />
             </div>
-          </>
+          </div>
         )}
 
-        {/* Error */}
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         {/* Navigation */}
         <div className="flex gap-3 pt-2">
-          {step > 1 && (
-            <button type="button" onClick={back} className="btn-ghost">
-              ← Back
-            </button>
-          )}
+          {step > 1 && <button type="button" onClick={back} className="btn-ghost">← Back</button>}
           <div className="flex-1" />
-          {step < 4 ? (
-            <button type="button" onClick={next} className="btn-primary">
-              Next →
-            </button>
+          {step < STEPS.length ? (
+            <button type="button" onClick={next} className="btn-primary">Next →</button>
           ) : (
-            <button
-              type="button"
-              onClick={create}
-              disabled={saving}
-              className="btn-primary"
-            >
+            <button type="button" onClick={create} disabled={saving} className="btn-primary">
               {saving ? "Creating…" : "Create production run →"}
             </button>
           )}
@@ -617,11 +705,108 @@ export default function ProductionBuilderPage() {
   );
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function ToggleSwitch({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-gray-500">{label}</span>
-      <span className="font-medium text-gray-800">{value}</span>
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${value ? "bg-brand-dark" : "bg-gray-300"}`}
+    >
+      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${value ? "translate-x-6" : "translate-x-1"}`} />
+    </button>
+  );
+}
+
+function Toggle({ label, description, value, onChange }: { label: string; description: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <p className="text-sm font-medium text-gray-800">{label}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+      </div>
+      <ToggleSwitch value={value} onChange={onChange} />
+    </div>
+  );
+}
+
+function ControlPointSection({
+  title, description, items, onAdd, onRemove, onUpdate, optional,
+}: {
+  title: string;
+  description: string;
+  items: ControlPoint[];
+  onAdd: () => void;
+  onRemove: (i: number) => void;
+  onUpdate: (i: number, field: keyof ControlPoint, value: string) => void;
+  optional?: boolean;
+}) {
+  return (
+    <div>
+      <p className="text-sm font-semibold text-gray-800">{title}</p>
+      <p className="text-xs text-gray-500 mt-0.5 mb-3">{description}</p>
+      <div className="space-y-3">
+        {items.map((item, idx) => (
+          <div key={idx} className="rounded-xl border border-gray-200 p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-gray-400 shrink-0 w-8">{idx + 1}</span>
+              <select
+                value={item.type}
+                onChange={(e) => onUpdate(idx, "type", e.target.value)}
+                className="input py-1.5 text-sm w-32 shrink-0"
+              >
+                <option value="number">Number</option>
+                <option value="text">Text</option>
+                <option value="checkbox">Checkbox</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => onRemove(idx)}
+                className="ml-auto text-gray-300 hover:text-red-500 transition p-1"
+                title="Remove"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9a1 1 0 001 1h6a1 1 0 001-1l1-9"/>
+                </svg>
+              </button>
+            </div>
+            <input
+              className="input text-sm"
+              value={item.label}
+              onChange={(e) => onUpdate(idx, "label", e.target.value)}
+              placeholder={item.type === "number" ? "e.g. Oil temperature (°C)" : item.type === "checkbox" ? "e.g. Allergen check completed" : "Label"}
+            />
+            <input
+              className="input text-sm"
+              value={item.hint}
+              onChange={(e) => onUpdate(idx, "hint", e.target.value)}
+              placeholder="Guidance text shown under the question (optional) — e.g. Must be ≥ 80°C for 5 seconds"
+            />
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onAdd}
+        className="mt-2 w-full rounded-xl border-2 border-dashed border-gray-200 py-2 text-sm text-gray-500 hover:border-brand hover:text-brand transition"
+      >
+        + Add {optional ? "CP" : items.length === 0 ? "CCP" : "another CCP"}
+      </button>
+      {optional && items.length === 0 && (
+        <p className="text-xs text-gray-400 mt-1 text-center">Optional — skip if no control points needed</p>
+      )}
+    </div>
+  );
+}
+
+function SummaryRow({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-sm text-gray-700">
+      <svg className="h-3.5 w-3.5 text-brand-dark shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+      </svg>
+      {label}
     </div>
   );
 }
