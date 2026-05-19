@@ -75,22 +75,21 @@ export default function MarketingPage() {
       {/* Flash */}
       <div className={`${styles.popFlash} ${showFlash ? styles.popFlashActive : ""}`} />
 
-      {/* Popcorn rain — uses the actual popcorn image */}
+      {/* Popcorn rain — emoji pieces, no image load required */}
       {rainPieces.map((p) => (
-        <img
+        <div
           key={p.id}
-          src="/popcorn.png"
-          alt=""
           className={styles.popcornPiece}
           style={{
             left: `${p.left}vw`,
-            width: p.size,
-            height: p.size,
-            objectFit: "contain",
+            fontSize: p.size,
+            lineHeight: 1,
             animationDuration: `${p.duration}s`,
             animationDelay: `${p.delay}s`,
           }}
-        />
+        >
+          🍿
+        </div>
       ))}
 
       {/* Nav */}
@@ -117,7 +116,19 @@ export default function MarketingPage() {
         {/* Kernel / Popcorn image */}
         <div className={styles.kernelWrap} onClick={triggerPop}>
           {popState === "popped" ? (
-            <img src="/popcorn.png" alt="Popcorn" className={styles.popcornReveal} />
+            <img
+              src="/popcorn.png"
+              alt="Popcorn"
+              className={styles.popcornReveal}
+              onError={(e) => {
+                const el = e.currentTarget;
+                el.style.display = "none";
+                const span = document.createElement("span");
+                span.textContent = "🍿";
+                span.style.cssText = "font-size:180px;line-height:1;display:block;animation:popcornBurst 0.7s cubic-bezier(0.34,1.56,0.64,1) forwards";
+                el.parentNode?.appendChild(span);
+              }}
+            />
           ) : (
             <img
               src="/kernel.png"

@@ -162,6 +162,7 @@
 .popcornPiece {
   position: fixed; top: -80px; z-index: 998; pointer-events: none;
   animation: fall linear forwards;
+  user-select: none;
 }
 @keyframes fall {
   0%   { transform: translateY(0) rotate(0deg) scale(0.6); opacity: 1; }
