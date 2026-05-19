@@ -35,12 +35,12 @@ function LoginForm() {
 
     // Trigger pop animation, then navigate
     setPopState("popping");
-    setTimeout(() => setPopState("popped"), 550);
+    setTimeout(() => setPopState("popped"), 280);
     setTimeout(() => {
       const dest = from && from !== "/login" ? from : "/home";
       router.push(dest);
       router.refresh();
-    }, 1400);
+    }, 1100);
   }
 
   return (
@@ -59,19 +59,16 @@ function LoginForm() {
             src="/kernel.png"
             alt="Kernel"
             className="w-72 h-72 object-contain drop-shadow-2xl"
-            style={popState === "popping" ? { animation: "kernelPop 0.6s cubic-bezier(0.36,0.07,0.19,0.97) forwards" } : {}}
+            style={popState === "popping" ? { animation: "kernelPop 0.3s ease-in forwards" } : {}}
           />
         )}
       </div>
 
       <style>{`
         @keyframes kernelPop {
-          0%   { transform: scale(1) rotate(0deg); opacity: 1; }
-          20%  { transform: scale(1.1) rotate(-8deg); opacity: 1; }
-          40%  { transform: scale(1.15) rotate(8deg); opacity: 1; }
-          65%  { transform: scale(1.25) rotate(-4deg); opacity: 1; }
-          85%  { transform: scale(0.4) rotate(15deg); opacity: 0; }
-          100% { transform: scale(0); opacity: 0; }
+          0%   { transform: scale(1);    opacity: 1; }
+          40%  { transform: scale(1.18); opacity: 1; }
+          100% { transform: scale(0);    opacity: 0; }
         }
         @keyframes popcornBurst {
           0%   { transform: scale(0) rotate(-20deg); opacity: 0; }

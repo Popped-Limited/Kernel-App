@@ -44,8 +44,8 @@ export default function MarketingPage() {
     if (popState !== "idle") return;
     setPopState("popping");
     setShowFlash(true);
-    setTimeout(() => setShowFlash(false), 180);
-    setTimeout(() => setPopState("popped"), 580);
+    setTimeout(() => setShowFlash(false), 150);
+    setTimeout(() => setPopState("popped"), 280);
 
     const pieces: RainPiece[] = Array.from({ length: 24 }, (_, i) => ({
       id: i, left: Math.random() * 100,
