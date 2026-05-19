@@ -158,15 +158,11 @@
 }
 .popFlashActive { opacity: 1; }
 
-/* POPCORN RAIN — background-image so browser loads once and reuses from cache */
+/* POPCORN RAIN */
 .popcornPiece {
   position: fixed; top: -80px; z-index: 998; pointer-events: none;
   animation: fall linear forwards;
   user-select: none;
-  background-image: url('/popcorn.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
 }
 @keyframes fall {
   0%   { transform: translateY(0) rotate(0deg) scale(0.6); opacity: 1; }
@@ -230,7 +226,6 @@
   transition: border-color 0.2s, transform 0.2s;
 }
 .featureCard:hover { border-color: rgba(200,168,75,0.5); transform: translateY(-2px); }
-.featureCardSpan2 { grid-column: span 2; }
 .featureIcon { font-size: 32px; margin-bottom: 16px; }
 .featureTag {
   font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
@@ -510,17 +505,6 @@
 .transformCards { display: block; }
 .transformCard { display: block; }
 
-/* SWIPE HINT — hidden on desktop, shown on mobile */
-.swipeHint {
-  display: none;
-  text-align: center;
-  font-size: 12px;
-  color: #C89A18;
-  letter-spacing: 0.06em;
-  margin-top: 12px;
-}
-.swipeHintPricing { margin-top: 16px; }
-
 /* SCREENSHOT scroll wrapper */
 .screenshotScroll { display: contents; }
 
@@ -578,11 +562,11 @@
   .transformSection > div:first-child {
     padding: 0 24px;
   }
-  .swipeHint { display: block; }
   .transformCards {
     display: flex;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
+    scroll-padding-left: 24px;
     -webkit-overflow-scrolling: touch;
     gap: 12px;
     scrollbar-width: none;
@@ -604,6 +588,7 @@
     display: flex !important;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
+    scroll-padding-left: 24px;
     -webkit-overflow-scrolling: touch;
     gap: 12px;
     scrollbar-width: none;
@@ -627,6 +612,7 @@
     display: flex !important;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
+    scroll-padding-left: 24px;
     -webkit-overflow-scrolling: touch;
     gap: 12px;
     scrollbar-width: none;
@@ -641,25 +627,11 @@
     flex: 0 0 82vw !important;
     max-width: 360px;
   }
-  .swipeHintPricing { display: block; }
 
-  /* Dashboard screenshot — horizontal scroll so it's legible */
+  /* Showcase / founder section */
   .showcase { padding: 64px 0; }
   .showcaseInner { padding: 0; }
   .founderSection { padding: 0 24px; }
-  .screenshotWrap { margin-top: 48px; border-radius: 0; border-left: none; border-right: none; }
-  .screenshotScroll {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .screenshotScroll::-webkit-scrollbar { display: none; }
-  .screenshotImg {
-    width: 960px;
-    max-width: none !important;
-    display: block;
-  }
 
   /* Footer */
   .footer { flex-direction: column; gap: 24px; text-align: center; padding: 40px 24px; }

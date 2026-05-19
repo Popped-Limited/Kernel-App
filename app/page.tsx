@@ -33,7 +33,7 @@ export default function MarketingPage() {
     return () => obs.disconnect();
   }, []);
 
-  // Preload popcorn image so it's cached before the pop fires
+  // Preload popcorn image before the pop fires
   useEffect(() => {
     const img = new window.Image();
     img.src = "/popcorn.png";
@@ -54,7 +54,8 @@ export default function MarketingPage() {
     setTimeout(() => setPopState("popped"), 280);
 
     const pieces: RainPiece[] = Array.from({ length: 24 }, (_, i) => ({
-      id: i, left: Math.random() * 100,
+      id: i,
+      left: Math.random() * 100,
       size: 40 + Math.random() * 40,
       duration: 1.8 + Math.random() * 1.4,
       delay: i * 0.08,
@@ -81,18 +82,22 @@ export default function MarketingPage() {
       {/* Flash */}
       <div className={`${styles.popFlash} ${showFlash ? styles.popFlashActive : ""}`} />
 
-      {/* Popcorn rain — CSS background-image so browser loads once and caches */}
+      {/* Popcorn rain — img with silent onError so broken icons never show */}
       {rainPieces.map((p) => (
-        <div
+        <img
           key={p.id}
+          src="/popcorn.png"
+          alt=""
           className={styles.popcornPiece}
           style={{
             left: `${p.left}vw`,
             width: p.size,
             height: p.size,
+            objectFit: "contain",
             animationDuration: `${p.duration}s`,
             animationDelay: `${p.delay}s`,
           }}
+          onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
         />
       ))}
 
@@ -118,7 +123,20 @@ export default function MarketingPage() {
       <section className={styles.hero}>
         <div className={styles.kernelWrap} onClick={triggerPop}>
           {popState === "popped" ? (
-            <img src="/popcorn.png" alt="Popcorn" className={styles.popcornReveal} />
+            <img
+              src="/popcorn.png"
+              alt="Popcorn"
+              className={styles.popcornReveal}
+              onError={(e) => {
+                // If image fails, replace with emoji
+                const el = e.currentTarget;
+                el.style.display = "none";
+                const span = document.createElement("span");
+                span.textContent = "🍿";
+                span.style.cssText = "font-size:160px;line-height:1;display:flex;align-items:center;justify-content:center;width:100%;height:100%;animation:popcornBurst 0.7s cubic-bezier(0.34,1.56,0.64,1) forwards";
+                el.parentNode?.appendChild(span);
+              }}
+            />
           ) : (
             <img
               src="/kernel.png"
@@ -164,7 +182,6 @@ export default function MarketingPage() {
           </div>
         </div>
         <div className={`${styles.fadeIn} ${styles.fadeDelay}`}>
-          {/* Swipeable on mobile */}
           <div className={styles.transformCards}>
             <div className={styles.transformCard}>
               <div className={`${styles.stateCard} ${styles.stateBefore}`}>
@@ -192,7 +209,6 @@ export default function MarketingPage() {
               </div>
             </div>
           </div>
-          <p className={styles.swipeHint}>swipe to compare →</p>
         </div>
       </section>
 
@@ -221,11 +237,17 @@ export default function MarketingPage() {
             <div className={styles.featureTitle}>Full forward & backward trace</div>
             <div className={styles.featureDesc}>Search any ingredient — see every batch it went into. Search any batch — see exactly where it was dispatched. Recall-ready in seconds.</div>
           </div>
-          <div className={`${styles.featureCard} ${styles.featureCardSpan2}`}>
+          <div className={styles.featureCard}>
             <div className={styles.featureIcon}>🏭</div>
             <span className={styles.featureTag}>Production</span>
-            <div className={styles.featureTitle}>Digital production records & inventory</div>
-            <div className={styles.featureDesc}>Log every production run, assign batch codes, track every ingredient used. Inventory deducts automatically when you make a batch. Assign costs to ingredients and Kernel calculates your live stock value — ready for end-of-month bookkeeping without a single spreadsheet.</div>
+            <div className={styles.featureTitle}>Digital production records</div>
+            <div className={styles.featureDesc}>Log every production run, assign batch codes, track every ingredient used. HACCP-compliant batch records at the touch of a button.</div>
+          </div>
+          <div className={styles.featureCard}>
+            <div className={styles.featureIcon}>💰</div>
+            <span className={styles.featureTag}>Inventory</span>
+            <div className={styles.featureTitle}>Inventory management</div>
+            <div className={styles.featureDesc}>Stock deducts automatically when you run a batch. Assign costs to ingredients and see your live stock value — ready for bookkeeping without spreadsheets.</div>
           </div>
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>🔔</div>
@@ -234,10 +256,9 @@ export default function MarketingPage() {
             <div className={styles.featureDesc}>Get an email the moment a check is overdue. Nothing falls through the cracks on a busy production day.</div>
           </div>
         </div>
-        <p className={styles.swipeHint}>swipe to see all features →</p>
       </section>
 
-      {/* Founder story */}
+      {/* Founder story — no screenshot */}
       <section className={styles.showcase}>
         <div className={styles.showcaseInner}>
           <div className={`${styles.founderSection} ${styles.fadeIn}`}>
@@ -261,18 +282,6 @@ export default function MarketingPage() {
               <p className={styles.founderQuote}>
                 &ldquo;We built the tool we always needed. Now it&apos;s yours.&rdquo;
               </p>
-            </div>
-          </div>
-
-          {/* Dashboard screenshot — scrollable on mobile */}
-          <div className={`${styles.screenshotWrap} ${styles.fadeIn}`}>
-            <div className={styles.screenshotScroll}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/dashboard-screenshot.png"
-                alt="Kernel dashboard"
-                className={styles.screenshotImg}
-              />
             </div>
           </div>
         </div>
@@ -305,7 +314,6 @@ export default function MarketingPage() {
         </div>
 
         <div className={`${styles.pricingGrid} ${styles.fadeIn}`}>
-          {/* Solo */}
           <div className={styles.pricingCard}>
             <div className={styles.planHeader}>
               <span className={styles.planBadge}>Solo</span>
@@ -329,7 +337,6 @@ export default function MarketingPage() {
             <Link href="/login" className={styles.planBtn}>Get started</Link>
           </div>
 
-          {/* Team — featured */}
           <div className={`${styles.pricingCard} ${styles.pricingCardFeatured}`}>
             <div className={styles.planHeader}>
               <span className={styles.planBadge}><span className={styles.planPopularDot} /> Team</span>
@@ -356,7 +363,6 @@ export default function MarketingPage() {
             <Link href="/login" className={styles.planBtn}>Get started</Link>
           </div>
         </div>
-        <p className={`${styles.swipeHint} ${styles.swipeHintPricing}`}>swipe to compare plans →</p>
 
         <p className={styles.guarantee}>
           🔒 &nbsp;No long contracts. No setup fees. Cancel any time.
