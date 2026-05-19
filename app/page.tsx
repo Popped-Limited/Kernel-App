@@ -170,14 +170,14 @@ export default function MarketingPage() {
           </h2>
           <div className={styles.transformBody}>
             <p>
-              Packed with potential. A great product, real craft, genuine passion. But stuck
-              between two bad options — the chaos of spreadsheets and paper records, or enterprise
-              software at £300–500 a month that was built for factories with 50 staff, not founders.
+              Packed with potential. A great product, real craft, genuine passion. You know your
+              business — every recipe, every process, every standard you hold yourself to.
+              You just need the infrastructure to match.
             </p>
             <p>
-              A kernel has everything it needs to become something incredible. It just needs
-              the right conditions. That&apos;s what Kernel gives you — the infrastructure,
-              the records, the compliance backbone — so you can pop.
+              That&apos;s what Kernel gives you — the compliance backbone, the production records,
+              the traceability — so you can stop carrying the admin weight and focus on what
+              you&apos;re actually here to make. So you can pop.
             </p>
           </div>
         </div>
@@ -270,15 +270,15 @@ export default function MarketingPage() {
             </div>
             <div className={styles.founderRight}>
               <p className={styles.founderBody}>
-                We know what you need because we are you. The pre-audit panic. The paper checklists
-                that disappear. The spreadsheet you&apos;re still updating at 10pm instead of working
-                on your next product.
+                We know what you need because we are you. The pre-audit panic. The endless folders
+                of paper records you&apos;re expected to maintain. The spreadsheet you&apos;re still
+                updating at 10pm instead of working on your next product.
               </p>
               <p className={styles.founderBody}>
-                Kernel started as an internal tool for Yep Kitchen — a small food brand that was
-                paying over £400 a month for compliance software designed for factories. We got
-                tired of waiting for something that actually fit, so we built it ourselves. Every
-                feature exists because a real food business needed it.
+                Kernel started as an internal tool for a growing food brand — paying £400 a month
+                for compliance software that wasn&apos;t made for us. We got tired of waiting for
+                something that actually fit, so we built it ourselves. Every feature exists because
+                a real food business needed it.
               </p>
               <p className={styles.founderQuote}>
                 &ldquo;We built the tool we always needed. Now it&apos;s yours.&rdquo;
@@ -296,7 +296,7 @@ export default function MarketingPage() {
             One price.<br /><em>Everything included.</em>
           </h2>
           <p className={styles.pricingSub}>
-            Small food businesses are stuck between two bad choices.
+            Growing food businesses are stuck between two bad choices.
             We built the third option.
           </p>
         </div>
@@ -309,10 +309,10 @@ export default function MarketingPage() {
             <div className={styles.marketColPrice}>£0</div>
             <p className={styles.marketColNote}>per month</p>
             <ul className={styles.marketColList}>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Records go missing before audits</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>No real traceability system</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>No digital sign-offs</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>One inspection away from crisis</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Audit prep takes days, not minutes</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Traceability requires manual searching</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>More products means more admin</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Built on effort, not infrastructure</li>
             </ul>
           </div>
           <div className={styles.marketCol}>
@@ -321,10 +321,10 @@ export default function MarketingPage() {
             <div className={`${styles.marketColPrice} ${styles.marketColPriceCrossed}`}>£300–500</div>
             <p className={styles.marketColNote}>per month</p>
             <ul className={styles.marketColList}>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Fully compliant</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Built for 50+ staff factories</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Takes months to set up</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Wasn&apos;t built for you</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Compliance covered</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Built for enterprises, not for you</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Expensive — and still needs add-ons</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Multiple subscriptions to cover everything</li>
             </ul>
           </div>
           <div className={`${styles.marketCol} ${styles.marketColKernel}`}>
@@ -334,8 +334,8 @@ export default function MarketingPage() {
             <p className={styles.marketColNote}>per month</p>
             <ul className={styles.marketColList}>
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Fully compliant</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Built for small producers</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Set up in a day</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Built for growing food businesses</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Everything in one place, one login</li>
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Built by one of you</li>
             </ul>
           </div>
