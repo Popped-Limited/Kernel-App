@@ -218,9 +218,9 @@ export default function StaffPage() {
                 </div>
               </section>
 
-              {/* Level 2 cert */}
+              {/* Training cert */}
               <section>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Level 2 Food Safety Certificate</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Training Certificates</p>
                 <div className="space-y-3">
                   {editing.food_safety_cert_path ? (
                     <div className="flex items-center gap-3 rounded-lg bg-brand/10 border border-brand/30 px-4 py-3">
