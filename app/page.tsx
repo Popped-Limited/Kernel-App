@@ -33,6 +33,12 @@ export default function MarketingPage() {
     return () => obs.disconnect();
   }, []);
 
+  // Preload popcorn image so it's cached before the pop fires
+  useEffect(() => {
+    const img = new window.Image();
+    img.src = "/popcorn.png";
+  }, []);
+
   // Auto-pop after 3 seconds
   useEffect(() => {
     const t = setTimeout(() => triggerPop(), 3000);
@@ -51,7 +57,7 @@ export default function MarketingPage() {
       id: i, left: Math.random() * 100,
       size: 40 + Math.random() * 40,
       duration: 1.8 + Math.random() * 1.4,
-      delay: i * 0.1,
+      delay: i * 0.08,
     }));
     setRainPieces(pieces);
     setTimeout(() => setRainPieces([]), 5000);
@@ -75,21 +81,19 @@ export default function MarketingPage() {
       {/* Flash */}
       <div className={`${styles.popFlash} ${showFlash ? styles.popFlashActive : ""}`} />
 
-      {/* Popcorn rain — emoji pieces, no image load required */}
+      {/* Popcorn rain — CSS background-image so browser loads once and caches */}
       {rainPieces.map((p) => (
         <div
           key={p.id}
           className={styles.popcornPiece}
           style={{
             left: `${p.left}vw`,
-            fontSize: p.size,
-            lineHeight: 1,
+            width: p.size,
+            height: p.size,
             animationDuration: `${p.duration}s`,
             animationDelay: `${p.delay}s`,
           }}
-        >
-          🍿
-        </div>
+        />
       ))}
 
       {/* Nav */}
@@ -107,28 +111,14 @@ export default function MarketingPage() {
           <a href="#pricing">Pricing</a>
           <Link href="/login" className={styles.navCta}>Log in</Link>
         </div>
-        {/* Mobile-only login button — always visible */}
         <Link href="/login" className={`${styles.navCta} ${styles.navCtaMobile}`}>Log in</Link>
       </nav>
 
       {/* Hero */}
       <section className={styles.hero}>
-        {/* Kernel / Popcorn image */}
         <div className={styles.kernelWrap} onClick={triggerPop}>
           {popState === "popped" ? (
-            <img
-              src="/popcorn.png"
-              alt="Popcorn"
-              className={styles.popcornReveal}
-              onError={(e) => {
-                const el = e.currentTarget;
-                el.style.display = "none";
-                const span = document.createElement("span");
-                span.textContent = "🍿";
-                span.style.cssText = "font-size:180px;line-height:1;display:block;animation:popcornBurst 0.7s cubic-bezier(0.34,1.56,0.64,1) forwards";
-                el.parentNode?.appendChild(span);
-              }}
-            />
+            <img src="/popcorn.png" alt="Popcorn" className={styles.popcornReveal} />
           ) : (
             <img
               src="/kernel.png"
@@ -174,27 +164,35 @@ export default function MarketingPage() {
           </div>
         </div>
         <div className={`${styles.fadeIn} ${styles.fadeDelay}`}>
-          <div className={`${styles.stateCard} ${styles.stateBefore}`}>
-            <p className={styles.stateTag}>Before Kernel</p>
-            <ul className={styles.stateItems}>
-              <li>Paper checklists that go missing</li>
-              <li>££££/month across fragmented tools</li>
-              <li>Spreadsheets for stock and costing</li>
-              <li>No traceability until audit day panic</li>
-              <li>Hours lost on admin every week</li>
-            </ul>
+          {/* Swipeable on mobile */}
+          <div className={styles.transformCards}>
+            <div className={styles.transformCard}>
+              <div className={`${styles.stateCard} ${styles.stateBefore}`}>
+                <p className={styles.stateTag}>Before Kernel</p>
+                <ul className={styles.stateItems}>
+                  <li>Paper checklists that go missing</li>
+                  <li>££££/month across fragmented tools</li>
+                  <li>Spreadsheets for stock and costing</li>
+                  <li>No traceability until audit day panic</li>
+                  <li>Hours lost on admin every week</li>
+                </ul>
+              </div>
+            </div>
+            <div className={styles.stateArrow}>↓</div>
+            <div className={styles.transformCard}>
+              <div className={`${styles.stateCard} ${styles.stateAfter}`}>
+                <p className={styles.stateTag}>After Kernel</p>
+                <ul className={styles.stateItems}>
+                  <li>QR codes, digital sign-offs, full audit trail</li>
+                  <li>From £79/month — everything included</li>
+                  <li>Live stock value, auto-deducting inventory</li>
+                  <li>Full traceability with a single search</li>
+                  <li>Focus on making great food</li>
+                </ul>
+              </div>
+            </div>
           </div>
-          <div className={styles.stateArrow}>↓</div>
-          <div className={`${styles.stateCard} ${styles.stateAfter}`}>
-            <p className={styles.stateTag}>After Kernel</p>
-            <ul className={styles.stateItems}>
-              <li>QR codes, digital sign-offs, full audit trail</li>
-              <li>From £79/month — everything included</li>
-              <li>Live stock value, auto-deducting inventory</li>
-              <li>Full traceability with a single search</li>
-              <li>Focus on making great food</li>
-            </ul>
-          </div>
+          <p className={styles.swipeHint}>swipe to compare →</p>
         </div>
       </section>
 
@@ -236,6 +234,7 @@ export default function MarketingPage() {
             <div className={styles.featureDesc}>Get an email the moment a check is overdue. Nothing falls through the cracks on a busy production day.</div>
           </div>
         </div>
+        <p className={styles.swipeHint}>swipe to see all features →</p>
       </section>
 
       {/* Founder story */}
@@ -265,14 +264,16 @@ export default function MarketingPage() {
             </div>
           </div>
 
-          {/* Dashboard screenshot */}
+          {/* Dashboard screenshot — scrollable on mobile */}
           <div className={`${styles.screenshotWrap} ${styles.fadeIn}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/dashboard-screenshot.png"
-              alt="Kernel dashboard"
-              className={styles.screenshotImg}
-            />
+            <div className={styles.screenshotScroll}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/dashboard-screenshot.png"
+                alt="Kernel dashboard"
+                className={styles.screenshotImg}
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -290,7 +291,6 @@ export default function MarketingPage() {
           </p>
         </div>
 
-        {/* Value comparison bar */}
         <div className={`${styles.valueBar} ${styles.fadeIn}`}>
           <div className={styles.valueBarItem}>
             <p className={styles.valueBarLabel}>Fragmented software</p>
@@ -356,6 +356,7 @@ export default function MarketingPage() {
             <Link href="/login" className={styles.planBtn}>Get started</Link>
           </div>
         </div>
+        <p className={`${styles.swipeHint} ${styles.swipeHintPricing}`}>swipe to compare plans →</p>
 
         <p className={styles.guarantee}>
           🔒 &nbsp;No long contracts. No setup fees. Cancel any time.

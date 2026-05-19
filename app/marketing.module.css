@@ -158,11 +158,15 @@
 }
 .popFlashActive { opacity: 1; }
 
-/* POPCORN RAIN */
+/* POPCORN RAIN — background-image so browser loads once and reuses from cache */
 .popcornPiece {
   position: fixed; top: -80px; z-index: 998; pointer-events: none;
   animation: fall linear forwards;
   user-select: none;
+  background-image: url('/popcorn.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 @keyframes fall {
   0%   { transform: translateY(0) rotate(0deg) scale(0.6); opacity: 1; }
@@ -502,6 +506,24 @@
   display: block;
 }
 
+/* TRANSFORM CARDS wrapper (desktop: plain block, mobile: carousel) */
+.transformCards { display: block; }
+.transformCard { display: block; }
+
+/* SWIPE HINT — hidden on desktop, shown on mobile */
+.swipeHint {
+  display: none;
+  text-align: center;
+  font-size: 12px;
+  color: #C89A18;
+  letter-spacing: 0.06em;
+  margin-top: 12px;
+}
+.swipeHintPricing { margin-top: 16px; }
+
+/* SCREENSHOT scroll wrapper */
+.screenshotScroll { display: contents; }
+
 /* FOUNDER SECTION */
 .founderSection {
   display: grid;
@@ -538,18 +560,108 @@
 }
 
 @media (max-width: 900px) {
+  /* Nav */
   .nav { padding: 16px 24px; }
   .navLinks { display: none; }
   .navCtaMobile { display: inline-block; }
+
+  /* Hero */
   .hero { padding: 100px 24px 60px; }
-  .kernelWrap { width: 220px; height: 220px; }
-  .transformSection { grid-template-columns: 1fr; padding: 80px 24px; gap: 48px; }
-  .features { padding-left: 24px; padding-right: 24px; }
-  .featuresGrid { grid-template-columns: 1fr; }
-  .featureCardSpan2 { grid-column: span 1; }
-  .pricing { padding-left: 24px; padding-right: 24px; }
-  .pricingGrid { grid-template-columns: 1fr; }
-  .valueBar { flex-direction: column; gap: 0; }
+  .kernelWrap { width: 180px; height: 180px; }
+
+  /* Transform — text on top, then swipeable Before/After cards */
+  .transformSection {
+    grid-template-columns: 1fr;
+    padding: 64px 0 64px;
+    gap: 32px;
+  }
+  .transformSection > div:first-child {
+    padding: 0 24px;
+  }
+  .swipeHint { display: block; }
+  .transformCards {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 12px;
+    scrollbar-width: none;
+    padding: 0 24px 4px;
+  }
+  .transformCards::-webkit-scrollbar { display: none; }
+  .transformCard {
+    scroll-snap-align: start;
+    flex: 0 0 80vw;
+    max-width: 340px;
+  }
+  .stateArrow { display: none; }
+
+  /* Features — horizontal scroll carousel */
+  .features { padding: 0 0 80px; }
+  .featuresLabel,
+  .featuresHeadline { padding: 0 24px; }
+  .featuresGrid {
+    display: flex !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 12px;
+    scrollbar-width: none;
+    padding: 0 24px 4px;
+    grid-template-columns: unset !important;
+  }
+  .featuresGrid::-webkit-scrollbar { display: none; }
+  .featuresGrid > * {
+    scroll-snap-align: start;
+    flex: 0 0 78vw !important;
+    grid-column: span 1 !important;
+  }
+
+  /* Pricing — horizontal scroll carousel */
+  .pricing { padding: 80px 0 100px; }
+  .pricingTop { padding: 0 24px; }
+  .valueBar { flex-direction: column; gap: 0; padding: 0 24px; }
   .valueBarItem:first-child { border-right: none; border-bottom: 1px solid rgba(200,168,75,0.2); }
+  .guarantee { padding: 0 24px; }
+  .pricingGrid {
+    display: flex !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 12px;
+    scrollbar-width: none;
+    padding: 0 24px 4px;
+    margin-top: 32px;
+    grid-template-columns: unset !important;
+    align-items: unset !important;
+  }
+  .pricingGrid::-webkit-scrollbar { display: none; }
+  .pricingGrid > * {
+    scroll-snap-align: start;
+    flex: 0 0 82vw !important;
+    max-width: 360px;
+  }
+  .swipeHintPricing { display: block; }
+
+  /* Dashboard screenshot — horizontal scroll so it's legible */
+  .showcase { padding: 64px 0; }
+  .showcaseInner { padding: 0; }
+  .founderSection { padding: 0 24px; }
+  .screenshotWrap { margin-top: 48px; border-radius: 0; border-left: none; border-right: none; }
+  .screenshotScroll {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .screenshotScroll::-webkit-scrollbar { display: none; }
+  .screenshotImg {
+    width: 960px;
+    max-width: none !important;
+    display: block;
+  }
+
+  /* Footer */
   .footer { flex-direction: column; gap: 24px; text-align: center; padding: 40px 24px; }
+  .footerLinks { justify-content: center; }
 }
