@@ -10,6 +10,7 @@ const PUBLIC_PREFIXES = [
   "/logo.png",
   "/kernel.png",
   "/kernel.svg",
+  "/popcorn.png",
   "/saq/",
   "/c/",
 ];
