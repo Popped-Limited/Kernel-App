@@ -151,9 +151,8 @@ export default function MarketingPage() {
           Stop being a kernel.<br /><em>Start being popcorn.</em>
         </h1>
         <p className={styles.heroSub}>
-          You&apos;re full of potential — buried under compliance paperwork, spreadsheets, and
-          software that costs a fortune and wasn&apos;t built for you. Kernel handles the
-          infrastructure so you can focus on what you actually make.
+          Buried under compliance paperwork, spreadsheets, and software that costs a fortune
+          and wasn&apos;t built for you. Kernel handles the infrastructure so you can pop!
         </p>
         <div className={styles.heroActions}>
           <Link href="/login" className={styles.btnPrimary}>Log in to Kernel</Link>
@@ -171,13 +170,13 @@ export default function MarketingPage() {
           <div className={styles.transformBody}>
             <p>
               Packed with potential. A great product, real craft, genuine passion. You know your
-              business — every recipe, every process, every standard you hold yourself to.
+              business, every recipe, every process, every standard you hold yourself to.
               You just need the infrastructure to match.
             </p>
             <p>
-              That&apos;s what Kernel gives you — the compliance backbone, the production records,
-              the traceability — so you can stop carrying the admin weight and focus on what
-              you&apos;re actually here to make. So you can pop.
+              That&apos;s what Kernel gives you. The compliance backbone, the production records,
+              the traceability, so you can stop carrying the admin weight and focus on what
+              you&apos;re actually here to make.
             </p>
           </div>
         </div>
