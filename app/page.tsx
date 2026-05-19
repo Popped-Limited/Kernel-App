@@ -155,7 +155,7 @@ export default function MarketingPage() {
           and wasn&apos;t built for you. Kernel handles the infrastructure so you can pop!
         </p>
         <div className={styles.heroActions}>
-          <Link href="/login" className={styles.btnPrimary}>Log in to Kernel</Link>
+          <Link href="/login" className={styles.btnPrimary}>Start free trial</Link>
           <a href="#transform" className={styles.btnGhost}>See how it works →</a>
         </div>
       </section>
@@ -296,7 +296,7 @@ export default function MarketingPage() {
           </h2>
           <p className={styles.pricingSub}>
             Growing food businesses are stuck between two bad choices.
-            We built the third option.
+            We built the third option — try it free for 7 days.
           </p>
         </div>
 
@@ -335,7 +335,7 @@ export default function MarketingPage() {
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Fully compliant</li>
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Built for growing food businesses</li>
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Everything in one place, one login</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Built by one of you</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>7-day free trial, no card needed</li>
             </ul>
           </div>
         </div>
@@ -344,16 +344,16 @@ export default function MarketingPage() {
         <div className={`${styles.pricingSingle} ${styles.fadeIn}`}>
           <div className={`${styles.pricingCard} ${styles.pricingCardFeatured}`}>
             <div className={styles.planHeader}>
-              <span className={styles.planBadge}><span className={styles.planPopularDot} /> Everything included</span>
+              <span className={styles.planBadge}><span className={styles.planPopularDot} /> 7-day free trial</span>
               <div className={styles.planName}>One flat price.</div>
-              <p className={styles.planTagline}>Every feature from day one. Unlimited users. No setup fee. No surprises.</p>
+              <p className={styles.planTagline}>Try free for 7 days — no card required. Then £99/month. Every feature, unlimited users, no surprises.</p>
             </div>
             <div className={styles.priceRow}>
               <span className={styles.priceCurrency}>£</span>
               <span className={styles.priceAmount}>99</span>
               <span className={styles.pricePer}>/mo</span>
             </div>
-            <p className={styles.priceContext}>Unlimited users · <strong>All features included</strong> · Cancel any time</p>
+            <p className={styles.priceContext}><strong>7-day free trial</strong> · No card required · Cancel any time</p>
             <div className={styles.planDivider} />
             <ul className={styles.planFeatures}>
               {FEATURES_ALL.map((f) => (
@@ -362,12 +362,12 @@ export default function MarketingPage() {
                 </li>
               ))}
             </ul>
-            <Link href="/login" className={styles.planBtn}>Get started — £99 / month</Link>
+            <Link href="/login" className={styles.planBtn}>Start your free trial</Link>
           </div>
         </div>
 
         <p className={styles.guarantee}>
-          🔒 &nbsp;No long contracts. No setup fees. Cancel any time.
+          🔒 &nbsp;7-day free trial. No card required. No long contracts. Cancel any time.
         </p>
       </section>
 

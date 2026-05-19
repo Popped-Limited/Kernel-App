@@ -90,7 +90,21 @@ export default function TermsPage() {
             </ul>
           </Section>
 
-          <Section title="4. Payment and cancellation">
+          <Section title="4. Free trial">
+            <p style={{ marginBottom: "12px" }}>
+              New accounts are eligible for a <strong>7-day free trial</strong> of the full Kernel
+              platform. The trial is subject to the following conditions:
+            </p>
+            <ul style={{ paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "10px" }}>
+              <li>No payment card is required to start a trial.</li>
+              <li>The trial provides full access to all features from day one.</li>
+              <li>Free trials are available to new customers only — one trial per business.</li>
+              <li>At the end of the 7-day period, you will be asked to provide payment details to continue. If you choose not to subscribe, your account will be deactivated and your data retained for 30 days before deletion.</li>
+              <li>We reserve the right to modify or withdraw the free trial offer at any time for new sign-ups.</li>
+            </ul>
+          </Section>
+
+          <Section title="5. Payment and cancellation">
             <p style={{ marginBottom: "12px" }}>
               The Service is offered at <strong>£99 per month</strong> (plus VAT where applicable),
               billed monthly in advance.
@@ -104,7 +118,7 @@ export default function TermsPage() {
             </ul>
           </Section>
 
-          <Section title="5. Your data">
+          <Section title="6. Your data">
             <p>
               You retain full ownership of all compliance records, production data, supplier
               information, and any other business data you enter into Kernel. We process this data
@@ -117,7 +131,7 @@ export default function TermsPage() {
             </p>
           </Section>
 
-          <Section title="6. Intellectual property">
+          <Section title="7. Intellectual property">
             <p>
               The Kernel platform — including its design, code, features, and content — is owned by
               Kernel and protected by intellectual property law. These Terms grant you a limited,
@@ -126,7 +140,7 @@ export default function TermsPage() {
             </p>
           </Section>
 
-          <Section title="7. Service availability">
+          <Section title="8. Service availability">
             <p>
               We aim to maintain high availability and reliability of the Service, but we do not
               guarantee uninterrupted or error-free operation. We will provide reasonable advance
@@ -135,7 +149,7 @@ export default function TermsPage() {
             </p>
           </Section>
 
-          <Section title="8. Limitation of liability">
+          <Section title="9. Limitation of liability">
             <p style={{ marginBottom: "12px" }}>
               To the maximum extent permitted by applicable law:
             </p>
@@ -146,7 +160,7 @@ export default function TermsPage() {
             </ul>
           </Section>
 
-          <Section title="9. Indemnity">
+          <Section title="10. Indemnity">
             <p>
               You agree to indemnify and hold harmless Kernel and its personnel from any claims,
               losses, or damages (including reasonable legal costs) arising from your use of the
@@ -154,18 +168,18 @@ export default function TermsPage() {
             </p>
           </Section>
 
-          <Section title="10. Termination">
+          <Section title="11. Termination">
             <p>
               Either party may terminate the agreement at any time. You may do so by cancelling
               your subscription. We reserve the right to suspend or terminate your account
               immediately — without notice — if we reasonably believe you have breached these Terms,
               or if continued access poses a security risk. On termination, your right to use the
               Service ceases immediately, subject to any rights to access data during the retention
-              period described in Section 5.
+              period described in Section 6.
             </p>
           </Section>
 
-          <Section title="11. Changes to these Terms">
+          <Section title="12. Changes to these Terms">
             <p>
               We may update these Terms from time to time. Where changes are material, we will
               notify you by email at least 14 days before they take effect. Continued use of the
@@ -174,7 +188,7 @@ export default function TermsPage() {
             </p>
           </Section>
 
-          <Section title="12. Governing law and disputes">
+          <Section title="13. Governing law and disputes">
             <p>
               These Terms are governed by the laws of England and Wales. Any disputes arising under
               or in connection with these Terms shall be subject to the exclusive jurisdiction of
@@ -182,7 +196,7 @@ export default function TermsPage() {
             </p>
           </Section>
 
-          <Section title="13. Contact">
+          <Section title="14. Contact">
             <p>
               For any questions about these Terms, please contact:
             </p>
