@@ -512,6 +512,18 @@ export default function QuestionField({ question, value, onChange, error, ingred
   }
 
   if (question.type === "packing_runs") {
+    // Read custom packaging labels from hint JSON, e.g. {"unit":"jar","closure":"lid"}
+    let packUnit = "jar";
+    let packClosure = "lid";
+    try {
+      const hintData = question.hint ? JSON.parse(question.hint) : null;
+      if (hintData?.unit) packUnit = hintData.unit;
+      if (hintData?.closure) packClosure = hintData.closure;
+    } catch { /* use defaults */ }
+
+    const unitCap = packUnit.charAt(0).toUpperCase() + packUnit.slice(1);
+    const closureCap = packClosure.charAt(0).toUpperCase() + packClosure.slice(1);
+
     type PackRun = {
       pack_weight: string;
       jars_used: string;
@@ -552,10 +564,10 @@ export default function QuestionField({ question, value, onChange, error, ingred
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { field: "pack_weight" as const, label: "Pack weight (g)", placeholder: "227", numeric: true },
-                  { field: "jars_used" as const, label: "No. of jars", placeholder: "0", numeric: true },
-                  { field: "jar_batch" as const, label: "Jar batch no.", placeholder: "JB001", numeric: false },
-                  { field: "lids_count" as const, label: "No. of lids", placeholder: "0", numeric: true },
-                  { field: "lids_batch" as const, label: "Lids batch no.", placeholder: "LB001", numeric: false },
+                  { field: "jars_used" as const, label: `No. of ${packUnit}s`, placeholder: "0", numeric: true },
+                  { field: "jar_batch" as const, label: `${unitCap} batch no.`, placeholder: "JB001", numeric: false },
+                  { field: "lids_count" as const, label: `No. of ${packClosure}s`, placeholder: "0", numeric: true },
+                  { field: "lids_batch" as const, label: `${closureCap} batch no.`, placeholder: "LB001", numeric: false },
                   { field: "packed_by" as const, label: "Packed by (initials)", placeholder: "SS", numeric: false },
                 ].map(({ field, label, placeholder, numeric }) => (
                   <div key={field}>

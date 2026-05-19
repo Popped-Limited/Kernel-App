@@ -39,9 +39,10 @@ const NAV = [
   {
     title: "Admin",
     items: [
-      { label: "Manage Checklists", href: "/admin/checklists" },
-      { label: "SAQ Questions",     href: "/admin/saq-questions" },
-      { label: "Manage Training",   href: "/admin/training-setup" },
+      { label: "Create Production Run", href: "/admin/production-builder" },
+      { label: "Manage Checklists",     href: "/admin/checklists" },
+      { label: "SAQ Questions",         href: "/admin/saq-questions" },
+      { label: "Manage Training",       href: "/admin/training-setup" },
     ],
   },
 ];
