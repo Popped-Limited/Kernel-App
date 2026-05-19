@@ -102,7 +102,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
         {/* Wordmark — home button */}
         <Link href="/home" onClick={onClose} className="px-4 py-4 border-b border-brown/15 flex items-center gap-2.5 hover:opacity-80 transition-opacity">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/kernel.png" alt="" className="h-9 w-auto shrink-0 drop-shadow-sm" />
+          <img src="/popcorn.png" alt="" className="h-9 w-auto shrink-0 drop-shadow-sm" />
           <p className="font-serif text-4xl text-brown leading-none tracking-tight">Kernel</p>
         </Link>
 

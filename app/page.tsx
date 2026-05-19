@@ -104,12 +104,12 @@ export default function MarketingPage() {
       {/* Nav */}
       <nav className={`${styles.nav} ${scrolled ? styles.navScrolled : ""}`}>
         <a href="#" className={styles.navLogo}>
+          Kernel
           <img
             src="/kernel.png"
             alt=""
             className={`${styles.navLogoImg} ${pastHero ? styles.navLogoImgVisible : ""}`}
           />
-          Kernel
         </a>
         <div className={styles.navLinks}>
           <a href="#features">Features</a>
