@@ -317,7 +317,7 @@ export default function MarketingPage() {
           <div className={styles.marketCol}>
             <p className={styles.marketColEyebrow}>Option 2</p>
             <p className={styles.marketColName}>Enterprise software</p>
-            <div className={`${styles.marketColPrice} ${styles.marketColPriceCrossed}`}>£300–500</div>
+            <div className={styles.marketColPrice}>£300–500</div>
             <p className={styles.marketColNote}>per month</p>
             <ul className={styles.marketColList}>
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Compliance covered</li>
@@ -335,7 +335,7 @@ export default function MarketingPage() {
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Fully compliant</li>
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Built for growing food businesses</li>
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Everything in one place, one login</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>7-day free trial, no card needed</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>7-day free trial</li>
             </ul>
           </div>
         </div>
@@ -346,14 +346,14 @@ export default function MarketingPage() {
             <div className={styles.planHeader}>
               <span className={styles.planBadge}><span className={styles.planPopularDot} /> 7-day free trial</span>
               <div className={styles.planName}>One flat price.</div>
-              <p className={styles.planTagline}>Try free for 7 days — no card required. Then £99/month. Every feature, unlimited users, no surprises.</p>
+              <p className={styles.planTagline}>Try free for 7 days, then £99/month. Every feature, unlimited users, no surprises.</p>
             </div>
             <div className={styles.priceRow}>
               <span className={styles.priceCurrency}>£</span>
               <span className={styles.priceAmount}>99</span>
               <span className={styles.pricePer}>/mo</span>
             </div>
-            <p className={styles.priceContext}><strong>7-day free trial</strong> · No card required · Cancel any time</p>
+            <p className={styles.priceContext}><strong>7-day free trial</strong> · Cancel any time</p>
             <div className={styles.planDivider} />
             <ul className={styles.planFeatures}>
               {FEATURES_ALL.map((f) => (
@@ -367,7 +367,7 @@ export default function MarketingPage() {
         </div>
 
         <p className={styles.guarantee}>
-          🔒 &nbsp;7-day free trial. No card required. No long contracts. Cancel any time.
+          🔒 &nbsp;7-day free trial. No long contracts. Cancel any time.
         </p>
       </section>
 

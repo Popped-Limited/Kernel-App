@@ -96,7 +96,6 @@ export default function TermsPage() {
               platform. The trial is subject to the following conditions:
             </p>
             <ul style={{ paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "10px" }}>
-              <li>No payment card is required to start a trial.</li>
               <li>The trial provides full access to all features from day one.</li>
               <li>Free trials are available to new customers only — one trial per business.</li>
               <li>At the end of the 7-day period, you will be asked to provide payment details to continue. If you choose not to subscribe, your account will be deactivated and your data retained for 30 days before deletion.</li>
