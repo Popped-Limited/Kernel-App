@@ -23,13 +23,6 @@ const NAV = [
     ],
   },
   {
-    title: "Team",
-    items: [
-      { label: "Staff Members", href: "/admin/team/staff" },
-      { label: "Training",      href: "/admin/team/training" },
-    ],
-  },
-  {
     title: "Records",
     items: [
       { label: "All Submissions", href: "/dashboard" },
@@ -41,7 +34,6 @@ const NAV = [
     items: [
       { label: "Manage Checklists", href: "/admin/checklists" },
       { label: "SAQ Questions",     href: "/admin/saq-questions" },
-      { label: "Manage Training",   href: "/admin/training-setup" },
     ],
   },
 ];

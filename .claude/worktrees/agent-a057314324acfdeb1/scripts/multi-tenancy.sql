@@ -44,7 +44,7 @@ ALTER TABLE saq_responses ADD COLUMN IF NOT EXISTS organisation_id uuid REFERENC
 ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS organisation_id uuid REFERENCES organisations(id);
 ALTER TABLE ingredient_lots ADD COLUMN IF NOT EXISTS organisation_id uuid REFERENCES organisations(id);
 ALTER TABLE dispatches ADD COLUMN IF NOT EXISTS organisation_id uuid REFERENCES organisations(id);
--- alert_logs table does not exist yet, skipping
+ALTER TABLE alert_logs ADD COLUMN IF NOT EXISTS organisation_id uuid REFERENCES organisations(id);
 
 -- 6. Migrate all existing data to Yep Kitchen
 UPDATE checklists SET organisation_id = '11111111-1111-1111-1111-111111111111' WHERE organisation_id IS NULL;
@@ -56,7 +56,7 @@ UPDATE saq_responses SET organisation_id = '11111111-1111-1111-1111-111111111111
 UPDATE ingredients SET organisation_id = '11111111-1111-1111-1111-111111111111' WHERE organisation_id IS NULL;
 UPDATE ingredient_lots SET organisation_id = '11111111-1111-1111-1111-111111111111' WHERE organisation_id IS NULL;
 UPDATE dispatches SET organisation_id = '11111111-1111-1111-1111-111111111111' WHERE organisation_id IS NULL;
--- alert_logs: skipped
+UPDATE alert_logs SET organisation_id = '11111111-1111-1111-1111-111111111111' WHERE organisation_id IS NULL;
 
 -- 7. Helper function: get current user's org_id
 CREATE OR REPLACE FUNCTION get_my_org_id()
@@ -153,7 +153,12 @@ CREATE POLICY "org_isolation" ON dispatches FOR ALL
   USING (organisation_id = get_my_org_id())
   WITH CHECK (organisation_id = get_my_org_id());
 
--- 19. RLS on alert_logs — skipped (table does not exist yet)
+-- 19. RLS on alert_logs
+ALTER TABLE alert_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "org_isolation" ON alert_logs;
+CREATE POLICY "org_isolation" ON alert_logs FOR ALL
+  USING (organisation_id = get_my_org_id())
+  WITH CHECK (organisation_id = get_my_org_id());
 
 -- 20. Grants
 GRANT SELECT, INSERT, UPDATE, DELETE ON organisations TO anon, authenticated;
