@@ -43,6 +43,14 @@ export default function RawMaterialsPage() {
   const [activeTab, setActiveTab]   = useState<ItemType>("ingredient");
   const [expanded, setExpanded]     = useState<Record<string, boolean>>({});
 
+  // Reconcile panel
+  const [reconLot, setReconLot]         = useState<{ lot: IngredientLot; ing: IngredientWithLots } | null>(null);
+  const [reconActual, setReconActual]   = useState("");
+  const [reconReason, setReconReason]   = useState("wastage");
+  const [reconNotes, setReconNotes]     = useState("");
+  const [reconSaving, setReconSaving]   = useState(false);
+  const [reconError, setReconError]     = useState("");
+
   // Edit / create panel
   const [editing, setEditing]           = useState<IngredientWithLots | null>(null);
   const [editName, setEditName]         = useState("");
@@ -137,6 +145,60 @@ export default function RawMaterialsPage() {
     setSaving(false);
     if (error) { setSaveError(error.message); return; }
     setEditing(null);
+    await load();
+  }
+
+  function openReconcile(lot: IngredientLot, ing: IngredientWithLots, e: React.MouseEvent) {
+    e.stopPropagation();
+    setReconLot({ lot, ing });
+    setReconActual("");
+    setReconReason("wastage");
+    setReconNotes("");
+    setReconError("");
+  }
+
+  async function saveReconcile() {
+    if (!reconLot) return;
+    const { lot, ing } = reconLot;
+    const unit = ing.unit ?? "g";
+
+    const actualG = unit === "units"
+      ? parseFloat(reconActual)
+      : Math.round(parseFloat(reconActual) * 1000);
+
+    if (isNaN(actualG) || actualG < 0) {
+      setReconError("Please enter a valid amount");
+      return;
+    }
+    if (actualG > lot.quantity_remaining_g) {
+      setReconError(`Cannot exceed current stock (${fmtQty(lot.quantity_remaining_g, unit)})`);
+      return;
+    }
+
+    setReconSaving(true);
+    setReconError("");
+
+    const { error: lotErr } = await supabase
+      .from("ingredient_lots")
+      .update({ quantity_remaining_g: actualG })
+      .eq("id", lot.id);
+
+    if (lotErr) { setReconError(lotErr.message); setReconSaving(false); return; }
+
+    await supabase.from("wastage_log").insert({
+      organisation_id: orgId,
+      lot_id: lot.id,
+      ingredient_id: ing.id,
+      julian_code: lot.julian_code,
+      ingredient_name: ing.name,
+      adjusted_from_g: lot.quantity_remaining_g,
+      adjusted_to_g: actualG,
+      reason: reconReason,
+      notes: reconNotes.trim() || null,
+    });
+
+    setReconSaving(false);
+    setReconLot(null);
     await load();
   }
 
@@ -339,6 +401,7 @@ export default function RawMaterialsPage() {
                                       <th className="text-left py-1 font-medium pl-4">Date in</th>
                                       <th className="text-left py-1 font-medium">Supplier</th>
                                       <th className="text-left py-1 font-medium">Best before</th>
+                                      <th className="w-20" />
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
@@ -350,6 +413,16 @@ export default function RawMaterialsPage() {
                                         <td className="py-1.5 pl-4 text-gray-500">{formatDate(lot.received_date)}</td>
                                         <td className="py-1.5 text-gray-500">{lot.supplier ?? "—"}</td>
                                         <td className="py-1.5 text-gray-500">{lot.best_before_date ? formatDate(lot.best_before_date) : "—"}</td>
+                                        <td className="py-1.5">
+                                          {lot.quantity_remaining_g > 0 && (
+                                            <button
+                                              onClick={e => openReconcile(lot, ing, e)}
+                                              className="text-xs text-brand-dark font-medium hover:underline whitespace-nowrap"
+                                            >
+                                              Reconcile
+                                            </button>
+                                          )}
+                                        </td>
                                       </tr>
                                     ))}
                                   </tbody>
@@ -367,6 +440,118 @@ export default function RawMaterialsPage() {
           )}
         </div>
         </main>
+
+      {/* Reconcile panel */}
+      {reconLot && (() => {
+        const { lot, ing } = reconLot;
+        const unit = ing.unit ?? "g";
+        const currentDisplay = fmtQty(lot.quantity_remaining_g, unit);
+        const actualG = reconActual === ""
+          ? null
+          : unit === "units" ? parseFloat(reconActual) : Math.round(parseFloat(reconActual) * 1000);
+        const writtenOff = actualG !== null && !isNaN(actualG) && actualG >= 0
+          ? lot.quantity_remaining_g - actualG
+          : null;
+
+        return (
+          <div className="fixed inset-0 z-50 flex">
+            <div className="flex-1 bg-black/30" onClick={() => setReconLot(null)} />
+            <div className="w-full max-w-sm bg-white shadow-xl flex flex-col">
+              <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900">Reconcile Stock</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">{lot.julian_code} · {ing.name}</p>
+                </div>
+                <button onClick={() => setReconLot(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+                {/* Current stock info */}
+                <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
+                  <p className="text-xs text-amber-700 font-medium">System shows remaining</p>
+                  <p className="text-2xl font-bold text-amber-900 mt-0.5">{currentDisplay}</p>
+                </div>
+
+                {/* Actual amount input */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Actual amount remaining ({unit === "units" ? "units" : "kg"})
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      step={unit === "units" ? "1" : "0.001"}
+                      min="0"
+                      className="input flex-1"
+                      placeholder={unit === "units" ? "0" : "0.000"}
+                      value={reconActual}
+                      onChange={e => setReconActual(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setReconActual("0")}
+                      className="text-xs px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 whitespace-nowrap"
+                    >
+                      Write off all
+                    </button>
+                  </div>
+                  {writtenOff !== null && writtenOff >= 0 && (
+                    <p className="mt-2 text-xs text-gray-600">
+                      <span className="font-semibold text-gray-800">{fmtQty(writtenOff, unit)}</span> will be written off
+                    </p>
+                  )}
+                </div>
+
+                {/* Reason */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Reason</label>
+                  <select
+                    className="input w-full"
+                    value={reconReason}
+                    onChange={e => setReconReason(e.target.value)}
+                  >
+                    <option value="wastage">Wastage (prep, trim, yield loss)</option>
+                    <option value="damaged">Damaged / contaminated</option>
+                    <option value="expired">Expired / best before passed</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Notes <span className="text-gray-400">(optional)</span></label>
+                  <textarea
+                    className="input w-full"
+                    rows={2}
+                    placeholder="e.g. Shallots peeled for batch B240520"
+                    value={reconNotes}
+                    onChange={e => setReconNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {reconError && (
+                <div className="mx-6 mb-2 rounded bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+                  {reconError}
+                </div>
+              )}
+
+              <div className="border-t border-gray-200 px-6 pt-3 pb-3">
+                <div className="flex gap-3">
+                  <button onClick={() => setReconLot(null)} className="btn-ghost flex-1">Cancel</button>
+                  <button
+                    onClick={saveReconcile}
+                    disabled={reconSaving || reconActual === ""}
+                    className="btn-primary flex-1"
+                  >
+                    {reconSaving ? "Saving…" : "Save reconciliation"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Edit / create panel */}
       {editing && (
