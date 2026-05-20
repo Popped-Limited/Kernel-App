@@ -22,9 +22,16 @@ function fmtQty(qty: number, unit: "g" | "units") {
   return unit === "units" ? `${qty} units` : `${(qty / 1000).toFixed(2)} kg`;
 }
 
+const ALLERGENS = [
+  "Celery", "Gluten", "Crustaceans", "Eggs", "Fish", "Lupin",
+  "Milk", "Molluscs", "Mustard", "Tree nuts", "Peanuts", "Sesame",
+  "Soya", "Sulphites",
+];
+
 const EMPTY_ITEM: IngredientWithLots = {
   id: "", name: "", type: "ingredient", unit: "g",
   price_per_kg: null, supplier_id: null, density_g_per_l: null,
+  allergens: [],
   created_at: "", lots: [],
 };
 
@@ -43,8 +50,9 @@ export default function RawMaterialsPage() {
   const [editUnit, setEditUnit]         = useState<"g" | "units">("g");
   const [editPrice, setEditPrice]       = useState("");
   const [editSupplier, setEditSupplier] = useState("");
-  const [editDensity, setEditDensity]   = useState("");
-  const [saving, setSaving]             = useState(false);
+  const [editDensity, setEditDensity]     = useState("");
+  const [editAllergens, setEditAllergens] = useState<string[]>([]);
+  const [saving, setSaving]               = useState(false);
   const [saveError, setSaveError]       = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
@@ -87,6 +95,7 @@ export default function RawMaterialsPage() {
     setEditPrice(ing.price_per_kg != null ? String(ing.price_per_kg) : "");
     setEditSupplier(ing.supplier_id ?? "");
     setEditDensity(ing.density_g_per_l != null ? String(ing.density_g_per_l) : "");
+    setEditAllergens(ing.allergens ?? []);
     setSaveError("");
     setDeleteConfirm(false);
   }
@@ -100,6 +109,7 @@ export default function RawMaterialsPage() {
     setEditPrice("");
     setEditSupplier("");
     setEditDensity("");
+    setEditAllergens([]);
     setSaveError("");
     setDeleteConfirm(false);
   }
@@ -117,6 +127,7 @@ export default function RawMaterialsPage() {
       price_per_kg: editPrice ? parseFloat(editPrice) : null,
       supplier_id: editSupplier || null,
       density_g_per_l: editDensity ? parseFloat(editDensity) : null,
+      allergens: editAllergens,
     };
 
     const { error } = isNew
@@ -263,7 +274,18 @@ export default function RawMaterialsPage() {
                             className="hover:bg-gray-50 transition-colors cursor-pointer"
                             onClick={() => openEdit(ing)}
                           >
-                            <td className="px-4 py-3 font-medium text-gray-900">{ing.name}</td>
+                            <td className="px-4 py-3">
+                              <p className="font-medium text-gray-900">{ing.name}</p>
+                              {ing.allergens && ing.allergens.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                  {ing.allergens.map(a => (
+                                    <span key={a} className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">
+                                      {a}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
                             <td className="px-4 py-3">
                               {ing.supplier?.name
                                 ? <span className="text-gray-600">{ing.supplier.name}</span>
@@ -413,6 +435,38 @@ export default function RawMaterialsPage() {
                     value={editDensity} onChange={e => setEditDensity(e.target.value)}
                   />
                   <p className="mt-1 text-xs text-gray-400">Set for liquids so Goods In can accept litres</p>
+                </div>
+              )}
+
+              {editType === "ingredient" && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">Allergens</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ALLERGENS.map(allergen => {
+                      const selected = editAllergens.includes(allergen);
+                      return (
+                        <button
+                          key={allergen}
+                          type="button"
+                          onClick={() => setEditAllergens(prev =>
+                            prev.includes(allergen)
+                              ? prev.filter(a => a !== allergen)
+                              : [...prev, allergen]
+                          )}
+                          className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                            selected
+                              ? "bg-amber-100 border-amber-400 text-amber-800 font-medium"
+                              : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+                          }`}
+                        >
+                          {allergen}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {editAllergens.length === 0 && (
+                    <p className="mt-1.5 text-xs text-gray-400">Tap allergens present in this ingredient</p>
+                  )}
                 </div>
               )}
 

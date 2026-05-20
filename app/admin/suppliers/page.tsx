@@ -285,7 +285,6 @@ export default function SuppliersPage() {
                     <th className="text-left px-3 py-2.5 font-medium text-gray-600">Supplier Risk</th>
                     <th className="text-left px-3 py-2.5 font-medium text-gray-600">RM Risk</th>
                     <th className="text-left px-3 py-2.5 font-medium text-gray-600">Next Review</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-gray-600">Status</th>
                     <th className="px-3 py-2.5" />
                   </tr>
                 </thead>
@@ -322,11 +321,6 @@ export default function SuppliersPage() {
                         }
                       </td>
                       <td className="px-3 py-3"><DateCell dateStr={s.next_review_due} /></td>
-                      <td className="px-3 py-3">
-                        <span className={`inline-block rounded-full px-2 py-0.5 font-medium ${STATUS_COLORS[s.status]}`}>
-                          {STATUS_LABELS[s.status]}
-                        </span>
-                      </td>
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-1">
                           <button onClick={() => openEdit(s)} className="btn-ghost text-xs px-2">Edit</button>
