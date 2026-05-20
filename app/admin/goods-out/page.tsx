@@ -15,8 +15,6 @@ const SKUS = [
   "Hunan Salted Chillies",
 ];
 
-const CUSTOMERS = ["3PL", "Amazon", "Shopify", "Other"];
-
 interface ProductRow {
   product: string;
   casesOf6: string;
@@ -39,7 +37,7 @@ export default function GoodsOutPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [rows, setRows] = useState<ProductRow[]>([emptyRow()]);
-  const [customer, setCustomer] = useState("3PL");
+  const [customer, setCustomer] = useState("");
   const [dispatchDate, setDispatchDate] = useState(new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState("");
   const [dispatchedBy, setDispatchedBy] = useState("");
@@ -89,6 +87,7 @@ export default function GoodsOutPage() {
 
   function validate() {
     const errs: Record<string, string> = {};
+    if (!customer.trim()) errs.customer = "Required";
     if (!dispatchedBy.trim()) errs.dispatchedBy = "Required";
     rows.forEach((row, i) => {
       if (!row.product) errs[`product_${i}`] = "Required";
@@ -124,6 +123,7 @@ export default function GoodsOutPage() {
 
     setSaved(true);
     setRows([emptyRow()]);
+    setCustomer("");
     setReference("");
     setNotes("");
     setErrors({});
@@ -152,9 +152,14 @@ export default function GoodsOutPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="label">Customer *</label>
-                <select value={customer} onChange={e => setCustomer(e.target.value)} className="input">
-                  {CUSTOMERS.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <input
+                  type="text"
+                  value={customer}
+                  onChange={e => setCustomer(e.target.value)}
+                  className={`input ${errors.customer ? "border-red-300" : ""}`}
+                  placeholder="e.g. Amazon, Ocado, Farm shop…"
+                />
+                {errors.customer && <p className="mt-1 text-xs text-red-600">{errors.customer}</p>}
               </div>
               <div>
                 <label className="label">Dispatch date *</label>
