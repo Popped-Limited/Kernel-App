@@ -70,6 +70,7 @@ export default function GuestChecklistPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         checklist_id: checklist!.id,
+        organisation_id: checklist!.organisation_id,
         submitted_by: visitorName.trim(),
         answers: questions.map((q) => ({
           question_id: q.id,
