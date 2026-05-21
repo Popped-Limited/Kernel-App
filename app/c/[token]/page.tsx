@@ -79,8 +79,16 @@ export default function GuestChecklistPage() {
     });
 
     setSubmitting(false);
-    if (res.ok) setSubmitted(true);
-    else alert("Something went wrong — please try again.");
+    if (res.ok) {
+      setSubmitted(true);
+    } else {
+      let msg = "Something went wrong — please try again.";
+      try {
+        const data = await res.json();
+        if (data?.error) msg = `Error: ${data.error}${data.detail ? ` (${data.detail})` : ""}`;
+      } catch {}
+      alert(msg);
+    }
   }
 
   // ── Loading ──────────────────────────────────────────────────────────────────

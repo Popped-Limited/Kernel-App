@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 
 export async function POST(req: NextRequest) {
+  // Guard: ensure the admin client has a service role key configured
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("SUPABASE_SERVICE_ROLE_KEY is not set");
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+  }
+
   const body = await req.json();
   const { checklist_id, submitted_by, answers } = body;
 
@@ -10,22 +16,27 @@ export async function POST(req: NextRequest) {
   }
 
   // Look up the checklist to get its organisation_id
-  const { data: cl } = await supabase
+  const { data: cl, error: clErr } = await supabase
     .from("checklists")
     .select("organisation_id")
     .eq("id", checklist_id)
     .single();
 
+  if (clErr || !cl) {
+    console.error("Checklist lookup error:", clErr);
+    return NextResponse.json({ error: "Checklist not found" }, { status: 404 });
+  }
+
   // Create submission
   const { data: submission, error: subErr } = await supabase
     .from("submissions")
-    .insert({ checklist_id, submitted_by, signed_off_by: null, signed_off_at: null, notes: null, organisation_id: cl?.organisation_id ?? null })
+    .insert({ checklist_id, submitted_by, signed_off_by: null, signed_off_at: null, notes: null, organisation_id: cl.organisation_id })
     .select("id")
     .single();
 
   if (subErr || !submission) {
     console.error("Submission insert error:", subErr);
-    return NextResponse.json({ error: "Failed to create submission" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create submission", detail: subErr?.message }, { status: 500 });
   }
 
   // Insert answers
