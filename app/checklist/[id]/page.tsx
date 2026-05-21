@@ -244,6 +244,7 @@ export default function ChecklistPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         checklist_id: id,
+        organisation_id: checklist?.organisation_id ?? null,
         submitted_by: getSubmittedBy(questions, processedAnswers),
         answers: questions.map((q) => ({
           question_id: q.id,
@@ -261,7 +262,12 @@ export default function ChecklistPage() {
     if (res.ok) {
       setSubmitted(true);
     } else {
-      alert("Something went wrong — please try again.");
+      let msg = "Something went wrong — please try again.";
+      try {
+        const data = await res.json();
+        if (data?.error) msg = `Error: ${data.error}${data.detail ? ` (${data.detail})` : ""}`;
+      } catch {}
+      alert(msg);
     }
   }
 
