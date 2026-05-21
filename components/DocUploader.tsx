@@ -75,12 +75,12 @@ export default function DocUploader({ entityType, entityId, docType, label }: Pr
       return;
     }
 
-    const { error: dbError } = await supabase.from("documents").insert({
-      entity_type: entityType,
-      entity_id: entityId,
-      doc_type: docType,
-      file_name: file.name,
-      file_path: path,
+    const { error: dbError } = await supabase.rpc("insert_document", {
+      p_entity_type: entityType,
+      p_entity_id: entityId,
+      p_doc_type: docType,
+      p_file_name: file.name,
+      p_file_path: path,
     });
 
     if (dbError) {
