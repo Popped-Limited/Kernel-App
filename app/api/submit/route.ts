@@ -10,46 +10,40 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  // Create submission (uses anon client + permissive INSERT policy)
-  const { data: submission, error: subErr } = await supabaseServer
-    .from("submissions")
-    .insert({ checklist_id, submitted_by, signed_off_by: null, signed_off_at: null, notes: null, organisation_id: organisation_id ?? null })
-    .select("id")
-    .single();
+  // Use a SECURITY DEFINER RPC function to insert submission + answers,
+  // bypassing RLS without needing the service role key.
+  const { data: submissionId, error: rpcErr } = await supabaseServer.rpc(
+    "submit_checklist_response",
+    {
+      p_checklist_id: checklist_id,
+      p_organisation_id: organisation_id ?? null,
+      p_submitted_by: submitted_by,
+      p_answers: answers,
+    }
+  );
 
-  if (subErr || !submission) {
-    console.error("Submission insert error:", subErr);
-    return NextResponse.json({ error: "Failed to create submission", detail: subErr?.message }, { status: 500 });
-  }
-
-  // Insert answers (uses anon client + permissive INSERT policy)
-  const answerRows = (answers as { question_id: string; value: string | null }[]).map((a) => ({
-    submission_id: submission.id,
-    question_id: a.question_id,
-    value: a.value,
-    organisation_id: organisation_id ?? null,
-  }));
-
-  const { error: ansErr } = await supabaseServer.from("answers").insert(answerRows);
-
-  if (ansErr) {
-    console.error("Answer insert error:", ansErr);
-    await supabaseServer.from("submissions").delete().eq("id", submission.id);
-    return NextResponse.json({ error: "Failed to save answers", detail: ansErr?.message }, { status: 500 });
+  if (rpcErr || !submissionId) {
+    console.error("Submission RPC error:", rpcErr);
+    return NextResponse.json(
+      { error: "Failed to create submission", detail: rpcErr?.message },
+      { status: 500 }
+    );
   }
 
   // Deduct ingredient stock for any ingredient_table answers
   // Uses admin client — if unavailable, stock deduction is skipped but submission is saved
-  const ingredientAnswers = answers.filter((a) => a.value);
+  const ingredientAnswers = answers.filter((a: { value: string | null }) => a.value);
   if (ingredientAnswers.length > 0 && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    const questionIds = ingredientAnswers.map((a) => a.question_id);
+    const questionIds = ingredientAnswers.map((a: { question_id: string }) => a.question_id);
     const { data: questions } = await supabaseAdmin
       .from("questions")
       .select("id, type")
       .in("id", questionIds);
 
     const ingredientQIds = new Set(
-      (questions ?? []).filter((q: { id: string; type: string }) => q.type === "ingredient_table").map((q: { id: string; type: string }) => q.id)
+      (questions ?? [])
+        .filter((q: { id: string; type: string }) => q.type === "ingredient_table")
+        .map((q: { id: string; type: string }) => q.id)
     );
 
     for (const answer of answers) {
@@ -70,7 +64,8 @@ export async function POST(req: NextRequest) {
               .single();
             if (lot) {
               const newRemaining = Math.max(0, (lot.quantity_remaining_g as number) - used);
-              await supabaseAdmin.from("ingredient_lots")
+              await supabaseAdmin
+                .from("ingredient_lots")
                 .update({ quantity_remaining_g: newRemaining })
                 .eq("id", lotUse.lot_id);
             }
@@ -82,5 +77,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ id: submission.id }, { status: 201 });
+  return NextResponse.json({ id: submissionId }, { status: 201 });
 }
