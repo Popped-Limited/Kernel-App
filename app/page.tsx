@@ -378,7 +378,7 @@ export default function MarketingPage() {
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
         </div>
-        <p className={styles.footerCopy}>© 2026 Kernel. Built for food manufacturers.</p>
+        <p className={styles.footerCopy}>© 2026 Kernel, an app by Popped Limited — because every kernel deserves to pop.</p>
       </footer>
     </div>
   );

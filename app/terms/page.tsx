@@ -208,7 +208,10 @@ export default function TermsPage() {
               fontSize: "15px",
             }}>
               <p style={{ marginBottom: "4px" }}><strong>Kernel</strong></p>
-              <p style={{ marginBottom: "4px", color: "#7A7050" }}>
+              <p style={{ marginBottom: "4px", color: "#7A7050" }}>A product of <strong>Popped Limited</strong></p>
+              <p style={{ marginBottom: "4px", color: "#7A7050" }}>Company number: 17236476</p>
+              <p style={{ marginBottom: "4px", color: "#7A7050" }}>Registered in England and Wales</p>
+              <p style={{ marginBottom: "4px" }}>
                 <a href="mailto:support@kernelapp.co.uk" style={{ color: "#C89A18" }}>support@kernelapp.co.uk</a>
               </p>
               <p style={{ color: "#7A7050" }}>kernelapp.co.uk</p>
