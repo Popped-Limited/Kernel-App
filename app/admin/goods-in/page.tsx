@@ -86,13 +86,18 @@ export default function GoodsInPage() {
     setEditSaving(true);
     setEditError("");
 
+    const newQty = Number(editQuantityG);
+    const diff = newQty - editingLot.quantity_received_g;
+    const newRemaining = Math.max(0, editingLot.quantity_remaining_g + diff);
+
     const { error } = await supabase
       .from("ingredient_lots")
       .update({
         julian_code: editJulianCode.trim(),
         received_date: editReceivedDate,
         best_before_date: editBestBefore || null,
-        quantity_received_g: Number(editQuantityG),
+        quantity_received_g: newQty,
+        quantity_remaining_g: newRemaining,
         supplier: editSupplier.trim() || null,
       })
       .eq("id", editingLot.id);
@@ -476,7 +481,7 @@ export default function GoodsInPage() {
                   value={editQuantityG}
                   onChange={e => setEditQuantityG(e.target.value)}
                 />
-                <p className="mt-1 text-xs text-gray-400">Changing this won't affect the remaining stock — use Reconcile on Raw Materials for that.</p>
+                <p className="mt-1 text-xs text-gray-400">Remaining stock will be adjusted by the same difference.</p>
               </div>
               <div>
                 <label className="label">Best before date</label>
