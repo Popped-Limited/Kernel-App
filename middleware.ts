@@ -3,9 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PREFIXES = [
   "/login",
+  "/signup",
   "/auth/",
   "/api/auth",
   "/api/submit",
+  "/api/signup",
   "/_next",
   "/favicon.ico",
   "/logo.png",

@@ -150,7 +150,7 @@ export default function MarketingPage() {
           and wasn&apos;t built for you. Kernel handles the infrastructure so you can pop!
         </p>
         <div className={styles.heroActions}>
-          <Link href="/login" className={styles.btnPrimary}>Start free trial</Link>
+          <Link href="/signup" className={styles.btnPrimary}>Start free trial</Link>
           <a href="#transform" className={styles.btnGhost}>See how it works →</a>
         </div>
       </section>
@@ -357,7 +357,7 @@ export default function MarketingPage() {
                 </li>
               ))}
             </ul>
-            <Link href="/login" className={styles.planBtn}>Start your free trial</Link>
+            <Link href="/signup" className={styles.planBtn}>Start your free trial</Link>
           </div>
         </div>
 
