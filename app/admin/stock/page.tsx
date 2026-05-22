@@ -42,6 +42,7 @@ export default function RawMaterialsPage() {
   const [loading, setLoading]       = useState(true);
   const [activeTab, setActiveTab]   = useState<ItemType>("ingredient");
   const [expanded, setExpanded]     = useState<Record<string, boolean>>({});
+  const [hasDoc, setHasDoc]         = useState<Set<string>>(new Set());
 
   // Reconcile panel
   const [reconLot, setReconLot]         = useState<{ lot: IngredientLot; ing: IngredientWithLots } | null>(null);
@@ -69,14 +70,24 @@ export default function RawMaterialsPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const [lotsRes, ingsRes, supRes] = await Promise.all([
+    const [lotsRes, ingsRes, supRes, docsRes] = await Promise.all([
       supabase.from("ingredient_lots").select("*, ingredient:ingredients(*)").order("julian_code"),
       supabase.from("ingredients").select("*").order("name"),
       supabase.from("suppliers").select("id, name").order("name"),
+      supabase.from("documents").select("entity_id, doc_type").in("entity_type", ["ingredient", "packaging", "supply"]),
     ]);
 
     const sups = (supRes.data ?? []) as Supplier[];
     setSuppliers(sups);
+
+    // Build a set of ingredient IDs that have a relevant doc uploaded
+    const docSet = new Set<string>();
+    for (const doc of (docsRes.data ?? [])) {
+      if (doc.doc_type === "spec_sheet" || doc.doc_type === "coshh") {
+        docSet.add(doc.entity_id);
+      }
+    }
+    setHasDoc(docSet);
 
     if (ingsRes.data && lotsRes.data) {
       const supById = Object.fromEntries(sups.map(s => [s.id, s]));
@@ -314,6 +325,9 @@ export default function RawMaterialsPage() {
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         {activeTab === "ingredient" ? "Price / kg" : "Price / unit"}
                       </th>
+                      <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        {activeTab === "supplies" ? "COSHH" : "Spec Sheet"}
+                      </th>
                       <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">In stock</th>
                       <th className="w-8 px-2" />
                     </tr>
@@ -357,6 +371,17 @@ export default function RawMaterialsPage() {
                               {ing.price_per_kg != null
                                 ? <span className="text-gray-600">£{ing.price_per_kg.toFixed(2)}</span>
                                 : <span className="text-amber-500 text-xs">Not set</span>}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {hasDoc.has(ing.id) ? (
+                                <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-green-100">
+                                  <svg className="h-3 w-3 text-green-600" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M2 6l3 3 5-5" />
+                                  </svg>
+                                </span>
+                              ) : (
+                                <span className="text-gray-300 text-xs">—</span>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-right">
                               {noLots ? (
