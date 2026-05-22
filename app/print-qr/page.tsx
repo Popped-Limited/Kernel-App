@@ -188,9 +188,8 @@ function SinglePrintView({
           boxSizing: "border-box",
         }}
       >
-        {/* Top: logo */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/kernel.png" alt="Kernel" style={{ height: "72px", objectFit: "contain" }} />
+        {/* Top: wordmark */}
+        <p style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "42px", color: "#5C4A1E", letterSpacing: "-0.5px", lineHeight: 1, margin: 0 }}>Kernel</p>
 
         {/* Middle: title + frequency */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "6mm" }}>
