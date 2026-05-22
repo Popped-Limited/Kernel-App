@@ -181,8 +181,8 @@ export default function RawMaterialsPage() {
       setReconError("Please enter a valid amount");
       return;
     }
-    if (actualG > lot.quantity_remaining_g) {
-      setReconError(`Cannot exceed current stock (${fmtQty(lot.quantity_remaining_g, unit)})`);
+    if (actualG > lot.quantity_received_g) {
+      setReconError(`Cannot exceed amount received (${fmtQty(lot.quantity_received_g, unit)})`);
       return;
     }
 
