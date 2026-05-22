@@ -36,6 +36,16 @@ export default function GoodsInPage() {
   const [loggedBy, setLoggedBy] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Edit lot panel
+  const [editingLot, setEditingLot]       = useState<(IngredientLot & { ingredient: Ingredient }) | null>(null);
+  const [editJulianCode, setEditJulianCode] = useState("");
+  const [editReceivedDate, setEditReceivedDate] = useState("");
+  const [editBestBefore, setEditBestBefore] = useState("");
+  const [editQuantityG, setEditQuantityG] = useState("");
+  const [editSupplier, setEditSupplier]   = useState("");
+  const [editSaving, setEditSaving]       = useState(false);
+  const [editError, setEditError]         = useState("");
+
   const densityById = Object.fromEntries(
     ingredients.filter(i => i.density_g_per_l != null).map(i => [i.id, i.density_g_per_l!])
   );
@@ -57,6 +67,40 @@ export default function GoodsInPage() {
     if (lotRes.data) setRecentLots(lotRes.data as (IngredientLot & { ingredient: Ingredient })[]);
     if (supRes.data) setSuppliers(supRes.data as Supplier[]);
     setLoading(false);
+  }
+
+  function openEditLot(lot: IngredientLot & { ingredient: Ingredient }) {
+    setEditingLot(lot);
+    setEditJulianCode(lot.julian_code);
+    setEditReceivedDate(lot.received_date);
+    setEditBestBefore(lot.best_before_date ?? "");
+    setEditQuantityG(String(lot.quantity_received_g));
+    setEditSupplier(lot.supplier ?? "");
+    setEditError("");
+  }
+
+  async function saveEditLot() {
+    if (!editingLot) return;
+    if (!editJulianCode.trim()) { setEditError("Batch code is required"); return; }
+    if (!editQuantityG || Number(editQuantityG) <= 0) { setEditError("Quantity must be greater than 0"); return; }
+    setEditSaving(true);
+    setEditError("");
+
+    const { error } = await supabase
+      .from("ingredient_lots")
+      .update({
+        julian_code: editJulianCode.trim(),
+        received_date: editReceivedDate,
+        best_before_date: editBestBefore || null,
+        quantity_received_g: Number(editQuantityG),
+        supplier: editSupplier.trim() || null,
+      })
+      .eq("id", editingLot.id);
+
+    setEditSaving(false);
+    if (error) { setEditError(error.message); return; }
+    setEditingLot(null);
+    await load();
   }
 
   function updateRow(idx: number, field: keyof IngredientRow, value: string) {
@@ -358,6 +402,7 @@ export default function GoodsInPage() {
                     <th className="px-4 py-3 text-right font-semibold text-gray-700">Remaining (g)</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">BBE</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Date in</th>
+                    <th className="w-16 px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -373,6 +418,14 @@ export default function GoodsInPage() {
                       </td>
                       <td className="px-4 py-3 text-gray-500">{lot.best_before_date ? formatDate(lot.best_before_date) : "—"}</td>
                       <td className="px-4 py-3 text-gray-500">{formatDate(lot.received_date)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => openEditLot(lot)}
+                          className="text-xs text-brand-dark font-medium hover:underline"
+                        >
+                          Edit
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -381,6 +434,89 @@ export default function GoodsInPage() {
           )}
         </div>
       </main>
+
+      {/* Edit lot panel */}
+      {editingLot && (
+        <div className="fixed inset-0 z-40 flex">
+          <div className="flex-1 bg-black/30" onClick={() => setEditingLot(null)} />
+          <div className="w-full max-w-sm bg-white shadow-xl flex flex-col">
+            <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">Edit Delivery</h2>
+                <p className="text-xs text-gray-500 mt-0.5">{editingLot.ingredient?.name}</p>
+              </div>
+              <button onClick={() => setEditingLot(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              <div>
+                <label className="label">Batch / Julian code *</label>
+                <input
+                  type="text"
+                  className="input w-full font-mono"
+                  value={editJulianCode}
+                  onChange={e => setEditJulianCode(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label">Date received *</label>
+                <input
+                  type="date"
+                  className="input w-full"
+                  value={editReceivedDate}
+                  onChange={e => setEditReceivedDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label">Quantity received (g) *</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="input w-full"
+                  value={editQuantityG}
+                  onChange={e => setEditQuantityG(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-gray-400">Changing this won't affect the remaining stock — use Reconcile on Raw Materials for that.</p>
+              </div>
+              <div>
+                <label className="label">Best before date</label>
+                <input
+                  type="date"
+                  className="input w-full"
+                  value={editBestBefore}
+                  onChange={e => setEditBestBefore(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label">Supplier</label>
+                <select
+                  className="input w-full"
+                  value={suppliers.find(s => s.name === editSupplier)?.id ?? ""}
+                  onChange={e => setEditSupplier(suppliers.find(s => s.id === e.target.value)?.name ?? "")}
+                >
+                  <option value="">— None —</option>
+                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {editError && (
+              <div className="mx-6 mb-2 rounded bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+                {editError}
+              </div>
+            )}
+
+            <div className="border-t border-gray-200 px-6 pt-3 pb-3">
+              <div className="flex gap-3">
+                <button onClick={() => setEditingLot(null)} className="btn-ghost flex-1">Cancel</button>
+                <button onClick={saveEditLot} disabled={editSaving} className="btn-primary flex-1">
+                  {editSaving ? "Saving…" : "Save changes"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
