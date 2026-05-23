@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     if (orgError || !org) {
       // Roll back: delete the auth user so they can try again
       await supabaseAdmin.auth.admin.deleteUser(userId);
-      return NextResponse.json({ error: "Failed to create organisation" }, { status: 500 });
+      return NextResponse.json({ error: "Failed to create organisation: " + (orgError?.message ?? "unknown") }, { status: 500 });
     }
 
     // 3. Link user to org as admin
