@@ -60,8 +60,17 @@ export default function SignUpPage() {
       return;
     }
 
-    router.push("/home");
-    router.refresh();
+    // Redirect to Stripe checkout to capture card and start trial
+    const checkoutRes = await fetch("/api/create-checkout-session", { method: "POST" });
+    const checkoutData = await checkoutRes.json();
+
+    if (checkoutData.url) {
+      window.location.href = checkoutData.url;
+    } else {
+      // Fallback — go to app if checkout fails
+      router.push("/home");
+      router.refresh();
+    }
   }
 
   const ready = orgName.trim() && fullName.trim() && email.trim() && password && confirmPassword;
