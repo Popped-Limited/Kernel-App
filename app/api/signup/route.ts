@@ -11,18 +11,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
   }
 
-  // Create auth user — auto-confirmed so they can log in immediately
-  const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
+  // Create auth user using standard signUp (requires "Confirm email" OFF in Supabase Auth settings)
+  const { createClient } = await import("@supabase/supabase-js");
+  const supabaseAuth = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const { data: userData, error: userError } = await supabaseAuth.auth.signUp({
     email: email.trim().toLowerCase(),
     password,
-    email_confirm: true,
-    user_metadata: { full_name: user_name.trim() },
+    options: { data: { full_name: user_name.trim() } },
   });
 
-  if (userError) {
-    const msg = userError.message.includes("already registered")
+  if (userError || !userData.user) {
+    const msg = userError?.message.includes("already registered")
       ? "An account with this email already exists"
-      : userError.message;
+      : (userError?.message ?? "Failed to create account");
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 
