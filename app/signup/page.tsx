@@ -58,9 +58,6 @@ export default function SignUpPage() {
       const checkoutRes = await fetch("/api/create-checkout-session", { method: "POST" });
       const checkoutData = await checkoutRes.json();
 
-      // Temporary debug — remove before launch
-      alert("Checkout response: " + JSON.stringify(checkoutData));
-
       if (checkoutData.url) {
         window.location.href = checkoutData.url;
       } else {
