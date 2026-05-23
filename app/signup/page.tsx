@@ -1,13 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 export default function SignUpPage() {
-  const router = useRouter();
-
   const [orgName, setOrgName]                 = useState("");
   const [fullName, setFullName]               = useState("");
   const [email, setEmail]                     = useState("");
@@ -25,40 +22,56 @@ export default function SignUpPage() {
 
     setLoading(true);
 
-    // 1. Create auth user directly from client
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: email.trim().toLowerCase(),
-      password,
-      options: { data: { full_name: fullName.trim() } },
-    });
+    try {
+      // Step 1: Create account + organisation on the server
+      const signupRes = await fetch("/api/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          org_name:  orgName.trim(),
+          user_name: fullName.trim(),
+          email:     email.trim(),
+          password,
+        }),
+      });
 
-    if (authError || !authData.user) {
-      setError(authError?.message ?? "Failed to create account");
+      const signupData = await signupRes.json();
+      if (!signupRes.ok) {
+        setError(signupData.error ?? "Failed to create account");
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: Sign in to establish a proper session (stored in cookies by createBrowserClient)
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      if (signInError) {
+        setError("Account created but sign-in failed — please sign in manually");
+        setLoading(false);
+        return;
+      }
+
+      // Step 3: Create Stripe checkout session (session is now in cookies)
+      const checkoutRes = await fetch("/api/create-checkout-session", { method: "POST" });
+      const checkoutData = await checkoutRes.json();
+
+      // Temporary debug — remove before launch
+      alert("Checkout response: " + JSON.stringify(checkoutData));
+
+      if (checkoutData.url) {
+        window.location.href = checkoutData.url;
+      } else {
+        setError("Failed to start billing setup: " + (checkoutData.error ?? "Unknown error"));
+        setLoading(false);
+      }
+
+    } catch (err) {
+      console.error("Signup error:", err);
+      setError("Something went wrong — please try again");
       setLoading(false);
-      return;
-    }
-
-    // 2. Create organisation via SECURITY DEFINER function
-    const { error: orgError } = await supabase.rpc("create_organisation_for_user", {
-      p_org_name: orgName.trim(),
-      p_user_name: fullName.trim(),
-    });
-
-    if (orgError) {
-      setError("Account created but org setup failed: " + orgError.message);
-      setLoading(false);
-      return;
-    }
-
-    // 3. Redirect to Stripe checkout
-    const checkoutRes = await fetch("/api/create-checkout-session", { method: "POST" });
-    const checkoutData = await checkoutRes.json();
-
-    if (checkoutData.url) {
-      window.location.href = checkoutData.url;
-    } else {
-      router.push("/home");
-      router.refresh();
     }
   }
 
@@ -81,7 +94,7 @@ export default function SignUpPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Business name *</label>
               <input
                 type="text" value={orgName} onChange={e => setOrgName(e.target.value)}
-                className="input" placeholder="e.g. Yep Kitchen"
+                className="input" placeholder="e.g. Acme Bakery"
                 autoFocus autoComplete="organization" disabled={loading}
               />
             </div>
@@ -89,7 +102,7 @@ export default function SignUpPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Your name *</label>
               <input
                 type="text" value={fullName} onChange={e => setFullName(e.target.value)}
-                className="input" placeholder="e.g. Tom Palmer"
+                className="input" placeholder="e.g. Jane Smith"
                 autoComplete="name" disabled={loading}
               />
             </div>

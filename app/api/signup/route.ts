@@ -2,66 +2,72 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function POST(req: NextRequest) {
-  const { org_name, user_name, email, password } = await req.json();
+  try {
+    const { org_name, user_name, email, password } = await req.json();
 
-  if (!org_name?.trim() || !user_name?.trim() || !email?.trim() || !password) {
-    return NextResponse.json({ error: "All fields are required" }, { status: 400 });
+    // Validate inputs
+    if (!org_name?.trim() || !user_name?.trim() || !email?.trim() || !password) {
+      return NextResponse.json({ error: "All fields are required" }, { status: 400 });
+    }
+    if (password.length < 8) {
+      return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+    }
+
+    const normalisedEmail = email.trim().toLowerCase();
+
+    // 1. Create the auth user (admin API — auto-confirmed, no email verification needed)
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
+      email: normalisedEmail,
+      password,
+      user_metadata: { full_name: user_name.trim() },
+      email_confirm: true,
+    });
+
+    if (userError || !userData.user) {
+      const msg = userError?.message?.toLowerCase().includes("already registered") ||
+                  userError?.message?.toLowerCase().includes("already exists")
+        ? "An account with this email already exists"
+        : (userError?.message ?? "Failed to create account");
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+
+    const userId = userData.user.id;
+
+    // 2. Create the organisation
+    const baseSlug = org_name.trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const slug = `${baseSlug}-${Date.now()}`;
+
+    const { data: org, error: orgError } = await supabaseAdmin
+      .from("organisations")
+      .insert({ name: org_name.trim(), slug, plan: "trial" })
+      .select("id")
+      .single();
+
+    if (orgError || !org) {
+      // Roll back: delete the auth user so they can try again
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      return NextResponse.json({ error: "Failed to create organisation" }, { status: 500 });
+    }
+
+    // 3. Link user to org as admin
+    const { error: memberError } = await supabaseAdmin
+      .from("organisation_members")
+      .insert({ organisation_id: org.id, user_id: userId, role: "admin" });
+
+    if (memberError) {
+      // Roll back both
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      await supabaseAdmin.from("organisations").delete().eq("id", org.id);
+      return NextResponse.json({ error: "Failed to set up account" }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true }, { status: 201 });
+
+  } catch (err) {
+    console.error("Signup error:", err);
+    return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 });
   }
-  if (password.length < 8) {
-    return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
-  }
-
-  // Create auth user using standard signUp (requires "Confirm email" OFF in Supabase Auth settings)
-  const { createClient } = await import("@supabase/supabase-js");
-  const supabaseAuth = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  const { data: userData, error: userError } = await supabaseAuth.auth.signUp({
-    email: email.trim().toLowerCase(),
-    password,
-    options: { data: { full_name: user_name.trim() } },
-  });
-
-  if (userError || !userData.user) {
-    const msg = userError?.message.includes("already registered")
-      ? "An account with this email already exists"
-      : (userError?.message ?? "Failed to create account");
-    return NextResponse.json({ error: msg }, { status: 400 });
-  }
-
-  const userId = userData.user.id;
-
-  // Generate a unique slug from the org name
-  const baseSlug = org_name.trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  const slug = `${baseSlug}-${Date.now()}`;
-
-  // Create organisation
-  const { data: org, error: orgError } = await supabaseAdmin
-    .from("organisations")
-    .insert({ name: org_name.trim(), slug, plan: "trial" })
-    .select("id")
-    .single();
-
-  if (orgError || !org) {
-    await supabaseAdmin.auth.admin.deleteUser(userId);
-    return NextResponse.json({ error: "Failed to create organisation" }, { status: 500 });
-  }
-
-  // Link user to org as admin
-  const { error: memberError } = await supabaseAdmin
-    .from("organisation_members")
-    .insert({ organisation_id: org.id, user_id: userId, role: "admin" });
-
-  if (memberError) {
-    await supabaseAdmin.auth.admin.deleteUser(userId);
-    await supabaseAdmin.from("organisations").delete().eq("id", org.id);
-    return NextResponse.json({ error: "Failed to set up account" }, { status: 500 });
-  }
-
-  return NextResponse.json({ success: true }, { status: 201 });
 }
