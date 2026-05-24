@@ -203,8 +203,9 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
           <SignOutButton />
         </div>
 
-        <SupportModal open={supportOpen} onClose={() => setSupportOpen(false)} />
       </aside>
+
+      <SupportModal open={supportOpen} onClose={() => setSupportOpen(false)} />
     </>
   );
 }
