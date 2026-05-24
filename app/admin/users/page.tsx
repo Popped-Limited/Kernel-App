@@ -46,9 +46,10 @@ export default function UsersPage() {
   // Invite form
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole]   = useState("staff");
-  const [inviting, setInviting]       = useState(false);
+  const [inviting, setInviting]           = useState(false);
   const [inviteSuccess, setInviteSuccess] = useState("");
-  const [inviteError, setInviteError] = useState("");
+  const [inviteError, setInviteError]     = useState("");
+  const [removing, setRemoving]           = useState<string | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -61,6 +62,20 @@ export default function UsersPage() {
       setInvites(data.invites ?? []);
     }
     setLoading(false);
+  }
+
+  async function removeMember(userId: string, name: string) {
+    if (!confirm(`Remove ${name} from your organisation? They will lose access immediately.`)) return;
+    setRemoving(userId);
+    const res = await fetch("/api/remove-member", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error ?? "Failed to remove member"); }
+    else { load(); }
+    setRemoving(null);
   }
 
   async function sendInvite(e: React.FormEvent) {
@@ -122,9 +137,20 @@ export default function UsersPage() {
                 )}
                 <p className="text-xs text-brown/40 mt-0.5">Joined {formatDate(m.joined_at)}</p>
               </div>
-              <span className={`shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ROLE_BADGE[m.role] ?? "bg-gray-100 text-gray-600"}`}>
-                {ROLE_LABELS[m.role] ?? m.role}
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ROLE_BADGE[m.role] ?? "bg-gray-100 text-gray-600"}`}>
+                  {ROLE_LABELS[m.role] ?? m.role}
+                </span>
+                {myRole === "admin" && !m.is_me && (
+                  <button
+                    onClick={() => removeMember(m.user_id, m.full_name ?? m.email)}
+                    disabled={removing === m.user_id}
+                    className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50"
+                  >
+                    {removing === m.user_id ? "Removing…" : "Remove"}
+                  </button>
+                )}
+              </div>
             </li>
           ))}
         </ul>
