@@ -45,6 +45,13 @@ const NAV = [
       { label: "Manage Training",       href: "/admin/training-setup" },
     ],
   },
+  {
+    title: "Account",
+    items: [
+      { label: "Users",   href: "/admin/users" },
+      { label: "Billing", href: "/admin/billing" },
+    ],
+  },
 ];
 
 function SignOutButton() {

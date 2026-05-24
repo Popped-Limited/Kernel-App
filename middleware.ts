@@ -19,6 +19,8 @@ const PUBLIC_PREFIXES = [
   "/terms",
   "/saq/",
   "/c/",
+  "/accept-invite",
+  "/api/accept-invite",
 ];
 
 export async function middleware(request: NextRequest) {
