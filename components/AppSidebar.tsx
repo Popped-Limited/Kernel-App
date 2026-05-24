@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
+import SupportModal from "@/components/SupportModal";
 import type { Checklist } from "@/lib/types";
 
 // minRole: which roles can see this section
@@ -97,7 +98,8 @@ interface Props {
 export default function AppSidebar({ mobileOpen, onClose }: Props) {
   const pathname = usePathname();
   const { role } = useOrganisation();
-  const [prodMenuOpen, setProdMenuOpen] = useState(false);
+  const [prodMenuOpen, setProdMenuOpen]   = useState(false);
+  const [supportOpen, setSupportOpen]     = useState(false);
   const [batchChecklists, setBatchChecklists] = useState<Checklist[]>([]);
 
   useEffect(() => {
@@ -187,9 +189,21 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
           ))}
         </nav>
 
-        <div className="px-3 py-4 border-t border-brown/15">
+        <div className="px-3 py-4 border-t border-brown/15 space-y-1">
+          <button
+            onClick={() => setSupportOpen(true)}
+            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-brown/70 hover:bg-brown/10 hover:text-brown transition-colors text-left"
+          >
+            <svg className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="10" cy="10" r="8"/>
+              <path d="M10 14h.01M10 6a2.5 2.5 0 010 5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Contact support
+          </button>
           <SignOutButton />
         </div>
+
+        <SupportModal open={supportOpen} onClose={() => setSupportOpen(false)} />
       </aside>
     </>
   );
