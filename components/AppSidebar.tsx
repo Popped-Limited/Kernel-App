@@ -4,11 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Checklist } from "@/lib/types";
 
+// minRole: which roles can see this section
+// admin > manager > staff
 const NAV = [
   {
     title: "Production",
+    minRole: "staff",
     items: [
       { label: "Goods In",      href: "/admin/goods-in" },
       { label: "Goods Out",     href: "/admin/goods-out" },
@@ -17,6 +21,7 @@ const NAV = [
   },
   {
     title: "Compliance",
+    minRole: "staff",
     items: [
       { label: "Suppliers",    href: "/admin/suppliers" },
       { label: "Traceability", href: "/admin/traceability" },
@@ -24,6 +29,7 @@ const NAV = [
   },
   {
     title: "Team",
+    minRole: "staff",
     items: [
       { label: "Staff Members", href: "/admin/team/staff" },
       { label: "Training",      href: "/admin/team/training" },
@@ -31,6 +37,7 @@ const NAV = [
   },
   {
     title: "Records",
+    minRole: "staff",
     items: [
       { label: "All Submissions", href: "/dashboard" },
       { label: "Print QR Codes",  href: "/print-qr" },
@@ -38,6 +45,7 @@ const NAV = [
   },
   {
     title: "Admin",
+    minRole: "manager",
     items: [
       { label: "Create Production Run", href: "/admin/production-builder" },
       { label: "Manage Checklists",     href: "/admin/checklists" },
@@ -47,12 +55,20 @@ const NAV = [
   },
   {
     title: "Account",
+    minRole: "admin",
     items: [
       { label: "Users",   href: "/admin/users" },
       { label: "Billing", href: "/admin/billing" },
     ],
   },
 ];
+
+const ROLE_RANK: Record<string, number> = { staff: 1, manager: 2, admin: 3 };
+
+function canSee(userRole: string | null, minRole: string) {
+  if (!userRole) return false;
+  return (ROLE_RANK[userRole] ?? 0) >= (ROLE_RANK[minRole] ?? 99);
+}
 
 function SignOutButton() {
   async function handleSignOut() {
@@ -80,6 +96,7 @@ interface Props {
 
 export default function AppSidebar({ mobileOpen, onClose }: Props) {
   const pathname = usePathname();
+  const { role } = useOrganisation();
   const [prodMenuOpen, setProdMenuOpen] = useState(false);
   const [batchChecklists, setBatchChecklists] = useState<Checklist[]>([]);
 
@@ -115,7 +132,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
-          {NAV.map(section => (
+          {NAV.filter(section => canSee(role, section.minRole)).map(section => (
             <div key={section.title}>
               <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-brown/60">
                 {section.title}
