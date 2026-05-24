@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     await resend.emails.send({
       from: `Kernel Support <${fromEmail}>`,
       to:   supportEmail,
-      replyTo: user.email,
+      reply_to: user.email,
       subject: `[Support] ${subject}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; color: #333;">
