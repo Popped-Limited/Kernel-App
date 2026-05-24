@@ -97,7 +97,7 @@ interface Props {
 
 export default function AppSidebar({ mobileOpen, onClose }: Props) {
   const pathname = usePathname();
-  const { role } = useOrganisation();
+  const { role, loading } = useOrganisation();
   const [prodMenuOpen, setProdMenuOpen]   = useState(false);
   const [supportOpen, setSupportOpen]     = useState(false);
   const [batchChecklists, setBatchChecklists] = useState<Checklist[]>([]);
@@ -134,7 +134,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
-          {NAV.filter(section => canSee(role, section.minRole)).map(section => (
+          {NAV.filter(section => loading || canSee(role, section.minRole)).map(section => (
             <div key={section.title}>
               <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-brown/60">
                 {section.title}

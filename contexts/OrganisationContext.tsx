@@ -27,22 +27,30 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
   const [loading, setLoading]                     = useState(true);
 
   async function fetchOrg(userId: string) {
-    const { data } = await supabase
+    // Fetch membership first — this always works with existing RLS
+    const { data: memberData } = await supabase
       .from("organisation_members")
-      .select(`
-        organisation_id, role,
-        organisations ( name, subscription_status, trial_ends_at, stripe_customer_id )
-      `)
+      .select("organisation_id, role")
       .eq("user_id", userId)
       .single();
 
-    const org = (data as any)?.organisations;
-    setOrgId(data?.organisation_id ?? null);
-    setRole((data?.role as "admin" | "manager" | "staff") ?? null);
-    setOrgName(org?.name ?? null);
-    setSubscriptionStatus(org?.subscription_status ?? null);
-    setTrialEndsAt(org?.trial_ends_at ?? null);
-    setStripeCustomerId(org?.stripe_customer_id ?? null);
+    setOrgId(memberData?.organisation_id ?? null);
+    setRole((memberData?.role as "admin" | "manager" | "staff") ?? null);
+
+    // Fetch org details separately — belt-and-braces in case RLS blocks the join
+    if (memberData?.organisation_id) {
+      const { data: orgData } = await supabase
+        .from("organisations")
+        .select("name, subscription_status, trial_ends_at, stripe_customer_id")
+        .eq("id", memberData.organisation_id)
+        .single();
+
+      setOrgName(orgData?.name ?? null);
+      setSubscriptionStatus(orgData?.subscription_status ?? null);
+      setTrialEndsAt(orgData?.trial_ends_at ?? null);
+      setStripeCustomerId(orgData?.stripe_customer_id ?? null);
+    }
+
     setLoading(false);
   }
 
