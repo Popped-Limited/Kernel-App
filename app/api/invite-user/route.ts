@@ -83,9 +83,12 @@ export async function POST(req: NextRequest) {
     if (inviteError) throw inviteError;
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://kernelapp.co.uk";
-    // Route through /auth/confirm so Supabase can exchange the PKCE code for a
-    // real session (cookie-based) before landing on the accept-invite page.
-    const redirectTo = `${appUrl}/auth/confirm?next=${encodeURIComponent(`/accept-invite?token=${invite.token}`)}`;
+    // Use the client-side /auth/callback page. Supabase's invite email redirects
+    // with the session as URL hash fragments (#access_token=...) which server-side
+    // route handlers cannot see. The browser client on /auth/callback detects the
+    // hash automatically and stores the session in cookies before forwarding to
+    // /accept-invite. It also handles the PKCE ?code= flow as a fallback.
+    const redirectTo = `${appUrl}/auth/callback?next=${encodeURIComponent(`/accept-invite?token=${invite.token}`)}`;
 
     // Send invite email via Supabase
     const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(normalisedEmail, {
