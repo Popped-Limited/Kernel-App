@@ -60,7 +60,15 @@ export async function POST(req: NextRequest) {
       // They have an account but aren't in this org — create an invite they can accept
     }
 
-    // Create invite record
+    // Remove any existing pending invite for this email so we can re-send cleanly
+    await supabaseAdmin
+      .from("org_invites")
+      .delete()
+      .eq("organisation_id", orgId)
+      .eq("email", normalisedEmail)
+      .is("accepted_at", null);
+
+    // Create fresh invite record
     const { data: invite, error: inviteError } = await supabaseAdmin
       .from("org_invites")
       .insert({
@@ -72,12 +80,7 @@ export async function POST(req: NextRequest) {
       .select("token")
       .single();
 
-    if (inviteError) {
-      if (inviteError.message?.includes("unique") || inviteError.code === "23505") {
-        return NextResponse.json({ error: "An invite has already been sent to this email" }, { status: 400 });
-      }
-      throw inviteError;
-    }
+    if (inviteError) throw inviteError;
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://kernelapp.co.uk";
     // Route through /auth/confirm so Supabase can exchange the PKCE code for a
