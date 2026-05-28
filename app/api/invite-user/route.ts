@@ -80,7 +80,9 @@ export async function POST(req: NextRequest) {
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://kernelapp.co.uk";
-    const redirectTo = `${appUrl}/accept-invite?token=${invite.token}`;
+    // Route through /auth/confirm so Supabase can exchange the PKCE code for a
+    // real session (cookie-based) before landing on the accept-invite page.
+    const redirectTo = `${appUrl}/auth/confirm?next=${encodeURIComponent(`/accept-invite?token=${invite.token}`)}`;
 
     // Send invite email via Supabase
     const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(normalisedEmail, {
