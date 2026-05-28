@@ -100,8 +100,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
 
-  } catch (err) {
+  } catch (err: any) {
     console.error("Invite user error:", err);
-    return NextResponse.json({ error: "Failed to send invite" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to send invite: " + (err?.message ?? String(err)) }, { status: 500 });
   }
 }
