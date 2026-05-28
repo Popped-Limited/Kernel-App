@@ -5,19 +5,20 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-type State = "loading" | "accepting" | "success" | "error" | "no-token";
+type State = "loading" | "accepting" | "set-password" | "saving-password" | "success" | "error" | "no-token";
 
 function AcceptInviteContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [state, setState] = useState<State>("loading");
+  const [state, setState]     = useState<State>("loading");
   const [message, setMessage] = useState("");
+  const [password, setPassword]             = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError]   = useState("");
 
   useEffect(() => {
     const token = searchParams.get("token");
     if (!token) { setState("no-token"); return; }
-
-    // Wait briefly for Supabase to process the magic link and set the session
     const timer = setTimeout(() => acceptInvite(token), 800);
     return () => clearTimeout(timer);
   }, [searchParams]);
@@ -25,9 +26,7 @@ function AcceptInviteContent() {
   async function acceptInvite(token: string) {
     setState("accepting");
 
-    // Ensure the user is signed in (Supabase should have set the session from the magic link)
     const { data: { user } } = await supabase.auth.getUser();
-
     if (!user) {
       setMessage("We couldn't verify your account. Please try clicking the invite link again.");
       setState("error");
@@ -47,6 +46,26 @@ function AcceptInviteContent() {
       return;
     }
 
+    // Invite accepted — now ask them to set a password so they can log in later
+    setState("set-password");
+  }
+
+  async function handleSetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordError("");
+
+    if (password.length < 8) { setPasswordError("Password must be at least 8 characters"); return; }
+    if (password !== confirmPassword) { setPasswordError("Passwords don't match"); return; }
+
+    setState("saving-password");
+
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      setPasswordError(error.message);
+      setState("set-password");
+      return;
+    }
+
     setState("success");
     setTimeout(() => router.push("/home"), 2000);
   }
@@ -63,6 +82,52 @@ function AcceptInviteContent() {
               <p className="text-sm text-brown/60">
                 {state === "loading" ? "Verifying your invite…" : "Joining your team…"}
               </p>
+            </>
+          )}
+
+          {(state === "set-password" || state === "saving-password") && (
+            <>
+              <div className="w-12 h-12 rounded-full bg-brand/30 flex items-center justify-center mx-auto mb-4">
+                <svg className="h-6 w-6 text-brown" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="5" y="9" width="10" height="8" rx="1.5"/>
+                  <path d="M7 9V6.5a3 3 0 016 0V9" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <h2 className="text-lg font-serif text-brown mb-1">Set your password</h2>
+              <p className="text-sm text-brown/60 mb-6">Choose a password so you can sign in next time.</p>
+              <form onSubmit={handleSetPassword} className="space-y-3 text-left">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="input"
+                    placeholder="Min. 8 characters"
+                    autoFocus
+                    disabled={state === "saving-password"}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirm password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    className="input"
+                    placeholder="Repeat password"
+                    disabled={state === "saving-password"}
+                  />
+                </div>
+                {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
+                <button
+                  type="submit"
+                  disabled={state === "saving-password" || !password || !confirmPassword}
+                  className="btn-primary w-full py-2.5 mt-2"
+                >
+                  {state === "saving-password" ? "Saving…" : "Set password & continue"}
+                </button>
+              </form>
             </>
           )}
 
