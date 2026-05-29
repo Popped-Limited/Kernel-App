@@ -67,6 +67,10 @@ export default function QuestionField({ question, value, onChange, error, ingred
   // Tracks raw litres text per lot input so users can type freely without the field snapping
   const [litresDisplay, setLitresDisplay] = useState<Record<string, string>>({});
 
+  // Recipe multiplier — only used by ingredient_table questions
+  const [multiplier, setMultiplier] = useState(1);
+  const [multiplierInput, setMultiplierInput] = useState("1");
+
   const base = (
     <div className="space-y-1">
       <label className="label">
@@ -394,16 +398,62 @@ export default function QuestionField({ question, value, onChange, error, ingred
           {question.required && <span className="ml-1 text-brand">*</span>}
         </label>
         {question.hint && <p className="text-xs text-gray-500 -mt-0.5 mb-2">{question.hint}</p>}
+
+        {/* ── Recipe multiplier ── */}
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 mb-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium text-gray-600 shrink-0">Batch multiplier</span>
+            <div className="flex items-center gap-1 flex-wrap">
+              {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 2].map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => { setMultiplier(p); setMultiplierInput(String(p)); }}
+                  className={`px-2 py-0.5 rounded-md text-xs font-medium transition-colors ${
+                    multiplier === p
+                      ? "bg-brown text-white"
+                      : "bg-white border border-gray-200 text-gray-600 hover:border-brown/40"
+                  }`}
+                >
+                  {p}×
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 ml-auto">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={multiplierInput}
+                onChange={(e) => setMultiplierInput(e.target.value)}
+                onBlur={() => {
+                  const v = parseFloat(multiplierInput);
+                  if (!isNaN(v) && v > 0) { setMultiplier(v); setMultiplierInput(String(v)); }
+                  else { setMultiplierInput(String(multiplier)); }
+                }}
+                className="input w-16 text-xs py-1 text-center"
+                placeholder="e.g. 0.65"
+              />
+              <span className="text-xs text-gray-500">×</span>
+            </div>
+          </div>
+          {multiplier !== 1 && (
+            <p className="text-xs text-amber-700 mt-1.5 font-medium">
+              Targets scaled to {multiplier}× — original recipe ÷ by {(1 / multiplier).toFixed(2)} or × by {multiplier}
+            </p>
+          )}
+        </div>
+
         <div className={`space-y-2 ${error ? "rounded-xl border border-red-300 p-2" : ""}`}>
           {ingredients.map((ing, ingIdx) => {
             const row = rows[ingIdx];
             const availableLots = findLots(ingredientLots ?? {}, ing.name);
             const density = findDensity(densityByName ?? {}, ing.name);
             const totalEntered = (row?.lots ?? []).reduce((sum, l) => sum + (Number(l.weight_g) || 0), 0);
-            const diff = totalEntered - ing.intended;
+            const scaledTarget = Math.round(ing.intended * multiplier);
+            const diff = totalEntered - scaledTarget;
             const targetLabel = density
-              ? `${ing.intended.toLocaleString()}g (${(ing.intended / density).toFixed(2)}L)`
-              : `${ing.intended.toLocaleString()}g`;
+              ? `${scaledTarget.toLocaleString()}g (${(scaledTarget / density).toFixed(2)}L)`
+              : `${scaledTarget.toLocaleString()}g`;
             return (
               <div key={ing.name} className="rounded-xl border border-gray-200 bg-white p-3 space-y-2">
                 <div className="flex items-center justify-between">
