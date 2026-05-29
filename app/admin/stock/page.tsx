@@ -67,6 +67,29 @@ export default function RawMaterialsPage() {
 
   const isNew = editing?.id === "";
 
+  // Recalculate stock
+  const [recalculating, setRecalculating] = useState(false);
+  const [recalcResult, setRecalcResult]   = useState<string | null>(null);
+
+  async function handleRecalculate() {
+    if (!confirm("This will reset all lot quantities from scratch by replaying every production record. Continue?")) return;
+    setRecalculating(true);
+    setRecalcResult(null);
+    try {
+      const res  = await fetch("/api/admin/recalculate-stock", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      setRecalcResult(
+        `Done — ${data.lots_reset} lots reset, ${data.deduction_entries_replayed} deductions replayed across ${data.lots_with_usage} lots.`
+      );
+      load(); // refresh the page data
+    } catch (e: unknown) {
+      setRecalcResult("Error: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setRecalculating(false);
+    }
+  }
+
   useEffect(() => { load(); }, []);
 
   async function load() {
@@ -244,10 +267,25 @@ export default function RawMaterialsPage() {
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-6xl w-full mx-auto space-y-6">
 
           {/* Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-gray-900">Raw Materials</h1>
-            <Link href="/admin/goods-in" className="btn-primary text-sm">Log Delivery</Link>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRecalculate}
+                disabled={recalculating}
+                className="btn-secondary text-sm"
+                title="Recount all stock by replaying every production record from scratch"
+              >
+                {recalculating ? "Recalculating…" : "Recalculate stock"}
+              </button>
+              <Link href="/admin/goods-in" className="btn-primary text-sm">Log Delivery</Link>
+            </div>
           </div>
+          {recalcResult && (
+            <div className={`rounded-xl px-4 py-3 text-sm ${recalcResult.startsWith("Error") ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"}`}>
+              {recalcResult}
+            </div>
+          )}
 
           {/* Stats row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

@@ -31,48 +31,74 @@ export async function POST(req: NextRequest) {
   }
 
   // Deduct ingredient stock for any ingredient_table answers
-  // Uses admin client — if unavailable, stock deduction is skipped but submission is saved
-  const ingredientAnswers = answers.filter((a: { value: string | null }) => a.value);
-  if (ingredientAnswers.length > 0 && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    const questionIds = ingredientAnswers.map((a: { question_id: string }) => a.question_id);
-    const { data: questions } = await supabaseAdmin
-      .from("questions")
-      .select("id, type")
-      .in("id", questionIds);
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const questionIds = answers
+      .filter((a: { value: string | null }) => a.value)
+      .map((a: { question_id: string }) => a.question_id);
 
-    const ingredientQIds = new Set(
-      (questions ?? [])
-        .filter((q: { id: string; type: string }) => q.type === "ingredient_table")
-        .map((q: { id: string; type: string }) => q.id)
-    );
+    if (questionIds.length > 0) {
+      const { data: questions } = await supabaseAdmin
+        .from("questions")
+        .select("id, type")
+        .in("id", questionIds);
 
-    for (const answer of answers) {
-      if (!ingredientQIds.has(answer.question_id) || !answer.value) continue;
-      try {
-        const rows = JSON.parse(answer.value) as Array<{
-          lots: Array<{ lot_id?: string; weight_g: string }>;
-        }>;
-        for (const row of rows) {
-          for (const lotUse of row.lots ?? []) {
-            if (!lotUse.lot_id || !lotUse.weight_g) continue;
-            const used = Number(lotUse.weight_g);
-            if (!used || used <= 0) continue;
-            const { data: lot } = await supabaseAdmin
-              .from("ingredient_lots")
-              .select("quantity_remaining_g")
-              .eq("id", lotUse.lot_id)
-              .single();
-            if (lot) {
-              const newRemaining = Math.max(0, (lot.quantity_remaining_g as number) - used);
-              await supabaseAdmin
+      const ingredientQIds = new Set(
+        (questions ?? [])
+          .filter((q: { id: string; type: string }) => q.type === "ingredient_table")
+          .map((q: { id: string; type: string }) => q.id)
+      );
+
+      for (const answer of answers) {
+        if (!ingredientQIds.has(answer.question_id) || !answer.value) continue;
+        try {
+          const rows = JSON.parse(answer.value) as Array<{
+            lots: Array<{ lot_id?: string; julian_code?: string; weight_g: string }>;
+          }>;
+
+          for (const row of rows) {
+            for (const lotUse of row.lots ?? []) {
+              if (!lotUse.weight_g) continue;
+              const used = Number(lotUse.weight_g);
+              if (!used || used <= 0) continue;
+
+              // Resolve the lot — prefer lot_id, fall back to julian_code lookup.
+              // This handles the case where the form used a manual text input
+              // (no dropdown) so lot_id was never set.
+              let resolvedLotId = lotUse.lot_id ?? null;
+
+              if (!resolvedLotId && lotUse.julian_code?.trim()) {
+                const { data: found } = await supabaseAdmin
+                  .from("ingredient_lots")
+                  .select("id")
+                  .eq("julian_code", lotUse.julian_code.trim())
+                  .limit(1)
+                  .single();
+                if (found) resolvedLotId = found.id;
+              }
+
+              if (!resolvedLotId) continue;
+
+              const { data: lot } = await supabaseAdmin
                 .from("ingredient_lots")
-                .update({ quantity_remaining_g: newRemaining })
-                .eq("id", lotUse.lot_id);
+                .select("quantity_remaining_g")
+                .eq("id", resolvedLotId)
+                .single();
+
+              if (lot) {
+                const newRemaining = Math.max(
+                  0,
+                  (lot.quantity_remaining_g as number) - used
+                );
+                await supabaseAdmin
+                  .from("ingredient_lots")
+                  .update({ quantity_remaining_g: newRemaining })
+                  .eq("id", resolvedLotId);
+              }
             }
           }
+        } catch (e) {
+          console.error("Stock deduction error:", e);
         }
-      } catch (e) {
-        console.error("Stock deduction error:", e);
       }
     }
   }
