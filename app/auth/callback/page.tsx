@@ -6,20 +6,19 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
 /**
- * Client-side auth callback — handles both auth flows that Supabase may use:
+ * Client-side auth callback — handles both auth flows Supabase may use:
  *
- *  1. PKCE flow  — Supabase appends ?code=xxx to the redirectTo URL.
- *     We call exchangeCodeForSession(code) to turn it into a cookie session.
+ *  1. PKCE flow  — Supabase appends ?code=xxx to the URL.
+ *     We call exchangeCodeForSession(code).
  *
  *  2. Implicit / invite flow — Supabase appends #access_token=...&refresh_token=...
- *     to the redirectTo URL. The @supabase/ssr browser client detects these hash
- *     fragments automatically on init and stores the session in cookies.
- *     We just wait for the SIGNED_IN event (or a populated getSession() result).
- *
- * Once a session is confirmed, we redirect to the `next` query param (default /home).
+ *     The @supabase/ssr browser client defaults to PKCE mode and does NOT
+ *     automatically process hash fragments, so we parse and call setSession()
+ *     explicitly. This also handles the case where an existing (different) session
+ *     is in cookies — setSession() replaces it with the invite session.
  */
 function AuthCallbackContent() {
-  const router     = useRouter();
+  const router       = useRouter();
   const searchParams = useSearchParams();
   const [failed, setFailed] = useState(false);
 
@@ -46,31 +45,38 @@ function AuthCallbackContent() {
       return;
     }
 
-    // --- Implicit / invite flow: #access_token=... ---
-    // The browser client processes the hash automatically on init.
-    // Subscribe to catch the SIGNED_IN event.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => { if (session) redirect(); }
-    );
+    // --- Implicit / invite flow: #access_token=...&refresh_token=... ---
+    // The SSR browser client won't auto-process these, so we do it manually.
+    const hash = typeof window !== "undefined" ? window.location.hash.substring(1) : "";
+    if (hash) {
+      const params  = new URLSearchParams(hash);
+      const access  = params.get("access_token");
+      const refresh = params.get("refresh_token");
 
-    // Also check immediately — the event may have already fired before
-    // our useEffect ran (the client initialised when the module was imported).
+      if (access && refresh) {
+        supabase.auth
+          .setSession({ access_token: access, refresh_token: refresh })
+          .then(({ error }) => {
+            if (!error) redirect();
+            else setFailed(true);
+          });
+        return;
+      }
+
+      // Hash present but no tokens — might be an error response from Supabase
+      const errDesc = params.get("error_description");
+      if (errDesc) {
+        console.error("Auth error from Supabase:", errDesc);
+        setFailed(true);
+        return;
+      }
+    }
+
+    // --- No code, no hash — fall back to any existing session ---
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) redirect();
+      else setFailed(true);
     });
-
-    // Safety net: if nothing has resolved after 5 s, show an error.
-    const timer = setTimeout(() => {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) redirect();
-        else if (!done) setFailed(true);
-      });
-    }, 5000);
-
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(timer);
-    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
