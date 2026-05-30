@@ -27,6 +27,26 @@ function emptyRow(): ProductRow {
   return { product: "", casesOf6: "0", casesOf3: "0", singles: "0", batchSubmissionId: "" };
 }
 
+/** Pull batch code + total jars out of a submission's answers */
+function batchSummary(answers: Array<{ value: string | null; question: { type: string; label: string } | null }>) {
+  let batchCode = "";
+  let totalJars = 0;
+  for (const ans of answers ?? []) {
+    const type  = ans.question?.type ?? "";
+    const label = (ans.question?.label ?? "").toLowerCase();
+    if (type === "packing_runs" && ans.value) {
+      try {
+        const rows = JSON.parse(ans.value) as Array<{ jars_used?: string }>;
+        for (const r of rows) totalJars += Number(r.jars_used) || 0;
+      } catch { /* ignore */ }
+    }
+    if (!batchCode && type === "text" && (label.includes("batch") || label.includes("lot")) && ans.value) {
+      batchCode = ans.value;
+    }
+  }
+  return { batchCode, totalJars };
+}
+
 export default function GoodsOutPage() {
   const { orgId } = useOrganisation();
   const [recentDispatches, setRecentDispatches] = useState<Dispatch[]>([]);
@@ -70,7 +90,7 @@ export default function GoodsOutPage() {
         .limit(30),
       supabase
         .from("submissions")
-        .select("id, submitted_by, submitted_at, checklist:checklists(name, category)")
+        .select("id, submitted_by, submitted_at, checklist:checklists(name, category), answers(value, question:questions(type, label))")
         .order("submitted_at", { ascending: false })
         .limit(100),
     ]);
@@ -346,11 +366,19 @@ export default function GoodsOutPage() {
                           disabled={!row.product}
                         >
                           <option value="">No link…</option>
-                          {filteredBatches.map(s => (
-                            <option key={s.id} value={s.id}>
-                              {s.checklist?.name?.replace(" — Production Record", "")} · {formatDate(s.submitted_at.slice(0, 10))} · {s.submitted_by}
-                            </option>
-                          ))}
+                          {filteredBatches.map(s => {
+                            const { batchCode, totalJars } = batchSummary((s as any).answers ?? []);
+                            const product = s.checklist?.name?.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim() ?? "";
+                            const parts = [
+                              batchCode ? `Batch ${batchCode}` : formatDate(s.submitted_at.slice(0, 10)),
+                              totalJars > 0 ? `${totalJars.toLocaleString()} jars` : null,
+                            ].filter(Boolean).join(" · ");
+                            return (
+                              <option key={s.id} value={s.id}>
+                                {product} · {parts}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
                     </div>
