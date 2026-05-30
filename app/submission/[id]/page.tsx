@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { Checklist, Submission, Answer, Question } from "@/lib/types";
@@ -16,6 +16,8 @@ type FullSubmission = Submission & {
 export default function SubmissionPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const backHref = searchParams.get("back") ?? "/home";
   const [submission, setSubmission] = useState<FullSubmission | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingOff, setSigningOff] = useState(false);
@@ -109,8 +111,8 @@ export default function SubmissionPage() {
       <header className="border-b border-gray-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
-            <Link href="/home" className="btn-ghost text-xs px-2">
-              ← Dashboard
+            <Link href={backHref} className="btn-ghost text-xs px-2">
+              ← {backHref === "/home" ? "Dashboard" : backHref.includes("traceability") ? "Traceability" : "Back"}
             </Link>
             <span className="text-gray-300">/</span>
             <span className="text-sm font-medium text-gray-700">{submission.checklist?.name}</span>

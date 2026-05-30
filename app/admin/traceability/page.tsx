@@ -55,6 +55,8 @@ export default function TraceabilityPage() {
   const [error, setError] = useState("");
   // Ingredient search: step 1 shows matching lots to pick from
   const [ingredientLots, setIngredientLots] = useState<LotInfo[] | null>(null);
+  // Keep the lot list so user can go back to it after drilling in
+  const [savedIngredientLots, setSavedIngredientLots] = useState<LotInfo[] | null>(null);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -243,14 +245,63 @@ export default function TraceabilityPage() {
   async function traceFromLot(lot: LotInfo) {
     setLoading(true);
     setError("");
+    // Save the list so user can navigate back, then hide it
+    setSavedIngredientLots(ingredientLots);
     setIngredientLots(null);
 
     try {
-      await searchByLot(lot.julian_code);
+      // Search by this specific lot ID only — not all lots sharing the same Julian code
+      const { data: answers } = await supabase
+        .from("answers")
+        .select("submission_id, value, question:questions(type)")
+        .eq("questions.type", "ingredient_table");
+
+      const matchedSubmissionIds = new Set<string>();
+      for (const ans of (answers ?? [])) {
+        if (!ans.value) continue;
+        try {
+          const parsed = JSON.parse(ans.value);
+          if (Array.isArray(parsed)) {
+            for (const row of parsed) {
+              for (const rl of (row.lots ?? [])) {
+                if (rl.lot_id === lot.id) matchedSubmissionIds.add(ans.submission_id);
+              }
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      const submissionIds = Array.from(matchedSubmissionIds);
+      let batches: BatchInfo[] = [];
+      if (submissionIds.length > 0) {
+        const { data: subs } = await supabase
+          .from("submissions")
+          .select("id, submitted_by, submitted_at, checklist:checklists(name), answers(value, question:questions(type, label))")
+          .in("id", submissionIds);
+        batches = (subs ?? []) as unknown as BatchInfo[];
+      }
+
+      let dispatches: DispatchInfo[] = [];
+      if (submissionIds.length > 0) {
+        const { data: disps } = await supabase
+          .from("dispatches")
+          .select("*")
+          .in("batch_submission_id", submissionIds);
+        dispatches = (disps ?? []) as DispatchInfo[];
+      }
+
+      // Only show the single lot the user selected
+      setResult({ searchType: "ingredient", query: lot.ingredient?.name ?? lot.julian_code, lots: [lot], batches, dispatches });
     } catch {
       setError("Trace failed — please try again.");
     }
     setLoading(false);
+  }
+
+  function handleBackToLots() {
+    setResult(null);
+    setIngredientLots(savedIngredientLots);
+    setSavedIngredientLots(null);
   }
 
   return (
@@ -346,6 +397,15 @@ export default function TraceabilityPage() {
 
         {result && (
           <div className="space-y-5">
+            {/* Back to lot picker if we drilled in from ingredient search */}
+            {savedIngredientLots && (
+              <button
+                onClick={handleBackToLots}
+                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 transition-colors"
+              >
+                ← Back to all {result.query} lots
+              </button>
+            )}
             {/* Ingredient Lots */}
             <Section title="Raw Material Lots" count={result.lots.length} color="blue">
               {result.lots.length === 0 ? (
@@ -393,7 +453,7 @@ export default function TraceabilityPage() {
                           <p className="text-sm font-semibold text-gray-900">{b.checklist?.name}</p>
                           <p className="text-xs text-gray-500">{formatDateTime(b.submitted_at)} · by {b.submitted_by}</p>
                         </div>
-                        <Link href={`/submission/${b.id}`} className="btn-ghost text-xs shrink-0">View →</Link>
+                        <Link href={`/submission/${b.id}?back=/admin/traceability`} className="btn-ghost text-xs shrink-0">View →</Link>
                       </div>
                     </div>
                   ))}
