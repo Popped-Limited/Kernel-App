@@ -40,7 +40,7 @@ interface DispatchInfo {
 }
 
 interface TraceResult {
-  searchType: "lot" | "batch" | "ingredient";
+  searchType: "lot" | "batch" | "ingredient" | "product";
   query: string;
   lots: LotInfo[];
   batches: BatchInfo[];
@@ -49,7 +49,7 @@ interface TraceResult {
 
 export default function TraceabilityPage() {
   const [query, setQuery] = useState("");
-  const [searchType, setSearchType] = useState<"lot" | "batch" | "ingredient">("lot");
+  const [searchType, setSearchType] = useState<"lot" | "batch" | "ingredient" | "product">("ingredient");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TraceResult | null>(null);
   const [error, setError] = useState("");
@@ -71,6 +71,8 @@ export default function TraceabilityPage() {
         await searchByLot(query.trim());
       } else if (searchType === "batch") {
         await searchByBatch(query.trim());
+      } else if (searchType === "product") {
+        await searchByProduct(query.trim());
       } else {
         await searchByIngredient(query.trim());
       }
@@ -242,6 +244,69 @@ export default function TraceabilityPage() {
     setIngredientLots(lots as LotInfo[]);
   }
 
+  async function searchByProduct(name: string) {
+    // 1. Find dispatches matching this product name
+    const { data: disps } = await supabase
+      .from("dispatches")
+      .select("*")
+      .ilike("product", `%${name}%`)
+      .order("dispatch_date", { ascending: false });
+
+    if (!disps || disps.length === 0) {
+      setError(`No dispatches found for product matching "${name}".`);
+      return;
+    }
+
+    const dispatches = disps as DispatchInfo[];
+
+    // 2. Find batch submissions linked to these dispatches
+    const batchSubmissionIds = [
+      ...new Set(
+        disps
+          .map((d: { batch_submission_id?: string }) => d.batch_submission_id)
+          .filter(Boolean)
+      ),
+    ] as string[];
+
+    let batches: BatchInfo[] = [];
+    if (batchSubmissionIds.length > 0) {
+      const { data: subs } = await supabase
+        .from("submissions")
+        .select("id, submitted_by, submitted_at, checklist:checklists(name), answers(value, question:questions(type, label))")
+        .in("id", batchSubmissionIds);
+      batches = (subs ?? []) as unknown as BatchInfo[];
+    }
+
+    // 3. Find the raw material lots used in those batches
+    const lotIds = new Set<string>();
+    for (const batch of batches) {
+      for (const ans of (batch.answers ?? [])) {
+        if (!ans.value || ans.question?.type !== "ingredient_table") continue;
+        try {
+          const parsed = JSON.parse(ans.value);
+          if (Array.isArray(parsed)) {
+            for (const row of parsed) {
+              for (const rl of (row.lots ?? [])) {
+                if (rl.lot_id) lotIds.add(rl.lot_id);
+              }
+            }
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    let lots: LotInfo[] = [];
+    if (lotIds.size > 0) {
+      const { data: lotsData } = await supabase
+        .from("ingredient_lots")
+        .select("*, ingredient:ingredients(name)")
+        .in("id", Array.from(lotIds));
+      lots = (lotsData ?? []) as LotInfo[];
+    }
+
+    setResult({ searchType: "product", query: name, lots, batches, dispatches });
+  }
+
   async function traceFromLot(lot: LotInfo) {
     setLoading(true);
     setError("");
@@ -320,7 +385,7 @@ export default function TraceabilityPage() {
         {/* Search */}
         <div className="card p-6">
           <h2 className="text-sm font-semibold text-gray-900 mb-1">Full chain traceability</h2>
-          <p className="text-xs text-gray-500 mb-4">Search by ingredient name, Julian code, or batch code. Returns the full ingredient → production → dispatch chain.</p>
+          <p className="text-xs text-gray-500 mb-4">Search by ingredient name, finished product, Julian code, or batch code. Returns the full ingredient → production → dispatch chain.</p>
           <form onSubmit={handleSearch} className="space-y-3">
             <div className="flex gap-2 flex-wrap">
               <button
@@ -344,6 +409,13 @@ export default function TraceabilityPage() {
               >
                 Batch Julian code
               </button>
+              <button
+                type="button"
+                onClick={() => { setSearchType("product"); setResult(null); setIngredientLots(null); setError(""); }}
+                className={`px-3 py-1.5 rounded text-xs font-medium transition ${searchType === "product" ? "bg-brand text-brown" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+              >
+                Finished product
+              </button>
             </div>
             <div className="flex gap-2">
               <input
@@ -353,6 +425,7 @@ export default function TraceabilityPage() {
                 placeholder={
                   searchType === "ingredient" ? "e.g. Shallots, Garlic, Naga chilli…" :
                   searchType === "lot" ? "e.g. 26124 (raw material Julian code)" :
+                  searchType === "product" ? "e.g. Tiger & Oliver, Garlic Chilli Oil…" :
                   "e.g. 26134 (batch Julian code)"
                 }
                 className="input flex-1"
