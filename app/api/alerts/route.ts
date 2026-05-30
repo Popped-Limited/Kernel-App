@@ -7,7 +7,10 @@ import { Resend } from "resend";
 // Also callable manually: POST /api/alerts with { secret: process.env.CRON_SECRET }
 
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
-const ALERT_EMAIL = process.env.ALERT_EMAIL ?? "tom@yepkitchen.com";
+// ALERT_EMAIL and ALERT_ORG_ID must be set in environment variables.
+// No hardcoded fallback — alerts silently skip if env vars are missing.
+const ALERT_EMAIL  = process.env.ALERT_EMAIL  ?? "";
+const ALERT_ORG_ID = process.env.ALERT_ORG_ID ?? "";
 
 // Which checklists are expected at what times (UTC — adjust for BST as needed)
 // Format: { frequency, expectedHour (UTC), label }
@@ -27,6 +30,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Bail early if required env vars aren't configured
+  if (!ALERT_EMAIL || !ALERT_ORG_ID) {
+    return NextResponse.json({ ok: true, message: "ALERT_EMAIL / ALERT_ORG_ID not configured — skipping" });
+  }
+
   const resend = new Resend(process.env.RESEND_API_KEY);
   const now = new Date();
   const todayStart = new Date(now);
@@ -40,10 +48,11 @@ export async function POST(req: NextRequest) {
     // Only check if we're past the expected hour
     if (now.getUTCHours() < sched.expectedHour + 1) continue;
 
-    // Find the checklist
+    // Find the checklist — scoped to the configured org
     const { data: checklists } = await supabase
       .from("checklists")
       .select("*")
+      .eq("organisation_id", ALERT_ORG_ID)
       .eq("frequency", sched.frequency)
       .eq("active", true);
 
@@ -74,6 +83,7 @@ export async function POST(req: NextRequest) {
     const { data: weeklyChecklists } = await supabase
       .from("checklists")
       .select("*")
+      .eq("organisation_id", ALERT_ORG_ID)
       .eq("frequency", "weekly")
       .eq("active", true);
 

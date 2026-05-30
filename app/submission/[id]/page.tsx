@@ -21,7 +21,7 @@ export default function SubmissionPage() {
   const [submission, setSubmission] = useState<FullSubmission | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingOff, setSigningOff] = useState(false);
-  const [managerName, setManagerName] = useState("Tom Palmer");
+  const [managerName, setManagerName] = useState("");
   const [notes, setNotes] = useState("");
   const [pendingIds, setPendingIds] = useState<string[]>([]);
 
@@ -201,7 +201,7 @@ export default function SubmissionPage() {
                 value={managerName}
                 onChange={(e) => setManagerName(e.target.value)}
                 className="input"
-                placeholder="Manager name"
+                placeholder="e.g. The Kernel Inspector"
               />
             </div>
             <div>

@@ -10,14 +10,6 @@ import AppSidebar from "@/components/AppSidebar";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const SKUS = [
-  "Garlic Chilli Oil",
-  "Garlic Chilli Oil with Beef",
-  "Sichuan Chilli Crisp",
-  "Sichuan Chilli Crisp Double Heat",
-  "Hunan Salted Chillies",
-];
-
 const NAV = [
   {
     title: "Production",
@@ -121,12 +113,11 @@ export default function Dashboard() {
         }
       }
 
-      // Derive product list dynamically from this week's data; fall back to SKUS if no data
-      const weekProducts = Array.from(new Set([
+      // Derive product list dynamically from production data — no hardcoded fallback
+      const productList = Array.from(new Set([
         ...Object.keys(produced),
         ...Object.keys(dispatched),
       ])).sort();
-      const productList = weekProducts.length > 0 ? weekProducts : SKUS;
 
       setSkuStock(productList.map(name => {
         const p = produced[name] ?? 0;

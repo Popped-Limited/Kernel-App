@@ -460,7 +460,7 @@ export default function FinishedGoodsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Logged by</label>
-                  <input type="text" className="input w-full" placeholder="Your name" value={reconBy} onChange={e => setReconBy(e.target.value)} />
+                  <input type="text" className="input w-full" placeholder="e.g. Head of Popping" value={reconBy} onChange={e => setReconBy(e.target.value)} />
                 </div>
               </div>
               {reconError && <div className="mx-6 mb-2 rounded bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{reconError}</div>}
