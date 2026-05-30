@@ -31,6 +31,7 @@ export default function GoodsOutPage() {
   const { orgId } = useOrganisation();
   const [recentDispatches, setRecentDispatches] = useState<Dispatch[]>([]);
   const [batchSubmissions, setBatchSubmissions] = useState<(Submission & { checklist: Checklist })[]>([]);
+  const [productChecklists, setProductChecklists] = useState<Checklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -80,6 +81,16 @@ export default function GoodsOutPage() {
       );
       setBatchSubmissions(productionOnly);
     }
+
+    // Also fetch all production checklists so the product list is always complete
+    // (even for products with no recent submissions)
+    const { data: clData } = await supabase
+      .from("checklists")
+      .select("id, name, category")
+      .eq("category", "Production")
+      .eq("active", true)
+      .order("name");
+    if (clData) setProductChecklists(clData as Checklist[]);
     setLoading(false);
   }
 
@@ -272,7 +283,10 @@ export default function GoodsOutPage() {
                           className={`input text-sm py-1.5 ${errors[`product_${idx}`] ? "border-red-300" : ""}`}
                         >
                           <option value="">Select product…</option>
-                          {SKUS.map(s => <option key={s} value={s}>{s}</option>)}
+                          {productChecklists.map(cl => {
+                            const name = cl.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
+                            return <option key={cl.id} value={name}>{name}</option>;
+                          })}
                         </select>
                         {errors[`product_${idx}`] && <p className="mt-0.5 text-xs text-red-500">{errors[`product_${idx}`]}</p>}
                       </div>
