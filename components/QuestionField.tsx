@@ -544,7 +544,7 @@ export default function QuestionField({ question, value, onChange, error, ingred
                     + Split across another lot
                   </button>
                   {totalEntered > 0 && (
-                    <span className={`text-xs font-medium tabular-nums ${Math.abs(diff) <= 100 ? "text-green-600" : "text-amber-600"}`}>
+                    <span className={`text-xs font-medium tabular-nums ${Math.abs(diff) <= scaledTarget * 0.005 ? "text-green-600" : "text-amber-600"}`}>
                       {density
                         ? `${(totalEntered / density).toFixed(2)}L (${totalEntered.toLocaleString()}g) ${diff === 0 ? "✓" : `(${diff > 0 ? "+" : ""}${diff.toLocaleString()}g)`}`
                         : `${totalEntered.toLocaleString()}g total ${diff === 0 ? "✓" : `(${diff > 0 ? "+" : ""}${diff.toLocaleString()}g)`}`
