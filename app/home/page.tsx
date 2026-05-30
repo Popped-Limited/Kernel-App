@@ -78,12 +78,19 @@ export default function Dashboard() {
   useEffect(() => { load(); }, []);
 
   async function load() {
+    // Calculate current week start (Monday at midnight)
+    const now = new Date();
+    const daysFromMon = now.getDay() === 0 ? 6 : now.getDay() - 1;
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - daysFromMon);
+    weekStart.setHours(0, 0, 0, 0);
+
     const [clRes, subRes, draftRes, dispRes, batchSubRes] = await Promise.all([
       supabase.from("checklists").select("*").eq("active", true).order("name"),
       supabase.from("submissions").select("*, checklist:checklists(*)").order("submitted_at", { ascending: false }).limit(50),
       supabase.from("batch_drafts").select("*, checklist:checklists(name, category)").order("last_saved_at", { ascending: false }).limit(10),
-      supabase.from("dispatches").select("product, total_units"),
-      supabase.from("submissions").select("id, checklist:checklists(name, category), answers(value, question:questions(type, label))").eq("checklists.category", "Production"),
+      supabase.from("dispatches").select("product, total_units").gte("dispatch_date", weekStart.toISOString().slice(0, 10)),
+      supabase.from("submissions").select("id, checklist:checklists(name, category), answers(value, question:questions(type, label))").eq("checklists.category", "Production").gte("submitted_at", weekStart.toISOString()),
     ]);
 
     if (clRes.data) setChecklists(clRes.data as Checklist[]);
@@ -104,7 +111,7 @@ export default function Dashboard() {
       const produced: Record<string, number> = {};
       for (const sub of (batchSubRes.data as never as Array<{ checklist: { name: string; category: string } | null; answers: Array<{ value: string | null; question: { type: string } | null }> }>)) {
         if (sub.checklist?.category !== "Production") continue;
-        const sku = sub.checklist.name.replace(" — Production Record", "");
+        const sku = sub.checklist.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
         for (const ans of (sub.answers ?? [])) {
           if (ans.question?.type !== "packing_runs" || !ans.value) continue;
           try {
@@ -114,7 +121,14 @@ export default function Dashboard() {
         }
       }
 
-      setSkuStock(SKUS.map(name => {
+      // Derive product list dynamically from this week's data; fall back to SKUS if no data
+      const weekProducts = Array.from(new Set([
+        ...Object.keys(produced),
+        ...Object.keys(dispatched),
+      ])).sort();
+      const productList = weekProducts.length > 0 ? weekProducts : SKUS;
+
+      setSkuStock(productList.map(name => {
         const p = produced[name] ?? 0;
         const d = dispatched[name] ?? 0;
         return { name, produced: p, dispatched: d, inStock: Math.max(0, p - d) };
@@ -247,26 +261,28 @@ export default function Dashboard() {
           {/* ── Stock + Recent ─────────────────────────────────────────── */}
           <div className="grid gap-6 lg:grid-cols-2">
 
-            {/* Finished goods stock */}
+            {/* Finished goods stock — weekly snapshot */}
             <section className="card overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700">Finished Goods</h3>
-                <Link href="/admin/goods-out" className="text-xs text-brown/70 hover:text-brown hover:underline">Log dispatch →</Link>
+                <h3 className="text-sm font-semibold text-gray-700">This Week&apos;s Production</h3>
+                <Link href="/admin/finished-goods" className="text-xs text-brown/70 hover:text-brown hover:underline">View all →</Link>
               </div>
               <div className="divide-y divide-gray-100">
                 {loading
                   ? <div className="p-4 text-center text-sm text-gray-400">Loading…</div>
-                  : skuStock.map(sku => (
-                    <div key={sku.name} className="flex items-center gap-3 px-4 py-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{sku.name}</p>
-                        <p className="text-xs text-gray-400">{sku.produced} produced · {sku.dispatched} dispatched</p>
+                  : skuStock.length === 0
+                    ? <div className="p-4 text-center text-sm text-gray-400">No production this week.</div>
+                    : skuStock.map(sku => (
+                      <div key={sku.name} className="flex items-center gap-3 px-4 py-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{sku.name}</p>
+                          <p className="text-xs text-gray-400">{sku.produced} produced · {sku.dispatched} dispatched this week</p>
+                        </div>
+                        <p className={`text-lg font-bold tabular-nums shrink-0 ${sku.inStock === 0 ? "text-gray-300" : "text-gray-900"}`}>
+                          {sku.inStock}
+                        </p>
                       </div>
-                      <p className={`text-lg font-bold tabular-nums shrink-0 ${sku.inStock === 0 ? "text-gray-300" : "text-gray-900"}`}>
-                        {sku.inStock}
-                      </p>
-                    </div>
-                  ))
+                    ))
                 }
               </div>
             </section>

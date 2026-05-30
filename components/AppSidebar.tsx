@@ -16,8 +16,9 @@ const NAV = [
     minRole: "staff",
     items: [
       { label: "Goods In",      href: "/admin/goods-in" },
-      { label: "Goods Out",     href: "/admin/goods-out" },
-      { label: "Raw Materials", href: "/admin/stock" },
+      { label: "Goods Out",       href: "/admin/goods-out" },
+      { label: "Finished Goods",  href: "/admin/finished-goods" },
+      { label: "Raw Materials",   href: "/admin/stock" },
     ],
   },
   {

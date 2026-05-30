@@ -130,3 +130,14 @@ export interface AlertLog {
   message: string;
 }
 
+export interface FinishedGoodsAdjustment {
+  id: string;
+  organisation_id: string;
+  product: string;
+  quantity: number;
+  reason: string;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+}
+
