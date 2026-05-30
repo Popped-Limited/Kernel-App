@@ -565,6 +565,39 @@
 .mcYes { background: rgba(200,168,75,0.15);  color: #C89A18; }
 .marketColKernel .mcYes { background: rgba(232,192,64,0.2); color: #E8C040; }
 
+/* VS COMPARISON — two-col "without / with Kernel" */
+.vsComparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 48px 0 56px;
+}
+.vsCol {
+  border-radius: 20px;
+  padding: 40px 36px;
+  background: #FDFAF2;
+  border: 1px solid rgba(200,168,75,0.2);
+}
+.vsColKernel {
+  background: #1C1A10;
+  border-color: #1C1A10;
+}
+.vsColEyebrow {
+  font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  font-weight: 600; color: #C89A18; margin-bottom: 24px;
+}
+.vsColKernel .vsColEyebrow { color: rgba(232,192,64,0.65); }
+.vsColList {
+  list-style: none;
+  display: flex; flex-direction: column; gap: 13px;
+}
+.vsColList li {
+  font-size: 14px; display: flex; align-items: flex-start;
+  gap: 10px; line-height: 1.45; color: #7A7050;
+}
+.vsColKernel .vsColList li { color: rgba(247,242,232,0.75); }
+.vsColKernel .mcYes { background: rgba(232,192,64,0.2); color: #E8C040; }
+
 /* SINGLE PRICING CARD */
 .pricingSingle { display: flex; justify-content: center; }
 .pricingSingle .pricingCard { max-width: 560px; width: 100%; }
@@ -722,6 +755,14 @@
   .marketComparison .marketColKernel {
     border-color: rgba(232,192,64,0.2) !important;
   }
+
+  /* VS comparison — stack vertically */
+  .vsComparison {
+    grid-template-columns: 1fr;
+    margin: 24px 24px 40px;
+    gap: 12px;
+  }
+  .vsCol { padding: 28px 24px; }
 
   /* Single pricing card */
   .pricingSingle { padding: 0 24px; }

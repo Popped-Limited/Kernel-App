@@ -295,42 +295,28 @@ export default function MarketingPage() {
           </p>
         </div>
 
-        {/* Market gap comparison */}
-        <div className={`${styles.marketComparison} ${styles.fadeIn}`}>
-          <div className={styles.marketCol}>
-            <p className={styles.marketColEyebrow}>Option 1</p>
-            <p className={styles.marketColName}>Spreadsheets &amp; paper</p>
-            <div className={styles.marketColPrice}>£0</div>
-            <p className={styles.marketColNote}>per month</p>
-            <ul className={styles.marketColList}>
+        {/* Without / With comparison */}
+        <div className={`${styles.vsComparison} ${styles.fadeIn}`}>
+          <div className={styles.vsCol}>
+            <p className={styles.vsColEyebrow}>Without Kernel</p>
+            <ul className={styles.vsColList}>
               <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Audit prep takes days, not minutes</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Traceability requires manual searching</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Traceability means searching through folders</li>
               <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>More products means more admin</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Compliance software costs £300–500/month</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Multiple tools, multiple logins, multiple bills</li>
               <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Built on effort, not infrastructure</li>
             </ul>
           </div>
-          <div className={styles.marketCol}>
-            <p className={styles.marketColEyebrow}>Option 2</p>
-            <p className={styles.marketColName}>Enterprise software</p>
-            <div className={styles.marketColPrice}>£300–500</div>
-            <p className={styles.marketColNote}>per month</p>
-            <ul className={styles.marketColList}>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Compliance covered</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Built for enterprises, not for you</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Expensive — and still needs add-ons</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Multiple subscriptions to cover everything</li>
-            </ul>
-          </div>
-          <div className={`${styles.marketCol} ${styles.marketColKernel}`}>
-            <p className={styles.marketColEyebrow}>The third option</p>
-            <p className={styles.marketColName}>Kernel</p>
-            <div className={styles.marketColPrice}>£99</div>
-            <p className={styles.marketColNote}>per month</p>
-            <ul className={styles.marketColList}>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Fully compliant</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Built for growing food businesses</li>
+          <div className={`${styles.vsCol} ${styles.vsColKernel}`}>
+            <p className={styles.vsColEyebrow}>With Kernel</p>
+            <ul className={styles.vsColList}>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Audit-ready records, always up to date</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Full traceability in seconds, not hours</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Scales with your product range automatically</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>£99/month — a fraction of the alternative</li>
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Everything in one place, one login</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>7-day free trial</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Built for growing food businesses like yours</li>
             </ul>
           </div>
         </div>
