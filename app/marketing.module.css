@@ -219,7 +219,7 @@
   text-align: center; color: #1C1A10; margin-bottom: 64px;
 }
 .featuresHeadline em { font-style: italic; color: #C89A18; }
-.featuresGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.featuresGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .featureCard {
   background: #FDFAF2; border: 0.5px solid rgba(200,168,75,0.2);
   border-radius: 16px; padding: 32px;

@@ -75,6 +75,8 @@ export default function MarketingPage() {
     "Supplier approval management",
     "Missed check email alerts",
     "Julian code tracking",
+    "SOP builder & storage",
+    "Staff training records",
   ];
 
   return (
@@ -141,7 +143,7 @@ export default function MarketingPage() {
           )}
         </div>
 
-        <p className={styles.heroEyebrow}>The operating system for food makers</p>
+        <p className={styles.heroEyebrow}>The complete operating system for small food businesses</p>
         <h1 className={styles.heroHeadline}>
           Stop being a kernel.<br /><em>Start being popcorn.</em>
         </h1>
@@ -170,7 +172,8 @@ export default function MarketingPage() {
             </p>
             <p>
               That&apos;s what Kernel gives you. The compliance backbone, the production records,
-              the traceability, so you can stop carrying the admin weight and focus on what
+              the traceability, the SOPs, the training — everything that holds a food business
+              together, so you can stop carrying the admin weight and focus on what
               you&apos;re actually here to make.
             </p>
           </div>
@@ -195,7 +198,7 @@ export default function MarketingPage() {
                 <p className={styles.stateTag}>After Kernel</p>
                 <ul className={styles.stateItems}>
                   <li>QR codes, digital sign-offs, full audit trail</li>
-                  <li>£99/month — everything included</li>
+                  <li>£149/month — everything included</li>
                   <li>Live stock value, auto-deducting inventory</li>
                   <li>Full traceability with a single search</li>
                   <li>Focus on making great food</li>
@@ -210,7 +213,7 @@ export default function MarketingPage() {
       <section className={styles.features} id="features">
         <p className={`${styles.featuresLabel} ${styles.fadeIn}`}>Everything in one place</p>
         <h2 className={`${styles.featuresHeadline} ${styles.fadeIn}`}>
-          Not just compliance.<br /><em>The whole operation.</em>
+          Not just compliance.<br /><em>The whole business.</em>
         </h2>
         <div className={`${styles.featuresGrid} ${styles.fadeIn}`}>
           <div className={styles.featureCard}>
@@ -248,6 +251,18 @@ export default function MarketingPage() {
             <span className={styles.featureTag}>Alerts</span>
             <div className={styles.featureTitle}>Missed check alerts</div>
             <div className={styles.featureDesc}>Get an email the moment a check is overdue. Nothing falls through the cracks on a busy production day.</div>
+          </div>
+          <div className={styles.featureCard}>
+            <div className={styles.featureIcon}>📖</div>
+            <span className={styles.featureTag}>SOPs</span>
+            <div className={styles.featureTitle}>SOP builder & storage</div>
+            <div className={styles.featureDesc}>Write, store and share your standard operating procedures in one place. Staff access the latest version every time — no more outdated printouts.</div>
+          </div>
+          <div className={styles.featureCard}>
+            <div className={styles.featureIcon}>🎓</div>
+            <span className={styles.featureTag}>Training</span>
+            <div className={styles.featureTitle}>Staff training records</div>
+            <div className={styles.featureDesc}>Log who&apos;s been trained on what and when. Keep a full training history for every team member — audit-ready and always up to date.</div>
           </div>
         </div>
       </section>
@@ -304,6 +319,7 @@ export default function MarketingPage() {
               <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Traceability means searching through folders</li>
               <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>More products means more admin</li>
               <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Compliance software costs £300–500/month</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>SOPs live in folders no one can find</li>
               <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Multiple tools, multiple logins, multiple bills</li>
               <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Built on effort, not infrastructure</li>
             </ul>
@@ -314,7 +330,8 @@ export default function MarketingPage() {
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Audit-ready records, always up to date</li>
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Full traceability in seconds, not hours</li>
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Scales with your product range automatically</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>£99/month — a fraction of the alternative</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>SOPs & training records, always accessible</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>£149/month — a fraction of the alternative</li>
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Everything in one place, one login</li>
               <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Built for growing food businesses like yours</li>
             </ul>
@@ -327,11 +344,11 @@ export default function MarketingPage() {
             <div className={styles.planHeader}>
               <span className={styles.planBadge}><span className={styles.planPopularDot} /> 7-day free trial</span>
               <div className={styles.planName}>One flat price.</div>
-              <p className={styles.planTagline}>Try free for 7 days, then £99/month. Every feature, unlimited users, no surprises.</p>
+              <p className={styles.planTagline}>Try free for 7 days, then £149/month. Every feature, unlimited users, no surprises.</p>
             </div>
             <div className={styles.priceRow}>
               <span className={styles.priceCurrency}>£</span>
-              <span className={styles.priceAmount}>99</span>
+              <span className={styles.priceAmount}>149</span>
               <span className={styles.pricePer}>/mo</span>
             </div>
             <p className={styles.priceContext}><strong>7-day free trial</strong> · Cancel any time</p>
