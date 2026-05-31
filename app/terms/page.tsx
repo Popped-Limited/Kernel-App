@@ -106,7 +106,7 @@ export default function TermsPage() {
 
           <Section title="5. Payment and cancellation">
             <p style={{ marginBottom: "12px" }}>
-              The Service is offered at <strong>£99 per month</strong> (plus VAT where applicable),
+              The Service is offered at <strong>£149 per month</strong> (plus VAT where applicable),
               billed monthly in advance.
             </p>
             <ul style={{ paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "10px" }}>

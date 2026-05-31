@@ -82,7 +82,7 @@ export default function BillingPage() {
         <div className="flex items-start justify-between mb-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-brown/50 mb-1">Current plan</p>
-            <p className="text-xl font-serif text-brown">Kernel — £99/month</p>
+            <p className="text-xl font-serif text-brown">Kernel — £149/month</p>
           </div>
           <StatusBadge status={subscriptionStatus} />
         </div>
