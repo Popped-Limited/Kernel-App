@@ -6,15 +6,12 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { SOP, SOPStep } from "@/lib/types";
-import AppSidebar from "@/components/AppSidebar";
-
 const CATEGORIES = ["Production", "Cleaning", "Fulfilment", "Health & Safety", "Allergen Management", "Other"];
 
 export default function SOPBuilderPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { orgId } = useOrganisation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [sop, setSop] = useState<SOP | null>(null);
   const [steps, setSteps] = useState<SOPStep[]>([]);
@@ -129,18 +126,10 @@ export default function SOPBuilderPage() {
   if (!sop) return <div className="flex min-h-screen items-center justify-center"><p className="text-sm text-gray-500">SOP not found.</p></div>;
 
   return (
-    <div className="flex min-h-screen bg-brand-cream">
-      <AppSidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <div className="flex-1 lg:ml-56">
-        <header className="border-b border-gray-200 bg-white shadow-sm sticky top-0 z-20">
+    <>
+      <header className="border-b border-gray-200 bg-white shadow-sm sticky top-0 z-20">
           <div className="mx-auto flex max-w-4xl items-center justify-between px-4 sm:px-6 min-h-[68px] gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <button className="lg:hidden p-1.5 rounded hover:bg-gray-100 shrink-0" onClick={() => setSidebarOpen(true)}>
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 20 20" stroke="currentColor" strokeWidth="1.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h14M3 10h14M3 15h14" />
-                </svg>
-              </button>
               <Link href="/admin/sops" className="btn-ghost text-xs shrink-0">← SOPs</Link>
               <span className="text-gray-300 shrink-0">/</span>
               <p className="text-sm font-medium text-gray-700 truncate">{sop.title}</p>
@@ -245,8 +234,7 @@ export default function SOPBuilderPage() {
             </button>
           </div>
         </main>
-      </div>
-    </div>
+    </>
   );
 }
 

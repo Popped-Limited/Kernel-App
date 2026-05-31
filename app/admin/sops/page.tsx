@@ -7,14 +7,11 @@ import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { SOP } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import AppSidebar from "@/components/AppSidebar";
-
 const CATEGORIES = ["Production", "Cleaning", "Fulfilment", "Health & Safety", "Allergen Management", "Other"];
 
 export default function SOPsPage() {
   const router = useRouter();
   const { orgId, role } = useOrganisation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sops, setSops] = useState<SOP[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "published" | "draft">("all");
@@ -72,18 +69,10 @@ export default function SOPsPage() {
   const usedCategories = Array.from(new Set(sops.map(s => s.category).filter(Boolean))) as string[];
 
   return (
-    <div className="flex min-h-screen bg-brand-cream">
-      <AppSidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <div className="flex-1 lg:ml-56">
-        <header className="border-b border-gray-200 bg-white shadow-sm">
+    <>
+      <header className="border-b border-gray-200 bg-white shadow-sm">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 sm:px-6 min-h-[68px]">
             <div className="flex items-center gap-3">
-              <button className="lg:hidden p-1.5 rounded hover:bg-gray-100" onClick={() => setSidebarOpen(true)}>
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 20 20" stroke="currentColor" strokeWidth="1.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h14M3 10h14M3 15h14" />
-                </svg>
-              </button>
               <h1 className="text-base font-semibold text-gray-900">Standard Operating Procedures</h1>
             </div>
             {isAdmin && (
@@ -167,7 +156,6 @@ export default function SOPsPage() {
             </div>
           )}
         </main>
-      </div>
 
       {/* New SOP modal */}
       {showNew && (
@@ -213,6 +201,6 @@ export default function SOPsPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
