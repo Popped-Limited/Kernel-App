@@ -143,12 +143,15 @@ export default function BillingPage() {
         <p className="text-sm font-semibold text-brown mb-3">What&apos;s included</p>
         <ul className="space-y-2">
           {[
-            "Unlimited checklists and production records",
-            "Goods in / goods out tracking",
-            "Raw materials and batch traceability",
+            "Unlimited QR code checklists & production records",
+            "Full SALSA audit trail & digital sign-offs",
+            "Goods in / goods out & supplier management",
+            "Full forward & backward traceability",
+            "Auto-deducting inventory & live stock value",
+            "SOP builder & storage",
             "Staff training records",
-            "Supplier management",
-            "QR code check-in sheets",
+            "Missed check email alerts",
+            "Unlimited users",
           ].map(item => (
             <li key={item} className="flex items-center gap-2 text-sm text-brown/70">
               <svg className="h-4 w-4 text-green-500 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
