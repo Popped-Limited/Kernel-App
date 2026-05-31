@@ -50,6 +50,7 @@ export default function UsersPage() {
   const [inviteSuccess, setInviteSuccess] = useState("");
   const [inviteError, setInviteError]     = useState("");
   const [removing, setRemoving]           = useState<string | null>(null);
+  const [changingRole, setChangingRole]   = useState<string | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -62,6 +63,19 @@ export default function UsersPage() {
       setInvites(data.invites ?? []);
     }
     setLoading(false);
+  }
+
+  async function changeRole(userId: string, newRole: string) {
+    setChangingRole(userId);
+    const res = await fetch("/api/change-role", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, role: newRole }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error ?? "Failed to change role"); }
+    else { load(); }
+    setChangingRole(null);
   }
 
   async function removeMember(userId: string, name: string) {
@@ -138,9 +152,22 @@ export default function UsersPage() {
                 <p className="text-xs text-brown/40 mt-0.5">Joined {formatDate(m.joined_at)}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ROLE_BADGE[m.role] ?? "bg-gray-100 text-gray-600"}`}>
-                  {ROLE_LABELS[m.role] ?? m.role}
-                </span>
+                {myRole === "admin" && !m.is_me ? (
+                  <select
+                    value={m.role}
+                    disabled={changingRole === m.user_id}
+                    onChange={e => changeRole(m.user_id, e.target.value)}
+                    className={`text-xs font-medium rounded-full px-2.5 py-0.5 border-0 cursor-pointer focus:ring-2 focus:ring-brand/40 focus:outline-none ${ROLE_BADGE[m.role] ?? "bg-gray-100 text-gray-600"}`}
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="manager">Manager</option>
+                    <option value="staff">Staff</option>
+                  </select>
+                ) : (
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ROLE_BADGE[m.role] ?? "bg-gray-100 text-gray-600"}`}>
+                    {ROLE_LABELS[m.role] ?? m.role}
+                  </span>
+                )}
                 {myRole === "admin" && !m.is_me && (
                   <button
                     onClick={() => removeMember(m.user_id, m.full_name ?? m.email)}
