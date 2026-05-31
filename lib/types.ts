@@ -47,6 +47,7 @@ export interface Question {
   order_index: number;
   options: string[] | null; // for dropdown / multiple_choice
   hint: string | null;
+  follow_up: { trigger: string; label: string } | null; // conditional follow-up when a specific option is chosen
   created_at: string;
 }
 

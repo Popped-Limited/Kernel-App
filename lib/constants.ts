@@ -16,7 +16,7 @@ export const FREQUENCIES: { value: ChecklistFrequency; label: string }[] = [
 ];
 
 export const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
-  { value: "checkbox", label: "Tick box (yes/no)" },
+  { value: "checkbox", label: "Tick box" },
   { value: "text", label: "Text" },
   { value: "number", label: "Number" },
   { value: "date", label: "Date" },

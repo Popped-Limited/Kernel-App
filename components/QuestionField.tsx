@@ -140,7 +140,33 @@ export default function QuestionField({ question, value, onChange, error, ingred
   }
 
   if (question.type === "multiple_choice") {
-    const selected: string[] = value ? JSON.parse(value) : [];
+    // Answer format: JSON array of selected strings, OR { selected: string[], followUp: string }
+    // when the question has a follow_up config. Handle both for backward compat.
+    let selected: string[] = [];
+    let followUpText = "";
+    if (value) {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) {
+          selected = parsed;
+        } else if (parsed && typeof parsed === "object") {
+          selected = parsed.selected ?? [];
+          followUpText = parsed.followUp ?? "";
+        }
+      } catch { /* ignore */ }
+    }
+
+    const followUpConfig = question.follow_up as { trigger: string; label: string } | null | undefined;
+    const triggerActive = followUpConfig ? selected.includes(followUpConfig.trigger) : false;
+
+    const emitChange = (nextSelected: string[], nextFollowUp: string) => {
+      if (followUpConfig) {
+        onChange(JSON.stringify({ selected: nextSelected, followUp: nextFollowUp }));
+      } else {
+        onChange(JSON.stringify(nextSelected));
+      }
+    };
+
     return (
       <div>
         {base}
@@ -153,7 +179,9 @@ export default function QuestionField({ question, value, onChange, error, ingred
                 type="button"
                 onClick={() => {
                   const next = active ? selected.filter((s) => s !== opt) : [...selected, opt];
-                  onChange(JSON.stringify(next));
+                  // Clear follow-up text if trigger is deselected
+                  const nextFollowUp = followUpConfig && !next.includes(followUpConfig.trigger) ? "" : followUpText;
+                  emitChange(next, nextFollowUp);
                 }}
                 className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition ${
                   active ? "border-brand/40 bg-brand/5 text-brand-dark font-medium" : "border-gray-200 bg-white hover:border-gray-300"
@@ -167,6 +195,19 @@ export default function QuestionField({ question, value, onChange, error, ingred
             );
           })}
         </div>
+        {/* Conditional follow-up text field */}
+        {followUpConfig && triggerActive && (
+          <div className="mt-3">
+            <label className="block text-xs font-medium text-gray-600 mb-1">{followUpConfig.label}</label>
+            <textarea
+              rows={3}
+              value={followUpText}
+              onChange={e => emitChange(selected, e.target.value)}
+              className="input resize-none text-sm"
+              placeholder="Please provide details…"
+            />
+          </div>
+        )}
         {errMsg}
       </div>
     );

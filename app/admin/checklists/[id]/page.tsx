@@ -16,6 +16,7 @@ const BLANK_QUESTION: Omit<Question, "id" | "checklist_id" | "created_at"> = {
   order_index: 0,
   options: null,
   hint: null,
+  follow_up: null,
 };
 
 export default function EditChecklistPage() {
@@ -117,8 +118,10 @@ export default function EditChecklistPage() {
       type: editingQ.type!,
       required: editingQ.required ?? true,
       order_index: editingQ.order_index ?? questions.length,
-      options: editingQ.options ?? null,
+      // Strip blank lines that were kept during editing for natural textarea behaviour
+      options: editingQ.options ? editingQ.options.map(s => s.trim()).filter(Boolean) : null,
       hint: editingQ.hint?.trim() || null,
+      follow_up: editingQ.follow_up ?? null,
       organisation_id: orgId,
     };
 
@@ -435,7 +438,21 @@ function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel }:
   onCancel: () => void;
 }) {
   const needsOptions = question.type === "dropdown" || question.type === "multiple_choice";
-  const optionsStr = question.options?.join("\n") ?? "";
+
+  // Keep raw options text in local state so Enter key works naturally.
+  // Blank lines are only stripped in saveQuestion() at save time.
+  const [rawOptions, setRawOptions] = useState(question.options?.join("\n") ?? "");
+
+  // Reset raw options when the question type changes (options are cleared)
+  useEffect(() => {
+    if (!needsOptions) setRawOptions("");
+    else setRawOptions(question.options?.join("\n") ?? "");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question.type]);
+
+  // The available options for the follow-up trigger (parsed from raw textarea)
+  const parsedOptions = rawOptions.split("\n").map(s => s.trim()).filter(Boolean);
+  const canHaveFollowUp = question.type === "multiple_choice" && parsedOptions.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -459,7 +476,7 @@ function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel }:
             <label className="label">Answer type</label>
             <select
               value={question.type ?? "checkbox"}
-              onChange={e => onChange({ ...question, type: e.target.value as QuestionType, options: null })}
+              onChange={e => onChange({ ...question, type: e.target.value as QuestionType, options: null, follow_up: null })}
               className="input"
             >
               {QUESTION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -482,12 +499,69 @@ function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel }:
           <div>
             <label className="label">Options <span className="text-gray-400 font-normal text-xs">— one per line</span></label>
             <textarea
-              value={optionsStr}
-              onChange={e => onChange({ ...question, options: e.target.value.split("\n").map(s => s.trim()).filter(Boolean) })}
+              value={rawOptions}
+              onChange={e => {
+                const raw = e.target.value;
+                setRawOptions(raw);
+                // Keep options in sync (including blank lines — stripped on save)
+                onChange({ ...question, options: raw.split("\n") });
+              }}
               rows={4}
-              className="input resize-none font-mono text-xs"
-              placeholder={"Option A\nOption B\nOption C"}
+              className="input font-mono text-xs"
+              placeholder={"Yes\nNo\nNot applicable"}
             />
+          </div>
+        )}
+
+        {/* Conditional follow-up — only available on multiple choice once options exist */}
+        {canHaveFollowUp && (
+          <div className="rounded-lg border border-brand/30 bg-brand/5 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-brown uppercase tracking-wide">If yes, then… (optional)</p>
+              {question.follow_up && (
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...question, follow_up: null })}
+                  className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label text-xs">If answer is</label>
+                <select
+                  value={question.follow_up?.trigger ?? ""}
+                  onChange={e => onChange({
+                    ...question,
+                    follow_up: e.target.value
+                      ? { trigger: e.target.value, label: question.follow_up?.label ?? "Please provide more details" }
+                      : null,
+                  })}
+                  className="input text-sm"
+                >
+                  <option value="">— none —</option>
+                  {parsedOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label text-xs">Show follow-up field</label>
+                <input
+                  type="text"
+                  value={question.follow_up?.label ?? ""}
+                  onChange={e => onChange({
+                    ...question,
+                    follow_up: question.follow_up
+                      ? { ...question.follow_up, label: e.target.value }
+                      : null,
+                  })}
+                  disabled={!question.follow_up?.trigger}
+                  className="input text-sm disabled:opacity-40"
+                  placeholder="Please provide more details"
+                />
+              </div>
+            </div>
           </div>
         )}
 
