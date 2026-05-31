@@ -39,6 +39,7 @@ export default function SOPsPage() {
   async function createSOP() {
     if (!newTitle.trim() || !orgId) return;
     setCreating(true);
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("sops")
       .insert({
@@ -47,13 +48,15 @@ export default function SOPsPage() {
         category: newCategory.trim() || null,
         description: newDesc.trim() || null,
         status: "draft",
-        created_by: "",
+        created_by: user?.id ?? "",
       })
       .select("*")
       .single();
 
     if (!error && data) {
       router.push(`/admin/sops/${data.id}`);
+    } else if (error) {
+      alert("Failed to create SOP: " + error.message);
     }
     setCreating(false);
   }
