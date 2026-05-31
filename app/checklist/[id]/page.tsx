@@ -53,12 +53,10 @@ export default function ChecklistPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
-  // Derive submitted_by from the first name-like answer in the checklist
+  // Derive submitted_by from a name-like answer in the checklist
   function getSubmittedBy(qs: Question[], ans: AnswerMap): string {
-    const nameQ = qs.find(q => /name|operator|staff|packer|person/i.test(q.label) && q.type === "text");
+    const nameQ = qs.find(q => /name|operator|staff|packer|person|completed by|submitted by/i.test(q.label) && q.type === "text");
     if (nameQ && ans[nameQ.id]?.trim()) return ans[nameQ.id].trim();
-    const anyText = qs.find(q => q.type === "text" && ans[q.id]?.trim());
-    if (anyText) return ans[anyText.id].trim();
     return "Staff";
   }
 
