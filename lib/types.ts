@@ -131,6 +131,28 @@ export interface AlertLog {
   message: string;
 }
 
+export interface SOP {
+  id: string;
+  organisation_id: string;
+  title: string;
+  category: string | null;
+  description: string | null;
+  status: "draft" | "published";
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SOPStep {
+  id: string;
+  sop_id: string;
+  order_index: number;
+  title: string | null;
+  body: string | null;
+  image_url: string | null;
+  created_at: string;
+}
+
 export interface FinishedGoodsAdjustment {
   id: string;
   organisation_id: string;

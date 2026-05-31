@@ -27,6 +27,7 @@ const NAV = [
     items: [
       { label: "Suppliers",    href: "/admin/suppliers" },
       { label: "Traceability", href: "/admin/traceability" },
+      { label: "SOPs",         href: "/admin/sops" },
     ],
   },
   {
