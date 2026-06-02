@@ -67,9 +67,12 @@ export default function QuestionField({ question, value, onChange, error, ingred
   // Tracks raw litres text per lot input so users can type freely without the field snapping
   const [litresDisplay, setLitresDisplay] = useState<Record<string, string>>({});
 
-  // Recipe multiplier — only used by ingredient_table questions
-  const [multiplier, setMultiplier] = useState(1);
-  const [multiplierInput, setMultiplierInput] = useState("1");
+  // Batches — only used by ingredient_table questions
+  // Each batch has its own multiplier; combined target = sum of all multipliers
+  const [batches, setBatches] = useState<Array<{ multiplier: number; input: string }>>([
+    { multiplier: 1, input: "1" },
+  ]);
+  const totalMultiplier = batches.reduce((sum, b) => sum + b.multiplier, 0);
 
   const base = (
     <div className="space-y-1">
@@ -440,46 +443,82 @@ export default function QuestionField({ question, value, onChange, error, ingred
         </label>
         {question.hint && <p className="text-xs text-gray-500 -mt-0.5 mb-2">{question.hint}</p>}
 
-        {/* ── Recipe multiplier ── */}
-        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 mb-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-medium text-gray-600 shrink-0">Batch multiplier</span>
-            <div className="flex items-center gap-1 flex-wrap">
-              {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 2].map((p) => (
+        {/* ── Batches ── */}
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 mb-2 space-y-2">
+          {batches.map((batch, bIdx) => (
+            <div key={bIdx} className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-gray-600 shrink-0 w-14">
+                {batches.length > 1 ? `Batch ${bIdx + 1}` : "Batch"}
+              </span>
+              <div className="flex items-center gap-1 flex-wrap flex-1">
+                {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 2].map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setBatches(prev => prev.map((b, i) =>
+                      i === bIdx ? { multiplier: p, input: String(p) } : b
+                    ))}
+                    className={`px-2 py-0.5 rounded-md text-xs font-medium transition-colors ${
+                      batch.multiplier === p
+                        ? "bg-brown text-white"
+                        : "bg-white border border-gray-200 text-gray-600 hover:border-brown/40"
+                    }`}
+                  >
+                    {p}×
+                  </button>
+                ))}
+                <div className="flex items-center gap-1 ml-auto">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={batch.input}
+                    onChange={(e) => setBatches(prev => prev.map((b, i) =>
+                      i === bIdx ? { ...b, input: e.target.value } : b
+                    ))}
+                    onBlur={() => {
+                      const v = parseFloat(batch.input);
+                      if (!isNaN(v) && v > 0) {
+                        setBatches(prev => prev.map((b, i) =>
+                          i === bIdx ? { multiplier: v, input: String(v) } : b
+                        ));
+                      } else {
+                        setBatches(prev => prev.map((b, i) =>
+                          i === bIdx ? { ...b, input: String(b.multiplier) } : b
+                        ));
+                      }
+                    }}
+                    className="input w-16 text-xs py-1 text-center"
+                    placeholder="e.g. 0.65"
+                  />
+                  <span className="text-xs text-gray-500">×</span>
+                </div>
+              </div>
+              {batches.length > 1 && (
                 <button
-                  key={p}
                   type="button"
-                  onClick={() => { setMultiplier(p); setMultiplierInput(String(p)); }}
-                  className={`px-2 py-0.5 rounded-md text-xs font-medium transition-colors ${
-                    multiplier === p
-                      ? "bg-brown text-white"
-                      : "bg-white border border-gray-200 text-gray-600 hover:border-brown/40"
-                  }`}
+                  onClick={() => setBatches(prev => prev.filter((_, i) => i !== bIdx))}
+                  className="text-gray-300 hover:text-red-400 transition text-lg leading-none shrink-0"
                 >
-                  {p}×
+                  ×
                 </button>
-              ))}
+              )}
             </div>
-            <div className="flex items-center gap-1 ml-auto">
-              <input
-                type="text"
-                inputMode="decimal"
-                value={multiplierInput}
-                onChange={(e) => setMultiplierInput(e.target.value)}
-                onBlur={() => {
-                  const v = parseFloat(multiplierInput);
-                  if (!isNaN(v) && v > 0) { setMultiplier(v); setMultiplierInput(String(v)); }
-                  else { setMultiplierInput(String(multiplier)); }
-                }}
-                className="input w-16 text-xs py-1 text-center"
-                placeholder="e.g. 0.65"
-              />
-              <span className="text-xs text-gray-500">×</span>
-            </div>
-          </div>
-          {multiplier !== 1 && (
-            <p className="text-xs text-amber-700 mt-1.5 font-medium">
-              Targets scaled to {multiplier}× — original recipe ÷ by {(1 / multiplier).toFixed(2)} or × by {multiplier}
+          ))}
+          <button
+            type="button"
+            onClick={() => setBatches(prev => [...prev, { multiplier: 1, input: "1" }])}
+            className="text-xs text-brand hover:text-brown hover:underline"
+          >
+            + Add another batch
+          </button>
+          {batches.length > 1 && (
+            <p className="text-xs text-amber-700 font-medium">
+              {batches.length} batches — combined total: {totalMultiplier}× recipe
+            </p>
+          )}
+          {batches.length === 1 && totalMultiplier !== 1 && (
+            <p className="text-xs text-amber-700 font-medium">
+              Targets scaled to {totalMultiplier}×
             </p>
           )}
         </div>
@@ -490,7 +529,7 @@ export default function QuestionField({ question, value, onChange, error, ingred
             const availableLots = findLots(ingredientLots ?? {}, ing.name);
             const density = findDensity(densityByName ?? {}, ing.name);
             const totalEntered = (row?.lots ?? []).reduce((sum, l) => sum + (Number(l.weight_g) || 0), 0);
-            const scaledTarget = Math.round(ing.intended * multiplier);
+            const scaledTarget = Math.round(ing.intended * totalMultiplier);
             const diff = totalEntered - scaledTarget;
             const targetLabel = density
               ? `${scaledTarget.toLocaleString()}g (${(scaledTarget / density).toFixed(2)}L)`
