@@ -315,11 +315,12 @@ export default function GoodsOutPage() {
                       <div>
                         <label className="text-xs text-gray-500 block mb-0.5">Cases of 6</label>
                         <input
-                          type="number" min="0"
-                          value={row.casesOf6}
-                          onChange={e => updateRow(idx, "casesOf6", e.target.value)}
-                          className="input text-sm py-1.5"
+                          type="text"
                           inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={row.casesOf6}
+                          onChange={e => updateRow(idx, "casesOf6", e.target.value.replace(/[^0-9]/g, ""))}
+                          className="input text-sm py-1.5"
                         />
                       </div>
 
@@ -327,11 +328,12 @@ export default function GoodsOutPage() {
                       <div>
                         <label className="text-xs text-gray-500 block mb-0.5">Cases of 3</label>
                         <input
-                          type="number" min="0"
-                          value={row.casesOf3}
-                          onChange={e => updateRow(idx, "casesOf3", e.target.value)}
-                          className="input text-sm py-1.5"
+                          type="text"
                           inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={row.casesOf3}
+                          onChange={e => updateRow(idx, "casesOf3", e.target.value.replace(/[^0-9]/g, ""))}
+                          className="input text-sm py-1.5"
                         />
                       </div>
 
@@ -339,11 +341,12 @@ export default function GoodsOutPage() {
                       <div>
                         <label className="text-xs text-gray-500 block mb-0.5">Singles</label>
                         <input
-                          type="number" min="0"
-                          value={row.singles}
-                          onChange={e => updateRow(idx, "singles", e.target.value)}
-                          className="input text-sm py-1.5"
+                          type="text"
                           inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={row.singles}
+                          onChange={e => updateRow(idx, "singles", e.target.value.replace(/[^0-9]/g, ""))}
+                          className="input text-sm py-1.5"
                         />
                       </div>
 
