@@ -64,8 +64,9 @@ function findDensity(densityByName: Record<string, number>, name: string): numbe
 
 export default function QuestionField({ question, value, onChange, error, ingredientLots, densityByName }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
-  // Tracks raw litres text per lot input so users can type freely without the field snapping
+  // Tracks raw litres/grams text per lot input so users can type freely without the field snapping
   const [litresDisplay, setLitresDisplay] = useState<Record<string, string>>({});
+  const [gramsDisplay, setGramsDisplay]   = useState<Record<string, string>>({});
 
   // Batches — only used by ingredient_table questions
   // Each batch has its own multiplier; combined target = sum of all multipliers
@@ -575,6 +576,7 @@ export default function QuestionField({ question, value, onChange, error, ingred
                     )}
                     {density ? (
                       <>
+                        {/* Litres input — enter L, g auto-updates */}
                         <input
                           type="text"
                           inputMode="decimal"
@@ -585,20 +587,36 @@ export default function QuestionField({ question, value, onChange, error, ingred
                             if (!isNaN(litres) && litres > 0) {
                               updateLot(ingIdx, lotIdx, "weight_g", String(Math.round(litres * density)));
                               setLitresDisplay(prev => ({ ...prev, [`${ingIdx}-${lotIdx}`]: litres.toFixed(2) }));
+                              setGramsDisplay(prev => { const n = { ...prev }; delete n[`${ingIdx}-${lotIdx}`]; return n; });
                             } else {
                               updateLot(ingIdx, lotIdx, "weight_g", "");
                               setLitresDisplay(prev => ({ ...prev, [`${ingIdx}-${lotIdx}`]: "" }));
+                              setGramsDisplay(prev => { const n = { ...prev }; delete n[`${ingIdx}-${lotIdx}`]; return n; });
                             }
                           }}
                           className="input w-24 shrink-0 text-sm py-1.5"
                           placeholder="Litres"
                         />
+                        {/* Grams input — enter g, L auto-updates */}
                         <input
                           type="text"
-                          value={lotUse.weight_g ? `${Number(lotUse.weight_g).toLocaleString()}g` : ""}
-                          readOnly
-                          className="input w-24 shrink-0 text-sm py-1.5 bg-gray-50 text-gray-400 cursor-default"
-                          placeholder="g (auto)"
+                          inputMode="decimal"
+                          value={gramsDisplay[`${ingIdx}-${lotIdx}`] ?? (lotUse.weight_g ? lotUse.weight_g : "")}
+                          onChange={(e) => setGramsDisplay(prev => ({ ...prev, [`${ingIdx}-${lotIdx}`]: e.target.value }))}
+                          onBlur={(e) => {
+                            const grams = parseFloat(e.target.value);
+                            if (!isNaN(grams) && grams > 0) {
+                              updateLot(ingIdx, lotIdx, "weight_g", String(Math.round(grams)));
+                              setGramsDisplay(prev => ({ ...prev, [`${ingIdx}-${lotIdx}`]: String(Math.round(grams)) }));
+                              setLitresDisplay(prev => { const n = { ...prev }; delete n[`${ingIdx}-${lotIdx}`]; return n; });
+                            } else {
+                              updateLot(ingIdx, lotIdx, "weight_g", "");
+                              setGramsDisplay(prev => ({ ...prev, [`${ingIdx}-${lotIdx}`]: "" }));
+                              setLitresDisplay(prev => { const n = { ...prev }; delete n[`${ingIdx}-${lotIdx}`]; return n; });
+                            }
+                          }}
+                          className="input w-24 shrink-0 text-sm py-1.5"
+                          placeholder="Grams"
                         />
                       </>
                     ) : (
