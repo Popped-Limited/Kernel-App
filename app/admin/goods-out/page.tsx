@@ -228,7 +228,7 @@ export default function GoodsOutPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6 space-y-6">
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 space-y-6">
         <div className="card p-6">
           <h2 className="text-sm font-semibold text-gray-900 mb-4">Log dispatch</h2>
 
@@ -427,7 +427,7 @@ export default function GoodsOutPage() {
             <div className="card p-4 text-center text-sm text-gray-500">No dispatches logged yet.</div>
           ) : (
             <div className="card overflow-x-auto">
-              <table className="w-full text-sm min-w-[560px]">
+              <table className="w-full text-sm">
                 <thead className="border-b border-gray-200 bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Date</th>
