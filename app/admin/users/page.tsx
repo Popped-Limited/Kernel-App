@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useOrganisation } from "@/contexts/OrganisationContext";
+import { supabase } from "@/lib/supabase";
 
 interface Member {
   user_id:   string;
@@ -52,6 +53,13 @@ export default function UsersPage() {
   const [removing, setRemoving]           = useState<string | null>(null);
   const [changingRole, setChangingRole]   = useState<string | null>(null);
 
+  // Change password
+  const [newPassword, setNewPassword]         = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwSaving, setPwSaving]               = useState(false);
+  const [pwError, setPwError]                 = useState("");
+  const [pwSuccess, setPwSuccess]             = useState("");
+
   useEffect(() => { load(); }, []);
 
   async function load() {
@@ -76,6 +84,18 @@ export default function UsersPage() {
     if (!res.ok) { alert(data.error ?? "Failed to change role"); }
     else { load(); }
     setChangingRole(null);
+  }
+
+  async function changePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwError(""); setPwSuccess("");
+    if (newPassword.length < 8) { setPwError("Password must be at least 8 characters"); return; }
+    if (newPassword !== confirmPassword) { setPwError("Passwords don't match"); return; }
+    setPwSaving(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setPwSaving(false);
+    if (error) { setPwError(error.message); }
+    else { setPwSuccess("Password updated successfully"); setNewPassword(""); setConfirmPassword(""); }
   }
 
   async function removeMember(userId: string, name: string) {
@@ -250,6 +270,41 @@ export default function UsersPage() {
           </p>
         </div>
       )}
+
+      {/* Change password — own account only */}
+      <div className="card p-6 mt-6">
+        <h2 className="text-sm font-semibold text-brown mb-1">Change your password</h2>
+        <p className="text-xs text-brown/50 mb-4">Only affects your own account.</p>
+        <form onSubmit={changePassword} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">New password</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              className="input"
+              placeholder="At least 8 characters"
+              autoComplete="new-password"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Confirm new password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              className="input"
+              placeholder="Repeat new password"
+              autoComplete="new-password"
+            />
+          </div>
+          {pwError   && <p className="text-sm text-red-600">{pwError}</p>}
+          {pwSuccess && <p className="text-sm text-green-700">{pwSuccess}</p>}
+          <button type="submit" disabled={pwSaving || !newPassword || !confirmPassword} className="btn-primary px-5 py-2">
+            {pwSaving ? "Updating…" : "Update password"}
+          </button>
+        </form>
+      </div>
     </main>
   );
 }
