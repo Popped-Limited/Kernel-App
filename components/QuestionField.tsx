@@ -182,8 +182,10 @@ export default function QuestionField({ question, value, onChange, error, ingred
                 key={opt}
                 type="button"
                 onClick={() => {
-                  const next = active ? selected.filter((s) => s !== opt) : [...selected, opt];
-                  // Clear follow-up text if trigger is deselected
+                  // Single-select when follow_up config exists (e.g. Yes/No), multi-select otherwise
+                  const next = followUpConfig
+                    ? (active ? [] : [opt])
+                    : (active ? selected.filter((s) => s !== opt) : [...selected, opt]);
                   const nextFollowUp = followUpConfig && !next.includes(followUpConfig.trigger) ? "" : followUpText;
                   emitChange(next, nextFollowUp);
                 }}
@@ -191,9 +193,16 @@ export default function QuestionField({ question, value, onChange, error, ingred
                   active ? "border-brand/40 bg-brand/5 text-brand-dark font-medium" : "border-gray-200 bg-white hover:border-gray-300"
                 }`}
               >
-                <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 ${active ? "border-brand bg-brand" : "border-gray-300"}`}>
-                  {active && <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                </span>
+                {/* Circle indicator for single-select (follow_up), square for multi-select */}
+                {followUpConfig ? (
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${active ? "border-brand bg-brand" : "border-gray-300"}`}>
+                    {active && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                  </span>
+                ) : (
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 ${active ? "border-brand bg-brand" : "border-gray-300"}`}>
+                    {active && <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                  </span>
+                )}
                 {opt}
               </button>
             );

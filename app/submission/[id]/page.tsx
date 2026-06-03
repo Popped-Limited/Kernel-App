@@ -256,10 +256,17 @@ function AnswerRow({ answer }: { answer: Answer }) {
     ) : <span className="text-gray-400 text-sm italic">No signature</span>;
   } else if (q?.type === "multiple_choice") {
     try {
-      const items: string[] = JSON.parse(val);
+      const parsed = JSON.parse(val);
+      const items: string[] = Array.isArray(parsed) ? parsed : (parsed.selected ?? []);
+      const followUpText: string = Array.isArray(parsed) ? "" : (parsed.followUp ?? "");
       display = (
-        <div className="flex flex-wrap gap-1 mt-1">
-          {items.map((i) => <span key={i} className="badge bg-brand-cream text-brown">{i}</span>)}
+        <div className="mt-1 space-y-1">
+          <div className="flex flex-wrap gap-1">
+            {items.map((i) => <span key={i} className="badge bg-brand-cream text-brown">{i}</span>)}
+          </div>
+          {followUpText && (
+            <p className="text-sm text-gray-700 pl-1 italic">"{followUpText}"</p>
+          )}
         </div>
       );
     } catch { display = <p className="text-sm text-gray-900">{val}</p>; }
