@@ -15,21 +15,21 @@ const NAV = [
     title: "Production",
     minRole: "staff",
     items: [
+      { label: "Finished Goods", href: "/admin/finished-goods" },
       { label: "Goods In",       href: "/admin/goods-in" },
       { label: "Goods Out",      href: "/admin/goods-out" },
-      { label: "Finished Goods", href: "/admin/finished-goods" },
     ],
   },
   {
     title: "Compliance",
     minRole: "staff",
     items: [
-      { label: "Suppliers",             href: "/admin/suppliers" },
-      { label: "Raw Materials",         href: "/admin/stock" },
-      { label: "Traceability",          href: "/admin/traceability" },
-      { label: "SOPs",                  href: "/admin/sops" },
-      { label: "Training",              href: "/admin/team/training" },
       { label: "Checklist Submissions", href: "/dashboard" },
+      { label: "Raw Materials",         href: "/admin/stock" },
+      { label: "SOPs",                  href: "/admin/sops" },
+      { label: "Suppliers",             href: "/admin/suppliers" },
+      { label: "Traceability",          href: "/admin/traceability" },
+      { label: "Training",              href: "/admin/team/training" },
     ],
   },
   {
@@ -38,18 +38,18 @@ const NAV = [
     items: [
       { label: "Create Production Flow", href: "/admin/production-builder" },
       { label: "Manage Checklists",      href: "/admin/checklists" },
-      { label: "SAQ Questions",          href: "/admin/saq-questions" },
       { label: "Manage Training",        href: "/admin/training-setup" },
-      { label: "Staff Members",          href: "/admin/team/staff" },
       { label: "Print QR Codes",         href: "/print-qr" },
+      { label: "SAQ Questions",          href: "/admin/saq-questions" },
+      { label: "Staff Members",          href: "/admin/team/staff" },
     ],
   },
   {
     title: "Account",
     minRole: "admin",
     items: [
-      { label: "Users",   href: "/admin/users" },
       { label: "Billing", href: "/admin/billing" },
+      { label: "Users",   href: "/admin/users" },
     ],
   },
 ];
@@ -126,7 +126,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
           {NAV.filter(section => loading || canSee(role, section.minRole)).map(section => (
             <div key={section.title}>
-              <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-brown/60">
+              <p className="px-2 mb-2 mt-1 text-xs font-bold uppercase tracking-wider text-brown">
                 {section.title}
               </p>
               <ul className="space-y-0.5">
