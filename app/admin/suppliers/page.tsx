@@ -303,9 +303,11 @@ export default function SuppliersPage() {
                       </td>
                       <td className="px-3 py-3"><DateCell dateStr={s.cert_expiry} /></td>
                       <td className="px-3 py-3">
-                        {s.saq_completed
-                          ? <span className="text-brown font-medium">Yes{s.saq_date ? ` · ${new Date(s.saq_date).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}` : ""}</span>
-                          : <span className="text-red-600 font-medium">No</span>
+                        {s.type === "service"
+                          ? <span className="text-gray-400">N/A</span>
+                          : s.saq_completed
+                            ? <span className="text-brown font-medium">Yes{s.saq_date ? ` · ${new Date(s.saq_date).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}` : ""}</span>
+                            : <span className="text-red-600 font-medium">No</span>
                         }
                       </td>
                       <td className="px-3 py-3">
@@ -386,8 +388,8 @@ export default function SuppliersPage() {
                 </div>
               </div>
 
-              {/* SAQ Link — only for existing suppliers */}
-              {!isNew && editing && editing.saq_token && (
+              {/* SAQ Link — only for non-service suppliers */}
+              {!isNew && editing && editing.saq_token && form.type !== "service" && (
                 <div className="rounded-lg border border-brand/40 bg-brand/10 p-3 space-y-2">
                   <p className="text-xs font-semibold text-brown uppercase tracking-wide">SAQ Link</p>
                   <p className="text-xs text-gray-600">Share this link with your supplier to complete the self-assessment questionnaire.</p>
@@ -425,79 +427,83 @@ export default function SuppliersPage() {
                 </div>
               )}
 
-              {/* Certification */}
-              <Field label="Certification">
-                <select className="input w-full" value={form.certification ?? ""} onChange={e => setF("certification", (e.target.value || null) as Certification | null)}>
-                  <option value="">— Select —</option>
-                  <option value="BRCGS">BRCGS</option>
-                  <option value="SALSA">SALSA</option>
-                  <option value="Hygiene Rating">Hygiene Rating</option>
-                  <option value="None">None</option>
-                  <option value="Other">Other</option>
-                </select>
-              </Field>
-
-              {form.certification === "Hygiene Rating" && (
-                <Field label="Hygiene rating score (1–5)">
-                  <input className="input w-full" type="number" min={1} max={5} value={form.hygiene_rating ?? ""} onChange={e => setF("hygiene_rating", e.target.value ? Number(e.target.value) : null)} />
-                </Field>
+              {/* Certification — full fields for ingredient/packaging, just expiry for services */}
+              {form.type !== "service" && (
+                <>
+                  <Field label="Certification">
+                    <select className="input w-full" value={form.certification ?? ""} onChange={e => setF("certification", (e.target.value || null) as Certification | null)}>
+                      <option value="">— Select —</option>
+                      <option value="BRCGS">BRCGS</option>
+                      <option value="SALSA">SALSA</option>
+                      <option value="Hygiene Rating">Hygiene Rating</option>
+                      <option value="None">None</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </Field>
+                  {form.certification === "Hygiene Rating" && (
+                    <Field label="Hygiene rating score (1–5)">
+                      <input className="input w-full" type="number" min={1} max={5} value={form.hygiene_rating ?? ""} onChange={e => setF("hygiene_rating", e.target.value ? Number(e.target.value) : null)} />
+                    </Field>
+                  )}
+                </>
               )}
 
-              <Field label="Certificate expiry date">
+              <Field label={form.type === "service" ? "Certificate expiry date (e.g. pest control)" : "Certificate expiry date"}>
                 <input className="input w-full" type="date" value={form.cert_expiry ?? ""} onChange={e => setF("cert_expiry", e.target.value || null)} />
               </Field>
 
-              {/* Risk fields + calculator */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-gray-700">Risk Assessment</p>
-                  {form.type !== "service" && (
-                    <button
-                      type="button"
-                      onClick={() => setRiskCalcOpen(true)}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-brown hover:underline"
-                    >
-                      <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                        <rect x="1" y="1" width="10" height="10" rx="1.5"/>
-                        <path d="M3.5 4h5M3.5 6h5M3.5 8h3"/>
-                      </svg>
-                      Run calculator
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Supplier risk">
-                    <select className="input w-full" value={form.supplier_risk ?? ""} onChange={e => setF("supplier_risk", (e.target.value || null) as SupplierRisk | null)}>
-                      <option value="">— Select —</option>
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
-                  </Field>
-                  <Field label="Raw material risk">
-                    <select className="input w-full" value={form.raw_material_risk ?? ""} onChange={e => setF("raw_material_risk", (e.target.value || null) as SupplierRisk | null)}>
-                      <option value="">— Select —</option>
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
-                  </Field>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Review frequency">
-                  <select className="input w-full" value={form.review_frequency_years ?? ""} onChange={e => setF("review_frequency_years", e.target.value ? Number(e.target.value) : null)}>
-                    <option value="">— Select —</option>
-                    <option value={1}>Every year</option>
-                    <option value={2}>Every 2 years</option>
-                    <option value={3}>Every 3 years</option>
-                  </select>
-                </Field>
-                <Field label="Next review due">
-                  <input className="input w-full" type="date" value={form.next_review_due ?? ""} onChange={e => setF("next_review_due", e.target.value || null)} />
-                </Field>
-              </div>
+              {/* Risk + review — not applicable for services */}
+              {form.type !== "service" && (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-gray-700">Risk Assessment</p>
+                      <button
+                        type="button"
+                        onClick={() => setRiskCalcOpen(true)}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-brown hover:underline"
+                      >
+                        <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                          <rect x="1" y="1" width="10" height="10" rx="1.5"/>
+                          <path d="M3.5 4h5M3.5 6h5M3.5 8h3"/>
+                        </svg>
+                        Run calculator
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="Supplier risk">
+                        <select className="input w-full" value={form.supplier_risk ?? ""} onChange={e => setF("supplier_risk", (e.target.value || null) as SupplierRisk | null)}>
+                          <option value="">— Select —</option>
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
+                      </Field>
+                      <Field label="Raw material risk">
+                        <select className="input w-full" value={form.raw_material_risk ?? ""} onChange={e => setF("raw_material_risk", (e.target.value || null) as SupplierRisk | null)}>
+                          <option value="">— Select —</option>
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
+                      </Field>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Review frequency">
+                      <select className="input w-full" value={form.review_frequency_years ?? ""} onChange={e => setF("review_frequency_years", e.target.value ? Number(e.target.value) : null)}>
+                        <option value="">— Select —</option>
+                        <option value={1}>Every year</option>
+                        <option value={2}>Every 2 years</option>
+                        <option value={3}>Every 3 years</option>
+                      </select>
+                    </Field>
+                    <Field label="Next review due">
+                      <input className="input w-full" type="date" value={form.next_review_due ?? ""} onChange={e => setF("next_review_due", e.target.value || null)} />
+                    </Field>
+                  </div>
+                </>
+              )}
 
               <Field label="Status">
                 <select className="input w-full" value={form.status} onChange={e => setF("status", e.target.value as SupplierStatus)}>
