@@ -134,7 +134,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                   <li>
                     <button
                       onClick={() => setProdMenuOpen(o => !o)}
-                      className="w-full flex items-center justify-between rounded-md px-2.5 py-2 text-sm text-brown hover:bg-brown/10 transition-colors"
+                      className="w-full flex items-center justify-between rounded-md px-2.5 py-2 text-sm text-brown hover:bg-brand/30 transition-colors"
                     >
                       Begin Production
                       <svg className={`h-3.5 w-3.5 transition-transform ${prodMenuOpen ? "rotate-180" : ""}`}
