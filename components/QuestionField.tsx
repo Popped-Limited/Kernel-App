@@ -70,9 +70,15 @@ export default function QuestionField({ question, value, onChange, error, ingred
 
   // Batches — only used by ingredient_table questions
   // Each batch has its own multiplier; combined target = sum of all multipliers
-  const [batches, setBatches] = useState<Array<{ multiplier: number; input: string }>>([
-    { multiplier: 1, input: "1" },
-  ]);
+  const [batches, setBatches] = useState<Array<{ multiplier: number; input: string }>>(() => {
+    // Restore saved batch multipliers from the draft value when the component first mounts
+    if (!value) return [{ multiplier: 1, input: "1" }];
+    try {
+      const parsed = JSON.parse(value);
+      if (!Array.isArray(parsed) && parsed?.batches?.length) return parsed.batches;
+    } catch { /* ignore */ }
+    return [{ multiplier: 1, input: "1" }];
+  });
   const totalMultiplier = batches.reduce((sum, b) => sum + b.multiplier, 0);
 
   const base = (
@@ -393,8 +399,13 @@ export default function QuestionField({ question, value, onChange, error, ingred
     let rows: IngRow[];
     try {
       const parsed = value ? JSON.parse(value) : [];
-      // Support both old format {batch_code, actual_weight} and new {lots}
-      rows = parsed.map((r: IngRow & { batch_code?: string; actual_weight?: string }, i: number) => ({
+      // Three supported formats:
+      // 1. Old plain array of rows
+      // 2. New { batches, rows } object (persists multiplier state with the draft)
+      // 3. Very old rows with batch_code/actual_weight fields
+      const rawRows: (IngRow & { batch_code?: string; actual_weight?: string })[] =
+        Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
+      rows = rawRows.map((r, i) => ({
         name: r.name ?? ingredients[i]?.name ?? "",
         lots: r.lots ?? [{ lot_id: "", julian_code: r.batch_code ?? "", weight_g: r.actual_weight ?? "" }],
       }));
@@ -409,7 +420,15 @@ export default function QuestionField({ question, value, onChange, error, ingred
 
     const emptyLot: LotUse = { lot_id: "", julian_code: todayJulianCode(), weight_g: "" };
 
-    const update = (newRows: IngRow[]) => onChange(JSON.stringify(newRows));
+    // Emit the combined {batches, rows} value so both are persisted in the draft
+    const emitIngredientValue = (newBatches: typeof batches, newRows: IngRow[]) =>
+      onChange(JSON.stringify({ batches: newBatches, rows: newRows }));
+    const update = (newRows: IngRow[]) => emitIngredientValue(batches, newRows);
+    // Update batch multipliers AND emit so the draft captures the new setting immediately
+    const updateBatches = (newBatches: typeof batches) => {
+      setBatches(newBatches);
+      emitIngredientValue(newBatches, rows);
+    };
 
     const updateLot = (ingIdx: number, lotIdx: number, field: keyof LotUse, val: string) => {
       const newRows = rows.map((row, i) => {
@@ -465,7 +484,7 @@ export default function QuestionField({ question, value, onChange, error, ingred
                   <button
                     key={p}
                     type="button"
-                    onClick={() => setBatches(prev => prev.map((b, i) =>
+                    onClick={() => updateBatches(batches.map((b, i) =>
                       i === bIdx ? { multiplier: p, input: String(p) } : b
                     ))}
                     className={`px-2 py-0.5 rounded-md text-xs font-medium transition-colors ${
@@ -488,11 +507,12 @@ export default function QuestionField({ question, value, onChange, error, ingred
                     onBlur={() => {
                       const v = parseFloat(batch.input);
                       if (!isNaN(v) && v > 0) {
-                        setBatches(prev => prev.map((b, i) =>
+                        updateBatches(batches.map((b, i) =>
                           i === bIdx ? { multiplier: v, input: String(v) } : b
                         ));
                       } else {
-                        setBatches(prev => prev.map((b, i) =>
+                        // Invalid input — reset display only, no emit
+                        setBatches(batches.map((b, i) =>
                           i === bIdx ? { ...b, input: String(b.multiplier) } : b
                         ));
                       }
@@ -506,7 +526,7 @@ export default function QuestionField({ question, value, onChange, error, ingred
               {batches.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => setBatches(prev => prev.filter((_, i) => i !== bIdx))}
+                  onClick={() => updateBatches(batches.filter((_, i) => i !== bIdx))}
                   className="text-gray-300 hover:text-red-400 transition text-lg leading-none shrink-0"
                 >
                   ×
@@ -516,7 +536,7 @@ export default function QuestionField({ question, value, onChange, error, ingred
           ))}
           <button
             type="button"
-            onClick={() => setBatches(prev => [...prev, { multiplier: 1, input: "1" }])}
+            onClick={() => updateBatches([...batches, { multiplier: 1, input: "1" }])}
             className="text-xs text-brand hover:text-brown hover:underline"
           >
             + Add another batch

@@ -28,8 +28,9 @@ function buildIngredientMaps(
     for (const val of Object.values(draft.answers ?? {})) {
       if (typeof val !== "string") continue;
       try {
-        const rows = JSON.parse(val);
-        if (!Array.isArray(rows)) continue;
+        const parsed = JSON.parse(val);
+        const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
+        if (!Array.isArray(rows) || rows.length === 0) continue;
         for (const row of rows) {
           for (const lot of (row.lots ?? [])) {
             if (lot.lot_id && Number(lot.weight_g) > 0) {
@@ -76,7 +77,8 @@ function isFieldFilled(q: Question, val: string): boolean {
   }
   if (q.type === "ingredient_table") {
     try {
-      const rows = JSON.parse(val) as Array<{ lots: Array<{ lot_id?: string; julian_code: string; weight_g: string }> }>;
+      const parsed = JSON.parse(val);
+      const rows = (Array.isArray(parsed) ? parsed : (parsed?.rows ?? [])) as Array<{ lots: Array<{ lot_id?: string; julian_code: string; weight_g: string }> }>;
       return rows.length > 0 && rows.every((r) =>
         r.lots?.length > 0 && r.lots.every((l) => (l.lot_id || l.julian_code)?.trim() && l.weight_g?.trim())
       );
@@ -253,7 +255,8 @@ export default function ChecklistPage() {
       const val = answers[q.id] ?? "";
       if (q.type === "ingredient_table") {
         try {
-          const rows = JSON.parse(val) as Array<{ lots: Array<{ lot_id?: string; julian_code: string; weight_g: string }> }>;
+          const parsed = JSON.parse(val);
+          const rows = (Array.isArray(parsed) ? parsed : (parsed?.rows ?? [])) as Array<{ lots: Array<{ lot_id?: string; julian_code: string; weight_g: string }> }>;
           const allFilled = rows.every((r) =>
             r.lots?.length > 0 && r.lots.every((l) => (l.lot_id || l.julian_code)?.trim() && l.weight_g?.trim())
           );

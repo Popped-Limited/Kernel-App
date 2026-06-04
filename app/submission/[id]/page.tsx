@@ -298,7 +298,9 @@ function AnswerRow({ answer }: { answer: Answer }) {
     } catch { display = <p className="text-sm text-gray-900">{val}</p>; }
   } else if (q?.type === "ingredient_table") {
     try {
-      const rows: Array<{ name: string; lots: Array<{ julian_code: string; weight_g: string }> }> = JSON.parse(val);
+      const parsedVal = JSON.parse(val);
+      const rows: Array<{ name: string; lots: Array<{ julian_code: string; weight_g: string }> }> =
+        Array.isArray(parsedVal) ? parsedVal : (parsedVal?.rows ?? []);
       display = (
         <div className="mt-1 rounded-lg border border-gray-200 overflow-hidden text-xs">
           <table className="w-full">
