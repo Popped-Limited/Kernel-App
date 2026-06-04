@@ -9,6 +9,54 @@ import { frequencyLabel } from "@/lib/utils";
 
 type AnswerMap = Record<string, string>;
 
+type LotWithIngredient = IngredientLot & { ingredient: { name: string; density_g_per_l: number | null } };
+
+/**
+ * Build ingredientLots + densityByName maps from raw lots, subtracting any quantities
+ * already reserved by active batch drafts (excluding excludeDraftId — the current user's draft).
+ * This prevents two simultaneous batches from claiming the same stock.
+ */
+function buildIngredientMaps(
+  lots: LotWithIngredient[],
+  allDrafts: BatchDraft[],
+  excludeDraftId: string | null,
+): { byName: Record<string, IngredientLot[]>; density: Record<string, number> } {
+  // Sum up reservations per lot_id across all other active drafts
+  const reservations: Record<string, number> = {};
+  for (const draft of allDrafts) {
+    if (draft.id === excludeDraftId) continue;
+    for (const val of Object.values(draft.answers ?? {})) {
+      if (typeof val !== "string") continue;
+      try {
+        const rows = JSON.parse(val);
+        if (!Array.isArray(rows)) continue;
+        for (const row of rows) {
+          for (const lot of (row.lots ?? [])) {
+            if (lot.lot_id && Number(lot.weight_g) > 0) {
+              reservations[lot.lot_id] = (reservations[lot.lot_id] || 0) + Number(lot.weight_g);
+            }
+          }
+        }
+      } catch { /* not ingredient_table format — skip */ }
+    }
+  }
+
+  const byName: Record<string, IngredientLot[]> = {};
+  const density: Record<string, number> = {};
+  for (const lot of lots) {
+    const name = lot.ingredient?.name ?? "";
+    const reserved = reservations[lot.id] || 0;
+    const adjustedQty = Math.max(0, lot.quantity_remaining_g - reserved);
+    // Skip lots fully consumed by other drafts — no point offering them
+    if (adjustedQty === 0 && reserved > 0) continue;
+    const adjustedLot: IngredientLot = { ...lot, quantity_remaining_g: adjustedQty };
+    if (!byName[name]) byName[name] = [];
+    byName[name].push(adjustedLot);
+    if (lot.ingredient?.density_g_per_l != null) density[name] = lot.ingredient.density_g_per_l;
+  }
+  return { byName, density };
+}
+
 interface BatchDraft {
   id: string;
   checklist_id: string;
@@ -74,6 +122,10 @@ export default function ChecklistPage() {
   const [draftStatus, setDraftStatus] = useState<"idle" | "saving" | "saved">("idle");
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftIdRef = useRef<string | null>(null);
+  // Raw lot data + all active drafts — kept in refs so reservation maps can be recomputed
+  // without re-fetching from Supabase (e.g. when the user resumes/discards a draft)
+  const rawLotsRef = useRef<LotWithIngredient[]>([]);
+  const allDraftsRef = useRef<BatchDraft[]>([]);
 
   const isProduction = checklist?.category === "Production";
 
@@ -86,33 +138,34 @@ export default function ChecklistPage() {
       if (clRes.data) setChecklist(clRes.data);
       if (qRes.data) setQuestions(qRes.data);
 
-      // For production checklists: fetch ingredient lots + check for existing draft
+      // For production checklists: fetch ingredient lots + ALL active drafts in parallel.
+      // Drafts serve two purposes: (1) resume-prompt detection, (2) lot-reservation display.
       if (clRes.data?.category === "Production") {
-        const { data: lots } = await supabase
-          .from("ingredient_lots")
-          .select("*, ingredient:ingredients(name, density_g_per_l)")
-          .gt("quantity_remaining_g", 0)
-          .order("julian_code");
+        const [{ data: lots }, { data: allDrafts }] = await Promise.all([
+          supabase
+            .from("ingredient_lots")
+            .select("*, ingredient:ingredients(name, density_g_per_l)")
+            .gt("quantity_remaining_g", 0)
+            .order("julian_code"),
+          supabase
+            .from("batch_drafts")
+            .select("id, checklist_id, started_by, last_saved_at, answers")
+            .order("last_saved_at", { ascending: false }),
+        ]);
+
         if (lots) {
-          const byName: Record<string, IngredientLot[]> = {};
-          const density: Record<string, number> = {};
-          for (const lot of lots as (IngredientLot & { ingredient: { name: string; density_g_per_l: number | null } })[]) {
-            const name = lot.ingredient?.name ?? "";
-            if (!byName[name]) byName[name] = [];
-            byName[name].push(lot);
-            if (lot.ingredient?.density_g_per_l != null) density[name] = lot.ingredient.density_g_per_l;
-          }
+          rawLotsRef.current  = lots as LotWithIngredient[];
+          allDraftsRef.current = (allDrafts ?? []) as BatchDraft[];
+          // No current draft yet at load time — subtract ALL draft reservations
+          const { byName, density } = buildIngredientMaps(rawLotsRef.current, allDraftsRef.current, null);
           setIngredientLots(byName);
           setDensityByName(density);
         }
-        const { data: drafts } = await supabase
-          .from("batch_drafts")
-          .select("*")
-          .eq("checklist_id", id)
-          .order("last_saved_at", { ascending: false })
-          .limit(1);
-        if (drafts && drafts.length > 0) {
-          setExistingDraft(drafts[0] as BatchDraft);
+
+        // Find the most recent draft for THIS checklist for the resume prompt
+        const thisChecklistDraft = (allDrafts ?? []).find(d => d.checklist_id === id);
+        if (thisChecklistDraft) {
+          setExistingDraft(thisChecklistDraft as BatchDraft);
           setShowResumePrompt(true);
         }
       }
@@ -161,11 +214,25 @@ export default function ChecklistPage() {
     draftIdRef.current = existingDraft.id;
     setAnswers(existingDraft.answers ?? {});
     setShowResumePrompt(false);
+    // Recompute lot availability excluding THIS draft's own reservations so the
+    // user doesn't see their already-reserved quantities subtracted twice
+    if (rawLotsRef.current.length > 0) {
+      const { byName, density } = buildIngredientMaps(rawLotsRef.current, allDraftsRef.current, existingDraft.id);
+      setIngredientLots(byName);
+      setDensityByName(density);
+    }
   }
 
   async function startFresh() {
     if (existingDraft) {
       await supabase.from("batch_drafts").delete().eq("id", existingDraft.id);
+      // Remove deleted draft from cache and recompute lot availability
+      allDraftsRef.current = allDraftsRef.current.filter(d => d.id !== existingDraft.id);
+      if (rawLotsRef.current.length > 0) {
+        const { byName, density } = buildIngredientMaps(rawLotsRef.current, allDraftsRef.current, null);
+        setIngredientLots(byName);
+        setDensityByName(density);
+      }
     }
     setExistingDraft(null);
     setShowResumePrompt(false);

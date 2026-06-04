@@ -645,18 +645,45 @@ export default function QuestionField({ question, value, onChange, error, ingred
                     )}
                   </div>
                 ))}
-                <div className="flex items-center justify-between pt-0.5">
+                <div className="flex items-start justify-between pt-1">
                   <button type="button" onClick={() => addLot(ingIdx)}
-                    className="text-xs text-brand hover:underline">
+                    className="text-xs text-brand hover:underline mt-0.5">
                     + Split across another lot
                   </button>
                   {totalEntered > 0 && (
-                    <span className={`text-xs font-medium tabular-nums ${Math.abs(diff) <= scaledTarget * 0.005 ? "text-green-600" : "text-amber-600"}`}>
-                      {density
-                        ? `${(totalEntered / density).toFixed(2)}L (${totalEntered.toLocaleString()}g) ${diff === 0 ? "✓" : `(${diff > 0 ? "+" : ""}${diff.toLocaleString()}g)`}`
-                        : `${totalEntered.toLocaleString()}g total ${diff === 0 ? "✓" : `(${diff > 0 ? "+" : ""}${diff.toLocaleString()}g)`}`
-                      }
-                    </span>
+                    <div className="text-xs tabular-nums text-right space-y-0.5">
+                      {Math.abs(diff) <= scaledTarget * 0.005 ? (
+                        <p className="font-semibold text-green-600">
+                          {density
+                            ? `${(totalEntered / density).toFixed(2)}L (${totalEntered.toLocaleString()}g) ✓`
+                            : `${totalEntered.toLocaleString()}g ✓`}
+                        </p>
+                      ) : (
+                        <>
+                          <p className="text-gray-500">
+                            Subtotal:{" "}
+                            {density
+                              ? `${(totalEntered / density).toFixed(2)}L (${totalEntered.toLocaleString()}g)`
+                              : `${totalEntered.toLocaleString()}g`}
+                          </p>
+                          {diff < 0 ? (
+                            <p className="font-medium text-amber-600">
+                              Remaining:{" "}
+                              {density
+                                ? `${(Math.abs(diff) / density).toFixed(2)}L (${Math.abs(diff).toLocaleString()}g)`
+                                : `${Math.abs(diff).toLocaleString()}g`}
+                            </p>
+                          ) : (
+                            <p className="font-medium text-red-500">
+                              Over by:{" "}
+                              {density
+                                ? `${(diff / density).toFixed(2)}L (${diff.toLocaleString()}g)`
+                                : `${diff.toLocaleString()}g`}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
