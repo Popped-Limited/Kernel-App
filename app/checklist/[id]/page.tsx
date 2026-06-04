@@ -64,6 +64,9 @@ export default function ChecklistPage() {
   const [ingredientLots, setIngredientLots] = useState<Record<string, IngredientLot[]>>({});
   const [densityByName, setDensityByName] = useState<Record<string, number>>({});
 
+  // Batch notes (Production checklists only)
+  const [batchNotes, setBatchNotes] = useState("");
+
   // Draft save state (Production checklists only)
   const [existingDraft, setExistingDraft] = useState<BatchDraft | null>(null);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
@@ -244,6 +247,7 @@ export default function ChecklistPage() {
         checklist_id: id,
         organisation_id: checklist?.organisation_id ?? null,
         submitted_by: getSubmittedBy(questions, processedAnswers),
+        batch_notes: isProduction && batchNotes.trim() ? batchNotes.trim() : null,
         answers: questions.map((q) => ({
           question_id: q.id,
           value: processedAnswers[q.id] ?? null,
@@ -439,6 +443,23 @@ export default function ChecklistPage() {
               />
             </div>
           ))}
+
+          {/* Additional comments — Production records only */}
+          {isProduction && (
+            <div className="card px-4 py-4 space-y-2">
+              <label className="block text-sm font-semibold text-gray-800">
+                Additional comments
+                <span className="ml-1.5 text-xs font-normal text-gray-400">(optional)</span>
+              </label>
+              <textarea
+                value={batchNotes}
+                onChange={e => setBatchNotes(e.target.value)}
+                rows={3}
+                className="input resize-none w-full"
+                placeholder="Any notes specific to this batch — e.g. ingredient substitutions, equipment issues, yield variations…"
+              />
+            </div>
+          )}
 
           {Object.keys(errors).length > 0 && (
             <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

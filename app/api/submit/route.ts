@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { checklist_id, organisation_id, submitted_by, answers } = body;
+  const { checklist_id, organisation_id, submitted_by, answers, batch_notes } = body;
 
   if (!checklist_id || !submitted_by || !Array.isArray(answers)) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
@@ -28,6 +28,14 @@ export async function POST(req: NextRequest) {
       { error: "Failed to create submission", detail: rpcErr?.message },
       { status: 500 }
     );
+  }
+
+  // Save batch notes if provided
+  if (batch_notes) {
+    await supabaseAdmin
+      .from("submissions")
+      .update({ batch_notes })
+      .eq("id", submissionId);
   }
 
   // Deduct ingredient stock for any ingredient_table answers

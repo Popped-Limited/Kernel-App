@@ -11,6 +11,7 @@ import PortalShell from "@/components/PortalShell";
 type FullSubmission = Submission & {
   checklist: Checklist;
   answers: (Answer & { question: Question })[];
+  batch_notes?: string | null;
 };
 
 export default function SubmissionPage() {
@@ -165,6 +166,12 @@ export default function SubmissionPage() {
               </>
             )}
           </div>
+          {submission.batch_notes && (
+            <div className="rounded-lg bg-brand/10 border border-brand/30 px-4 py-3">
+              <p className="text-xs text-brown font-semibold mb-1">Batch notes</p>
+              <p className="text-sm text-gray-700">{submission.batch_notes}</p>
+            </div>
+          )}
           {submission.notes && (
             <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">
               <p className="text-xs text-gray-500 font-medium mb-1">Manager notes</p>
