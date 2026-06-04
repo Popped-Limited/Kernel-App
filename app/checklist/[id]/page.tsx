@@ -180,6 +180,32 @@ export default function ChecklistPage() {
   // Keep draftIdRef in sync so the save closure always has the current id
   useEffect(() => { draftIdRef.current = draftId; }, [draftId]);
 
+  // Poll for draft changes from other active production runs every 10 seconds so
+  // lot availability stays accurate when multiple batches are running simultaneously.
+  useEffect(() => {
+    if (!isProduction) return;
+
+    const refreshDraftReservations = async () => {
+      if (rawLotsRef.current.length === 0) return; // lots not loaded yet
+      const { data: freshDrafts } = await supabase
+        .from("batch_drafts")
+        .select("id, checklist_id, started_by, last_saved_at, answers");
+      if (freshDrafts) {
+        allDraftsRef.current = freshDrafts as BatchDraft[];
+        const { byName, density } = buildIngredientMaps(
+          rawLotsRef.current,
+          allDraftsRef.current,
+          draftIdRef.current, // always exclude the current user's own draft
+        );
+        setIngredientLots(byName);
+        setDensityByName(density);
+      }
+    };
+
+    const interval = setInterval(refreshDraftReservations, 10_000);
+    return () => clearInterval(interval);
+  }, [isProduction]);
+
   const scheduleDraftSave = useCallback((newAnswers: AnswerMap, by: string) => {
     if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
     setDraftStatus("saving");
