@@ -579,11 +579,21 @@ export default function QuestionField({ question, value, onChange, error, ingred
                         className="input flex-1 text-sm py-1.5 min-w-0"
                       >
                         <option value="">Select Julian code…</option>
-                        {availableLots.map((l) => (
-                          <option key={l.id} value={l.id}>
-                            {l.julian_code} — {l.quantity_remaining_g.toLocaleString()}g left
-                          </option>
-                        ))}
+                        {availableLots.map((l) => {
+                          // Subtract weight already committed to this lot in OTHER rows of the
+                          // same ingredient so the displayed availability stays accurate as the
+                          // user fills in the form — without waiting for a DB round-trip.
+                          const usedInOtherRows = (row?.lots ?? []).reduce((sum, r, j) => {
+                            if (j === lotIdx) return sum;
+                            return r.lot_id === l.id ? sum + (Number(r.weight_g) || 0) : sum;
+                          }, 0);
+                          const effectiveQty = Math.max(0, l.quantity_remaining_g - usedInOtherRows);
+                          return (
+                            <option key={l.id} value={l.id}>
+                              {l.julian_code} — {effectiveQty.toLocaleString()}g left
+                            </option>
+                          );
+                        })}
                       </select>
                     ) : (
                       <div className="flex-1 min-w-0">
