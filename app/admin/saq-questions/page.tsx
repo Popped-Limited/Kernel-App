@@ -1,4 +1,5 @@
 "use client";
+import BackButton from "@/components/BackButton";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -230,9 +231,7 @@ export default function SAQQuestionsPage() {
       <header className="border-b border-gray-200 bg-white shadow-sm sticky top-0 z-10">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 sm:px-6 min-h-[68px]">
           <div className="flex items-center gap-3">
-            <Link href="/home" className="btn-ghost text-xs px-2">
-              ← Dashboard
-            </Link>
+            <BackButton />
             <h1 className="text-base font-semibold text-gray-900">SAQ Questions</h1>
             {!loading && (
               <span className="text-xs text-gray-400">

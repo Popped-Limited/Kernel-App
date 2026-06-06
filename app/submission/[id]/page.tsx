@@ -1,4 +1,5 @@
 "use client";
+import BackButton from "@/components/BackButton";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -112,13 +113,7 @@ export default function SubmissionPage() {
       <header className="border-b border-gray-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
-            {searchParams.get("back") ? (
-              <button onClick={() => router.back()} className="btn-ghost text-xs px-2">
-                ← {backHref.includes("traceability") ? "Traceability" : "Back"}
-              </button>
-            ) : (
-              <Link href="/home" className="btn-ghost text-xs px-2">← Dashboard</Link>
-            )}
+            <BackButton />
             <span className="text-gray-300">/</span>
             <span className="text-sm font-medium text-gray-700">{submission.checklist?.name}</span>
           </div>
