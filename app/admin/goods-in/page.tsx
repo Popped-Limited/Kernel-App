@@ -30,6 +30,8 @@ export default function GoodsInPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [goodsInChecklistId, setGoodsInChecklistId] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<string | null>(null);
 
   const [rows, setRows] = useState<IngredientRow[]>([emptyRow()]);
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().slice(0, 10));
@@ -145,6 +147,24 @@ export default function GoodsInPage() {
     if (rows.length > 1) setRows(prev => prev.filter((_, i) => i !== idx));
   }
 
+  async function handleBackfill() {
+    if (!confirm("This will create checklist submissions for all historical Goods In and Goods Out records. Only run this once. Continue?")) return;
+    setBackfilling(true);
+    setBackfillResult(null);
+    try {
+      const res = await fetch("/api/backfill-goods-records", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setBackfillResult(`Done — created ${data.goodsInCreated} goods-in and ${data.goodsOutCreated} goods-out submissions.`);
+      } else {
+        setBackfillResult(`Error: ${data.error ?? "Unknown error"}`);
+      }
+    } catch {
+      setBackfillResult("Network error — please try again.");
+    }
+    setBackfilling(false);
+  }
+
   function validate() {
     const errs: Record<string, string> = {};
     if (!supplierId) errs.supplier = "Select a supplier";
@@ -234,9 +254,27 @@ export default function GoodsInPage() {
             <Link href="/home" className="btn-ghost text-xs px-2">← Dashboard</Link>
             <h1 className="text-base font-semibold text-gray-900">Goods In</h1>
           </div>
-          <Link href="/admin/stock" className="btn-secondary text-xs">View Stock Levels</Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleBackfill}
+              disabled={backfilling}
+              className="btn-ghost text-xs px-2 text-gray-400"
+              title="One-time: create compliance submissions for all historical goods-in and goods-out records"
+            >
+              {backfilling ? "Backfilling…" : "Backfill history"}
+            </button>
+            <Link href="/admin/stock" className="btn-secondary text-xs">View Stock Levels</Link>
+          </div>
         </div>
       </header>
+
+      {backfillResult && (
+        <div className="mx-auto max-w-2xl px-4 pt-4 sm:px-6">
+          <div className={`rounded-lg px-4 py-3 text-sm ${backfillResult.startsWith("Error") || backfillResult.startsWith("Network") ? "bg-red-50 border border-red-200 text-red-700" : "bg-green-50 border border-green-200 text-green-700"}`}>
+            {backfillResult}
+          </div>
+        </div>
+      )}
 
       <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6 space-y-6">
         <div className="card p-6">

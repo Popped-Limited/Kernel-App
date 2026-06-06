@@ -56,6 +56,7 @@ export default function GoodsOutPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [goodsOutChecklistId, setGoodsOutChecklistId] = useState<string | null>(null);
 
   // Edit existing dispatch
   const [editingDispatch, setEditingDispatch] = useState<Dispatch | null>(null);
@@ -104,13 +105,23 @@ export default function GoodsOutPage() {
 
     // Also fetch all production checklists so the product list is always complete
     // (even for products with no recent submissions)
-    const { data: clData } = await supabase
-      .from("checklists")
-      .select("id, name, category")
-      .eq("category", "Production")
-      .eq("active", true)
-      .order("name");
+    const [{ data: clData }, { data: goChecklist }] = await Promise.all([
+      supabase
+        .from("checklists")
+        .select("id, name, category")
+        .eq("category", "Production")
+        .eq("active", true)
+        .order("name"),
+      supabase
+        .from("checklists")
+        .select("id")
+        .ilike("name", "%goods out%")
+        .eq("active", true)
+        .limit(1)
+        .maybeSingle(),
+    ]);
     if (clData) setProductChecklists(clData as Checklist[]);
+    if (goChecklist?.id) setGoodsOutChecklistId(goChecklist.id);
     setLoading(false);
   }
 
@@ -165,6 +176,44 @@ export default function GoodsOutPage() {
     const { error } = await supabase.from("dispatches").insert(inserts);
     setSaving(false);
     if (error) { alert("Failed to save — please try again."); return; }
+
+    // Also create a Goods Out Record checklist submission for compliance sign-off
+    if (goodsOutChecklistId) {
+      try {
+        const grandTotal = inserts.reduce((s, r) => s + r.total_units, 0);
+        const itemLines = inserts.map(r => {
+          const parts: string[] = [];
+          if (r.cases_of_6) parts.push(`${r.cases_of_6}×6`);
+          if (r.cases_of_3) parts.push(`${r.cases_of_3}×3`);
+          if (r.singles) parts.push(`${r.singles} singles`);
+          return `  • ${r.product}: ${parts.join(", ")} (${r.total_units} units)`;
+        });
+        const batchNotes = [
+          `Customer: ${customer.trim()}`,
+          `Date dispatched: ${dispatchDate}`,
+          ...(reference.trim() ? [`Reference: ${reference.trim()}`] : []),
+          `Products:`,
+          ...itemLines,
+          `Total: ${grandTotal} units`,
+          ...(notes.trim() ? [`Notes: ${notes.trim()}`] : []),
+        ].join("\n");
+
+        await fetch("/api/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            checklist_id: goodsOutChecklistId,
+            organisation_id: orgId ?? null,
+            submitted_by: dispatchedBy.trim(),
+            answers: [],
+            batch_notes: batchNotes,
+          }),
+        });
+      } catch (e) {
+        // Non-fatal — dispatch was saved, compliance record failed silently
+        console.error("Failed to create goods-out submission:", e);
+      }
+    }
 
     setSaved(true);
     setRows([emptyRow()]);
