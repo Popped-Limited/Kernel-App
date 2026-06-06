@@ -226,11 +226,12 @@ export default function SuppliersPage() {
 
   return (
     <>
-      <header className="border-b border-gray-200 bg-white shadow-sm sticky top-0 z-10">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 min-h-[68px]">
+      <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-6xl w-full mx-auto space-y-6">
+
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-3">
             <BackButton />
-            <h1 className="text-base font-semibold text-gray-900">Approved Suppliers</h1>
+            <h1 className="text-xl font-bold text-gray-900">Approved Suppliers</h1>
             {expiringSoon > 0 && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
                 {expiringSoon} action{expiringSoon !== 1 ? "s" : ""} needed
@@ -239,9 +240,6 @@ export default function SuppliersPage() {
           </div>
           <button onClick={openNew} className="btn-primary text-sm">+ Add Supplier</button>
         </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         {/* Summary */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           {(["raw_material", "packaging", "service"] as SupplierType[]).map(t => (

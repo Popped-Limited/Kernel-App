@@ -60,25 +60,17 @@ export default function AdminChecklistsPage() {
   ];
 
   return (
-    <>
-      <header className="border-b border-gray-200 bg-white shadow-sm">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 sm:px-6 min-h-[68px]">
+    <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-6xl w-full mx-auto space-y-6">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-3">
             <BackButton />
-            <h1 className="text-base font-semibold text-gray-900">Manage Checklists</h1>
+            <h1 className="text-xl font-bold text-gray-900">Manage Checklists</h1>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/admin/production-builder" className="btn-secondary text-xs">
-              + Production run
-            </Link>
-            <Link href="/admin/checklists/new" className="btn-primary">
-              + New checklist
-            </Link>
+            <Link href="/admin/production-builder" className="btn-secondary text-sm">+ Production run</Link>
+            <Link href="/admin/checklists/new" className="btn-primary">+ New checklist</Link>
           </div>
         </div>
-      </header>
-
-      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
         {/* Tabs */}
         <div className="flex gap-1 mb-4 border-b border-gray-200">
           {TABS.map(t => (
@@ -161,7 +153,6 @@ export default function AdminChecklistsPage() {
             ))}
           </div>
         )}
-      </main>
-    </>
+    </main>
   );
 }

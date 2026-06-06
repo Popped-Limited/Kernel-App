@@ -268,17 +268,14 @@ export default function GoodsOutPage() {
 
   return (
     <>
-      <header className="border-b border-gray-200 bg-white shadow-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 min-h-[68px]">
+      <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-4xl w-full mx-auto space-y-6">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-3">
             <BackButton />
-            <h1 className="text-base font-semibold text-gray-900">Goods Out</h1>
+            <h1 className="text-xl font-bold text-gray-900">Goods Out</h1>
           </div>
-          <Link href="/admin/traceability" className="btn-secondary text-xs">Traceability</Link>
+          <Link href="/admin/traceability" className="btn-secondary text-sm">Traceability</Link>
         </div>
-      </header>
-
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 space-y-6">
         <div className="card p-6">
           <h2 className="text-sm font-semibold text-gray-900 mb-4">Log dispatch</h2>
 

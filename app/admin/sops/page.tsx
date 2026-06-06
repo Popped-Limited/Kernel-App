@@ -73,20 +73,13 @@ export default function SOPsPage() {
 
   return (
     <>
-      <header className="border-b border-gray-200 bg-white shadow-sm">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 sm:px-6 min-h-[68px]">
-            <div className="flex items-center gap-3">
-              <h1 className="text-base font-semibold text-gray-900">Standard Operating Procedures</h1>
-            </div>
+      <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-6xl w-full mx-auto space-y-6">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h1 className="text-xl font-bold text-gray-900">Standard Operating Procedures</h1>
             {isAdmin && (
-              <button onClick={() => setShowNew(true)} className="btn-primary text-xs">
-                + New SOP
-              </button>
+              <button onClick={() => setShowNew(true)} className="btn-primary text-sm">+ New SOP</button>
             )}
           </div>
-        </header>
-
-        <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 space-y-5">
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-2">
             {(["all", "published", "draft"] as const).map(f => (
@@ -158,7 +151,7 @@ export default function SOPsPage() {
               ))}
             </div>
           )}
-        </main>
+      </main>
 
       {/* New SOP modal */}
       {showNew && (

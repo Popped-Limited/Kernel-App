@@ -226,27 +226,20 @@ export default function SAQQuestionsPage() {
   const sectionCount = sections.length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white shadow-sm sticky top-0 z-10">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 sm:px-6 min-h-[68px]">
+    <>
+      <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-6xl w-full mx-auto space-y-6">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-3">
             <BackButton />
-            <h1 className="text-base font-semibold text-gray-900">SAQ Questions</h1>
+            <h1 className="text-xl font-bold text-gray-900">SAQ Questions</h1>
             {!loading && (
-              <span className="text-xs text-gray-400">
+              <span className="text-sm text-gray-400 font-normal">
                 {totalQuestions} questions across {sectionCount} sections
               </span>
             )}
           </div>
-          <button onClick={() => openNew()} className="btn-primary text-sm">
-            + Add Question
-          </button>
+          <button onClick={() => openNew()} className="btn-primary text-sm">+ Add Question</button>
         </div>
-      </header>
-
-      {/* Main content */}
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
         {loading && (
           <p className="text-center text-sm text-gray-400 py-16">Loading…</p>
         )}
@@ -583,6 +576,6 @@ export default function SAQQuestionsPage() {
           </aside>
         </>
       )}
-    </div>
+    </>
   );
 }

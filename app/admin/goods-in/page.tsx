@@ -249,11 +249,11 @@ export default function GoodsInPage() {
 
   return (
     <>
-      <header className="border-b border-gray-200 bg-white shadow-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 min-h-[68px]">
+      <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-3xl w-full mx-auto space-y-6">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-3">
             <BackButton />
-            <h1 className="text-base font-semibold text-gray-900">Goods In</h1>
+            <h1 className="text-xl font-bold text-gray-900">Goods In</h1>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -264,20 +264,15 @@ export default function GoodsInPage() {
             >
               {backfilling ? "Backfilling…" : "Backfill history"}
             </button>
-            <Link href="/admin/stock" className="btn-secondary text-xs">View Stock Levels</Link>
+            <Link href="/admin/stock" className="btn-secondary text-sm">View Stock Levels</Link>
           </div>
         </div>
-      </header>
 
-      {backfillResult && (
-        <div className="mx-auto max-w-2xl px-4 pt-4 sm:px-6">
+        {backfillResult && (
           <div className={`rounded-lg px-4 py-3 text-sm ${backfillResult.startsWith("Error") || backfillResult.startsWith("Network") ? "bg-red-50 border border-red-200 text-red-700" : "bg-green-50 border border-green-200 text-green-700"}`}>
             {backfillResult}
           </div>
-        </div>
-      )}
-
-      <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6 space-y-6">
+        )}
         <div className="card p-6">
           <h2 className="text-sm font-semibold text-gray-900 mb-4">Log incoming delivery</h2>
 

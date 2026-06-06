@@ -109,13 +109,14 @@ export default function SubmissionPage() {
 
   return (
     <PortalShell>
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white shadow-sm">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+      <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-3xl w-full mx-auto space-y-6">
+        {/* Page header */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-3">
             <BackButton />
-            <span className="text-gray-300">/</span>
-            <span className="text-sm font-medium text-gray-700">{submission.checklist?.name}</span>
+            <h1 className="text-xl font-bold text-gray-900">
+              {submission.checklist?.name ?? <span className="text-gray-400 italic font-normal">Deleted checklist</span>}
+            </h1>
           </div>
           <div className="flex items-center gap-2">
             {isSigned ? (
@@ -133,12 +134,9 @@ export default function SubmissionPage() {
             )}
           </div>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
         {/* Meta */}
         <div className="card p-5 space-y-3">
-          <h1 className="text-xl font-bold text-gray-900">{submission.checklist?.name}</h1>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Submitted by</p>
