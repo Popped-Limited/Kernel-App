@@ -108,13 +108,11 @@ export default function TraceabilityPage() {
       if (!ans.value) continue;
       try {
         const parsed = JSON.parse(ans.value);
-        if (Array.isArray(parsed)) {
-          for (const row of parsed) {
-            const rowLots = row.lots ?? [];
-            for (const rl of rowLots) {
-              if (lotIds.includes(rl.lot_id)) {
-                matchedSubmissionIds.add(ans.submission_id);
-              }
+        const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
+        for (const row of rows) {
+          for (const rl of (row.lots ?? [])) {
+            if (rl.lot_id && lotIds.includes(rl.lot_id)) {
+              matchedSubmissionIds.add(ans.submission_id);
             }
           }
         }
@@ -187,11 +185,10 @@ export default function TraceabilityPage() {
         if (!ans.value || ans.question?.type !== "ingredient_table") continue;
         try {
           const parsed = JSON.parse(ans.value);
-          if (Array.isArray(parsed)) {
-            for (const row of parsed) {
-              for (const rl of (row.lots ?? [])) {
-                if (rl.lot_id) lotIds.add(rl.lot_id);
-              }
+          const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
+          for (const row of rows) {
+            for (const rl of (row.lots ?? [])) {
+              if (rl.lot_id) lotIds.add(rl.lot_id);
             }
           }
         } catch { /* ignore */ }
@@ -285,11 +282,10 @@ export default function TraceabilityPage() {
         if (!ans.value || ans.question?.type !== "ingredient_table") continue;
         try {
           const parsed = JSON.parse(ans.value);
-          if (Array.isArray(parsed)) {
-            for (const row of parsed) {
-              for (const rl of (row.lots ?? [])) {
-                if (rl.lot_id) lotIds.add(rl.lot_id);
-              }
+          const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
+          for (const row of rows) {
+            for (const rl of (row.lots ?? [])) {
+              if (rl.lot_id) lotIds.add(rl.lot_id);
             }
           }
         } catch { /* ignore */ }
@@ -327,11 +323,10 @@ export default function TraceabilityPage() {
         if (!ans.value) continue;
         try {
           const parsed = JSON.parse(ans.value);
-          if (Array.isArray(parsed)) {
-            for (const row of parsed) {
-              for (const rl of (row.lots ?? [])) {
-                if (rl.lot_id === lot.id) matchedSubmissionIds.add(ans.submission_id);
-              }
+          const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
+          for (const row of rows) {
+            for (const rl of (row.lots ?? [])) {
+              if (rl.lot_id === lot.id) matchedSubmissionIds.add(ans.submission_id);
             }
           }
         } catch { /* ignore */ }
