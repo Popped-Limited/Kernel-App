@@ -169,7 +169,7 @@ export default function SubmissionPage() {
           {submission.batch_notes && (
             <div className="rounded-lg bg-brand/10 border border-brand/30 px-4 py-3">
               <p className="text-xs text-brown font-semibold mb-1">Batch notes</p>
-              <p className="text-sm text-gray-700">{submission.batch_notes}</p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{submission.batch_notes}</p>
             </div>
           )}
           {submission.notes && (
