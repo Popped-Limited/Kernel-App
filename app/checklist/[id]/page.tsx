@@ -128,6 +128,10 @@ export default function ChecklistPage() {
   // without re-fetching from Supabase (e.g. when the user resumes/discards a draft)
   const rawLotsRef = useRef<LotWithIngredient[]>([]);
   const allDraftsRef = useRef<BatchDraft[]>([]);
+  // Tracks which fields have been edited locally since the last successful save.
+  // Used during real-time merges to prevent another device's update from overwriting
+  // something the current user is actively typing.
+  const dirtyFieldsRef = useRef<Set<string>>(new Set());
 
   const isProduction = checklist?.category === "Production";
 
@@ -206,6 +210,42 @@ export default function ChecklistPage() {
     return () => clearInterval(interval);
   }, [isProduction]);
 
+  // Real-time collaboration: subscribe to changes on the shared draft so that edits
+  // made on another device appear immediately. Dirty fields (typed but not yet saved)
+  // are always preserved — the remote update only fills in fields the local user hasn't touched.
+  useEffect(() => {
+    if (!isProduction || !draftId) return;
+
+    const channel = supabase
+      .channel(`draft-collab-${draftId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "batch_drafts", filter: `id=eq.${draftId}` },
+        (payload) => {
+          const incoming = (payload.new as { answers: AnswerMap }).answers ?? {};
+          const { __batch_notes__: incomingNotes, ...incomingQAnswers } = incoming;
+
+          setAnswers((prev) => {
+            const merged = { ...incomingQAnswers };
+            // Keep any field the current user has edited since their last save
+            for (const field of dirtyFieldsRef.current) {
+              if (field !== "__batch_notes__" && prev[field] !== undefined) {
+                merged[field] = prev[field];
+              }
+            }
+            return merged;
+          });
+
+          if (!dirtyFieldsRef.current.has("__batch_notes__")) {
+            setBatchNotes(incomingNotes ?? "");
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [draftId, isProduction]);
+
   const scheduleDraftSave = useCallback((newAnswers: AnswerMap, by: string) => {
     if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
     setDraftStatus("saving");
@@ -223,11 +263,13 @@ export default function ChecklistPage() {
         last_saved_at: new Date().toISOString(),
         answers: newAnswers,
       });
+      dirtyFieldsRef.current.clear(); // local edits are now persisted — safe to accept remote updates
       setDraftStatus("saved");
     }, 2000);
   }, [id]);
 
   function handleAnswerChange(questionId: string, val: string) {
+    dirtyFieldsRef.current.add(questionId);
     setAnswers((prev) => {
       const next = { ...prev, [questionId]: val };
       if (isProduction && !showResumePrompt) {
@@ -559,6 +601,7 @@ export default function ChecklistPage() {
                 value={batchNotes}
                 onChange={e => {
                   const newNotes = e.target.value;
+                  dirtyFieldsRef.current.add("__batch_notes__");
                   setBatchNotes(newNotes);
                   if (isProduction && !showResumePrompt) {
                     const draftAnswers = newNotes.trim() ? { ...answers, __batch_notes__: newNotes } : answers;
