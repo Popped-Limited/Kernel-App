@@ -101,15 +101,15 @@ export default function Dashboard() {
         dispatched[d.product] = (dispatched[d.product] ?? 0) + d.total_units;
 
       const produced: Record<string, number> = {};
-      for (const sub of (batchSubRes.data as never as Array<{ checklist: { name: string; category: string } | null; answers: Array<{ value: string | null; question: { type: string } | null }> }>)) {
+      for (const sub of (batchSubRes.data as never as Array<{ checklist: { name: string; category: string } | null; answers: Array<{ value: string | null; question: { type: string; label: string } | null }> }>)) {
         if (sub.checklist?.category !== "Production") continue;
         const sku = sub.checklist.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
         for (const ans of (sub.answers ?? [])) {
-          if (ans.question?.type !== "packing_runs" || !ans.value) continue;
-          try {
-            const rows = JSON.parse(ans.value);
-            if (Array.isArray(rows)) for (const r of rows) produced[sku] = (produced[sku] ?? 0) + (Number(r.jars_used) || 0);
-          } catch { /* ignore */ }
+          if (!ans.value) continue;
+          // Prefer the explicit "Total units produced" field over jars_used
+          if (ans.question?.label?.toLowerCase().includes("total units produced")) {
+            produced[sku] = (produced[sku] ?? 0) + (Number(ans.value) || 0);
+          }
         }
       }
 
