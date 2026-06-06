@@ -230,7 +230,11 @@ export default function ChecklistPage() {
   function handleAnswerChange(questionId: string, val: string) {
     setAnswers((prev) => {
       const next = { ...prev, [questionId]: val };
-      if (isProduction && !showResumePrompt) scheduleDraftSave(next, getSubmittedBy(questions, next));
+      if (isProduction && !showResumePrompt) {
+        // Persist batch notes alongside question answers so the whole form survives draft save/resume
+        const draftAnswers = batchNotes.trim() ? { ...next, __batch_notes__: batchNotes } : next;
+        scheduleDraftSave(draftAnswers, getSubmittedBy(questions, next));
+      }
       return next;
     });
     if (errors[questionId]) setErrors((prev) => { const e = { ...prev }; delete e[questionId]; return e; });
@@ -240,7 +244,10 @@ export default function ChecklistPage() {
     if (!existingDraft) return;
     setDraftId(existingDraft.id);
     draftIdRef.current = existingDraft.id;
-    setAnswers(existingDraft.answers ?? {});
+    // Extract batch notes from the saved answers map, then keep only real question answers
+    const { __batch_notes__: savedNotes, ...questionAnswers } = existingDraft.answers ?? {};
+    setAnswers(questionAnswers as AnswerMap);
+    if (savedNotes) setBatchNotes(savedNotes);
     setShowResumePrompt(false);
     // Recompute lot availability excluding THIS draft's own reservations so the
     // user doesn't see their already-reserved quantities subtracted twice
@@ -264,6 +271,7 @@ export default function ChecklistPage() {
     }
     setExistingDraft(null);
     setShowResumePrompt(false);
+    setBatchNotes(""); // clear any notes from the discarded draft
     // Draft ID will be created on first field change
   }
 
@@ -549,7 +557,14 @@ export default function ChecklistPage() {
               </label>
               <textarea
                 value={batchNotes}
-                onChange={e => setBatchNotes(e.target.value)}
+                onChange={e => {
+                  const newNotes = e.target.value;
+                  setBatchNotes(newNotes);
+                  if (isProduction && !showResumePrompt) {
+                    const draftAnswers = newNotes.trim() ? { ...answers, __batch_notes__: newNotes } : answers;
+                    scheduleDraftSave(draftAnswers, getSubmittedBy(questions, answers));
+                  }
+                }}
                 rows={3}
                 className="input resize-none w-full"
                 placeholder="Any notes specific to this batch — e.g. ingredient substitutions, equipment issues, yield variations…"
