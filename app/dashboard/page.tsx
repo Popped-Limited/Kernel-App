@@ -89,7 +89,7 @@ function SubmissionsPageInner() {
         const submittedAt = new Date(s.submitted_at);
         const date = submittedAt.toLocaleDateString("en-GB");
         const time = submittedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-        const checklist = s.checklist?.name ?? "";
+        const checklist = s.checklist?.name ?? "(Deleted checklist)";
         const category = s.checklist?.category ?? "Uncategorised";
         const submittedBy = s.submitted_by;
         const signedOff = s.signed_off_at ? "Yes" : "No";
@@ -241,10 +241,14 @@ function SubmissionsPageInner() {
                   {filtered.map((s) => (
                     <tr key={s.id} className="hover:bg-gray-50 transition">
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900">{s.checklist?.name}</p>
-                        <span className={`badge text-xs mt-0.5 ${frequencyBadgeColor(s.checklist?.frequency as never)}`}>
-                          {frequencyLabel(s.checklist?.frequency as never)}
-                        </span>
+                        <p className="font-medium text-gray-900">
+                          {s.checklist?.name ?? <span className="text-gray-400 italic">Deleted checklist</span>}
+                        </p>
+                        {s.checklist?.frequency && (
+                          <span className={`badge text-xs mt-0.5 ${frequencyBadgeColor(s.checklist.frequency as never)}`}>
+                            {frequencyLabel(s.checklist.frequency as never)}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-gray-700">{s.submitted_by}</td>
                       <td className="px-4 py-3 text-gray-600">{formatDateTime(s.submitted_at)}</td>
