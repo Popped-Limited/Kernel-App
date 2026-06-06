@@ -181,11 +181,13 @@ export default function SubmissionPage() {
         </div>
 
         {/* Answers */}
-        <div className="card divide-y divide-gray-100">
-          {submission.answers.map((a) => (
-            <AnswerRow key={a.id} answer={a} />
-          ))}
-        </div>
+        {submission.answers.length > 0 && (
+          <div className="card divide-y divide-gray-100">
+            {submission.answers.map((a) => (
+              <AnswerRow key={a.id} answer={a} />
+            ))}
+          </div>
+        )}
 
         {/* Next pending — shown after sign-off */}
         {isSigned && nextPendingId && (

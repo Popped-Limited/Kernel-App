@@ -29,6 +29,7 @@ export default function GoodsInPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [goodsInChecklistId, setGoodsInChecklistId] = useState<string | null>(null);
 
   const [rows, setRows] = useState<IngredientRow[]>([emptyRow()]);
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().slice(0, 10));
@@ -54,7 +55,7 @@ export default function GoodsInPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const [ingRes, lotRes, supRes] = await Promise.all([
+    const [ingRes, lotRes, supRes, clRes] = await Promise.all([
       supabase.from("ingredients").select("*").order("name"),
       supabase
         .from("ingredient_lots")
@@ -62,10 +63,18 @@ export default function GoodsInPage() {
         .order("created_at", { ascending: false })
         .limit(20),
       supabase.from("suppliers").select("id, name").order("name"),
+      supabase
+        .from("checklists")
+        .select("id")
+        .ilike("name", "%goods in%")
+        .eq("active", true)
+        .limit(1)
+        .maybeSingle(),
     ]);
     if (ingRes.data) setIngredients(ingRes.data);
     if (lotRes.data) setRecentLots(lotRes.data as (IngredientLot & { ingredient: Ingredient })[]);
     if (supRes.data) setSuppliers(supRes.data as Supplier[]);
+    if (clRes.data?.id) setGoodsInChecklistId(clRes.data.id);
     setLoading(false);
   }
 
@@ -173,6 +182,41 @@ export default function GoodsInPage() {
     const { error } = await supabase.from("ingredient_lots").insert(inserts);
     setSaving(false);
     if (error) { alert("Failed to save — please try again."); return; }
+
+    // Also create a Goods In Record checklist submission for compliance sign-off
+    if (goodsInChecklistId) {
+      try {
+        const itemLines = inserts.map(r => {
+          const ing = ingredients.find(i => i.id === r.ingredient_id);
+          const qty = ing?.unit === "units"
+            ? `${Number(r.quantity_received_g).toLocaleString()} units`
+            : `${Number(r.quantity_received_g).toLocaleString()}g`;
+          const bbe = r.best_before_date ? ` · BBE: ${r.best_before_date}` : "";
+          return `${ing?.name ?? "Unknown"}: ${qty} (Lot: ${r.julian_code})${bbe}`;
+        });
+        const batchNotes = [
+          `Supplier: ${supplierName ?? "Unknown"}`,
+          `Date received: ${receivedDate}`,
+          `Items:`,
+          ...itemLines.map(l => `  • ${l}`),
+        ].join("\n");
+
+        await fetch("/api/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            checklist_id: goodsInChecklistId,
+            organisation_id: orgId ?? null,
+            submitted_by: loggedBy.trim(),
+            answers: [],
+            batch_notes: batchNotes,
+          }),
+        });
+      } catch (e) {
+        // Non-fatal — stock was saved, compliance record failed silently
+        console.error("Failed to create goods-in submission:", e);
+      }
+    }
 
     setSaved(true);
     setRows([emptyRow()]);
