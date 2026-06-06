@@ -267,10 +267,10 @@ export default function Dashboard() {
                       <div key={sku.name} className="flex items-center gap-3 px-4 py-3">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">{sku.name}</p>
-                          <p className="text-xs text-gray-400">{sku.produced} produced · {sku.dispatched} dispatched this week</p>
+                          <p className="text-xs text-gray-400">{sku.dispatched > 0 ? `${sku.dispatched} dispatched this week` : "No dispatches this week"}</p>
                         </div>
-                        <p className={`text-lg font-bold tabular-nums shrink-0 ${sku.inStock === 0 ? "text-gray-300" : "text-gray-900"}`}>
-                          {sku.inStock}
+                        <p className={`text-lg font-bold tabular-nums shrink-0 ${sku.produced === 0 ? "text-gray-300" : "text-gray-900"}`}>
+                          {sku.produced}
                         </p>
                       </div>
                     ))

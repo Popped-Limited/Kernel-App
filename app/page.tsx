@@ -276,6 +276,13 @@ export default function MarketingPage() {
               <h2 className={styles.showcaseHeadline}>
                 Built by a food founder.<br /><em>For food founders.</em>
               </h2>
+              <div className={styles.founderPhotoRow}>
+                <div className={styles.founderPhoto} style={{ backgroundImage: "url('/founder.png')" }} role="img" aria-label="Tom Palmer" />
+                <div className={styles.founderCredit}>
+                  <span className={styles.founderCreditName}>Tom Palmer</span>
+                  <span className={styles.founderCreditRole}>Yep Kitchen Founder</span>
+                </div>
+              </div>
             </div>
             <div className={styles.founderRight}>
               <p className={styles.founderBody}>
