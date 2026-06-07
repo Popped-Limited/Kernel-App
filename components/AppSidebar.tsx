@@ -168,7 +168,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
           {/* Sections */}
           {NAV.filter(section => loading || canSee(role, section.minRole)).map(section => (
             <div key={section.title}>
-              <p className="px-2 mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brown/40">
+              <p className="px-2 mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-brown/60">
                 <SvgIcon d={ICONS[section.icon as keyof typeof ICONS]} />
                 {section.title}
               </p>
@@ -179,7 +179,6 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                       onClick={() => setProdMenuOpen(o => !o)}
                       className="w-full flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-brown hover:bg-brand/30 transition-colors"
                     >
-                      <SvgIcon d={ICONS.play} />
                       <span className="flex-1 text-left">Begin Production</span>
                       <svg className={`h-3.5 w-3.5 transition-transform ${prodMenuOpen ? "rotate-180" : ""}`}
                         viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
