@@ -168,7 +168,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
           {/* Sections */}
           {NAV.filter(section => loading || canSee(role, section.minRole)).map(section => (
             <div key={section.title}>
-              <p className="px-2 mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-brown/60">
+              <p className="px-2 mb-1 flex items-center gap-1.5 text-sm font-bold text-brown">
                 <SvgIcon d={ICONS[section.icon as keyof typeof ICONS]} />
                 {section.title}
               </p>

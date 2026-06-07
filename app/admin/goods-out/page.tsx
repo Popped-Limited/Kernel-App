@@ -271,7 +271,7 @@ export default function GoodsOutPage() {
     <>
       <div className="flex flex-1 min-h-0">
       <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
-      <div className="max-w-2xl space-y-6">
+      <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-3">
             <BackButton />
