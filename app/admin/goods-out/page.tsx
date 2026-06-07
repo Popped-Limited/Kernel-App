@@ -57,6 +57,7 @@ export default function GoodsOutPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [panelSearch, setPanelSearch] = useState("");
   const [goodsOutChecklistId, setGoodsOutChecklistId] = useState<string | null>(null);
 
   // Edit existing dispatch
@@ -472,16 +473,29 @@ export default function GoodsOutPage() {
 
       {/* Right panel — recent dispatches */}
       <aside className="hidden lg:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-l border-gray-200 bg-white overflow-hidden">
-        <div className="px-4 py-4 border-b border-gray-200 shrink-0 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-900">Recent dispatches</h2>
-          <span className="text-xs text-gray-400">{recentDispatches.length} entries</span>
+        <div className="px-4 py-3 border-b border-gray-200 shrink-0 space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-900">Recent dispatches</h2>
+            <span className="text-xs text-gray-400">{recentDispatches.length} entries</span>
+          </div>
+          <input
+            type="text"
+            placeholder="Search product or customer…"
+            value={panelSearch}
+            onChange={e => setPanelSearch(e.target.value)}
+            className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-brand"
+          />
         </div>
         <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
           {loading ? (
             <div className="p-4 text-sm text-gray-400 text-center">Loading…</div>
           ) : recentDispatches.length === 0 ? (
             <div className="p-4 text-sm text-gray-400 text-center">No dispatches yet.</div>
-          ) : recentDispatches.map(d => (
+          ) : recentDispatches.filter(d =>
+              !panelSearch ||
+              d.product?.toLowerCase().includes(panelSearch.toLowerCase()) ||
+              d.customer?.toLowerCase().includes(panelSearch.toLowerCase())
+            ).map(d => (
             <div key={d.id} className="px-4 py-3 hover:bg-gray-50 transition">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">

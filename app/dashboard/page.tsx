@@ -154,13 +154,13 @@ function SubmissionsPageInner() {
           </div>
         </div>
         {/* Filters */}
-        <div className="card p-4 flex flex-wrap gap-3 items-end">
-          <div>
+        <div className="card p-4 flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[180px]">
             <label className="label mb-1">Checklist</label>
             <select
               value={filterChecklist}
               onChange={(e) => setFilterChecklist(e.target.value)}
-              className="input max-w-xs"
+              className="input w-full"
             >
               <option value="">All checklists</option>
               {checklists.map((cl) => (
@@ -169,27 +169,27 @@ function SubmissionsPageInner() {
             </select>
           </div>
 
-          <div>
+          <div className="w-36">
             <label className="label mb-1">From</label>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="input w-40"
+              className="input w-full"
             />
           </div>
 
-          <div>
+          <div className="w-36">
             <label className="label mb-1">To</label>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="input w-40"
+              className="input w-full"
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 shrink-0">
             {(["all", "pending", "signed"] as const).map((v) => (
               <button
                 key={v}
