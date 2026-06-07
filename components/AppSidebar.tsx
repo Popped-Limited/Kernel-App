@@ -40,43 +40,47 @@ const ICONS = {
 const NAV = [
   {
     title: "Production",
+    icon: "box",
     minRole: "staff",
     items: [
-      { label: "Finished Goods", href: "/admin/finished-goods", icon: "box"      },
-      { label: "Goods In",       href: "/admin/goods-in",       icon: "arrowDown" },
-      { label: "Goods Out",      href: "/admin/goods-out",      icon: "arrowUp"   },
+      { label: "Finished Goods", href: "/admin/finished-goods" },
+      { label: "Goods In",       href: "/admin/goods-in"       },
+      { label: "Goods Out",      href: "/admin/goods-out"      },
     ],
   },
   {
     title: "Compliance",
+    icon: "clipboard",
     minRole: "staff",
     items: [
-      { label: "Checklist Submissions", href: "/dashboard",           icon: "clipboard" },
-      { label: "Raw Materials",         href: "/admin/stock",         icon: "archive"   },
-      { label: "SOPs",                  href: "/admin/sops",          icon: "document"  },
-      { label: "Suppliers",             href: "/admin/suppliers",     icon: "building"  },
-      { label: "Traceability",          href: "/admin/traceability",  icon: "bolt"      },
-      { label: "Training",              href: "/admin/team/training", icon: "academic"  },
+      { label: "Checklist Submissions", href: "/dashboard"           },
+      { label: "Raw Materials",         href: "/admin/stock"         },
+      { label: "SOPs",                  href: "/admin/sops"          },
+      { label: "Suppliers",             href: "/admin/suppliers"     },
+      { label: "Traceability",          href: "/admin/traceability"  },
+      { label: "Training",              href: "/admin/team/training" },
     ],
   },
   {
     title: "Admin",
+    icon: "squares",
     minRole: "manager",
     items: [
-      { label: "Create Production Flow", href: "/admin/production-builder", icon: "squares"  },
-      { label: "Manage Checklists",      href: "/admin/checklists",         icon: "list"     },
-      { label: "Manage Training",        href: "/admin/training-setup",     icon: "users"    },
-      { label: "Print QR Codes",         href: "/print-qr",                 icon: "qr"       },
-      { label: "SAQ Questions",          href: "/admin/saq-questions",      icon: "question" },
-      { label: "Staff Members",          href: "/admin/team/staff",         icon: "user"     },
+      { label: "Create Production Flow", href: "/admin/production-builder" },
+      { label: "Manage Checklists",      href: "/admin/checklists"         },
+      { label: "Manage Training",        href: "/admin/training-setup"     },
+      { label: "Print QR Codes",         href: "/print-qr"                 },
+      { label: "SAQ Questions",          href: "/admin/saq-questions"      },
+      { label: "Staff Members",          href: "/admin/team/staff"         },
     ],
   },
   {
     title: "Account",
+    icon: "card",
     minRole: "admin",
     items: [
-      { label: "Billing", href: "/admin/billing", icon: "card" },
-      { label: "Users",   href: "/admin/users",   icon: "users" },
+      { label: "Billing", href: "/admin/billing" },
+      { label: "Users",   href: "/admin/users"   },
     ],
   },
 ] as const;
@@ -164,7 +168,8 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
           {/* Sections */}
           {NAV.filter(section => loading || canSee(role, section.minRole)).map(section => (
             <div key={section.title}>
-              <p className="px-2 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-brown/40">
+              <p className="px-2 mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brown/40">
+                <SvgIcon d={ICONS[section.icon as keyof typeof ICONS]} />
                 {section.title}
               </p>
               <ul className="space-y-0.5">
@@ -209,7 +214,6 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                           : "text-brown hover:bg-brand/30"
                       }`}
                     >
-                      <SvgIcon d={ICONS[item.icon as keyof typeof ICONS]} />
                       {item.label}
                     </Link>
                   </li>
