@@ -268,7 +268,9 @@ export default function GoodsOutPage() {
 
   return (
     <>
-      <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-4xl w-full mx-auto space-y-6">
+      <div className="flex flex-1 min-h-0">
+      <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+      <div className="max-w-2xl space-y-6">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-3">
             <BackButton />
@@ -465,51 +467,42 @@ export default function GoodsOutPage() {
           </form>
         </div>
 
-        {/* Recent dispatches */}
-        <div>
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Recent dispatches</h2>
-          {loading ? (
-            <div className="card p-4 text-center text-sm text-gray-500">Loading…</div>
-          ) : recentDispatches.length === 0 ? (
-            <div className="card p-4 text-center text-sm text-gray-500">No dispatches logged yet.</div>
-          ) : (
-            <div className="card overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b border-gray-200 bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Date</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Product</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Customer</th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-700">×6</th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-700">×3</th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Singles</th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Units</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Ref</th>
-                    <th className="px-2 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {recentDispatches.map(d => (
-                    <tr key={d.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatDate(d.dispatch_date)}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{d.product}</td>
-                      <td className="px-4 py-3 text-gray-600">{d.customer}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-gray-600">{d.cases_of_6 || "—"}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-gray-600">{d.cases_of_3 || "—"}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-gray-600">{d.singles || "—"}</td>
-                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-gray-900">{d.total_units}</td>
-                      <td className="px-4 py-3 text-gray-500">{d.reference ?? "—"}</td>
-                      <td className="px-2 py-3">
-                        <button onClick={() => openEditDispatch(d)} className="btn-ghost text-xs px-2">Edit</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+      </div>
       </main>
+
+      {/* Right panel — recent dispatches */}
+      <aside className="hidden lg:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-l border-gray-200 bg-white overflow-hidden">
+        <div className="px-4 py-4 border-b border-gray-200 shrink-0 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-900">Recent dispatches</h2>
+          <span className="text-xs text-gray-400">{recentDispatches.length} entries</span>
+        </div>
+        <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+          {loading ? (
+            <div className="p-4 text-sm text-gray-400 text-center">Loading…</div>
+          ) : recentDispatches.length === 0 ? (
+            <div className="p-4 text-sm text-gray-400 text-center">No dispatches yet.</div>
+          ) : recentDispatches.map(d => (
+            <div key={d.id} className="px-4 py-3 hover:bg-gray-50 transition">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{d.product}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 truncate">{d.customer}</p>
+                  <p className="text-xs text-gray-400">
+                    {[d.cases_of_6 && `${d.cases_of_6}×6`, d.cases_of_3 && `${d.cases_of_3}×3`, d.singles && `${d.singles} singles`].filter(Boolean).join(" · ")}
+                  </p>
+                  {d.reference && <p className="text-xs text-gray-400 font-mono">{d.reference}</p>}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-xs font-bold tabular-nums text-gray-900">{d.total_units}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{formatDate(d.dispatch_date)}</p>
+                  <button onClick={() => openEditDispatch(d)} className="text-xs text-brown/60 hover:text-brown hover:underline mt-1 block">Edit</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </aside>
+      </div>
 
       {/* Edit dispatch panel */}
       {editingDispatch && (

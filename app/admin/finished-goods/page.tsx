@@ -248,7 +248,9 @@ export default function FinishedGoodsPage() {
 
   return (
     <>
-      <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-6xl w-full mx-auto space-y-6">
+      <div className="flex flex-1 min-h-0">
+      <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+      <div className="max-w-3xl space-y-6">
 
         {/* Header */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -329,94 +331,72 @@ export default function FinishedGoodsPage() {
           )}
         </div>
 
-        {/* History filter bar */}
-        <div className="card p-4">
-          <div className="flex flex-wrap gap-3 items-end">
-            <div className="flex-1 min-w-48">
-              <label className="label text-xs mb-1 block">Search product</label>
-              <input
-                type="text"
-                className="input w-full"
-                placeholder="Filter by product name…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="label text-xs mb-1 block">From</label>
-              <input type="date" className="input" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPeriod("all"); }} />
-            </div>
-            <div>
-              <label className="label text-xs mb-1 block">To</label>
-              <input type="date" className="input" value={dateTo} onChange={e => { setDateTo(e.target.value); setPeriod("all"); }} />
-            </div>
-            <div className="flex gap-1.5">
-              {(["week", "month", "all"] as Period[]).map(p => (
-                <button
-                  key={p}
-                  onClick={() => { setPeriod(p); setDateFrom(""); setDateTo(""); }}
-                  className={`px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${period === p && !dateFrom && !dateTo ? "bg-brand border-brand/50 text-brown" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
-                >
-                  {p === "week" ? "This week" : p === "month" ? "This month" : "All time"}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* History table */}
-        <div>
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">
-            History
-            {filteredHistory.length > 0 && <span className="ml-2 text-gray-400 font-normal">({filteredHistory.length})</span>}
-          </h2>
-          <div className="card overflow-hidden">
-            {loading ? (
-              <div className="p-8 text-center text-sm text-gray-400">Loading…</div>
-            ) : filteredHistory.length === 0 ? (
-              <div className="p-8 text-center text-sm text-gray-400">No events match the current filters.</div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="border-b border-gray-200 bg-gray-50">
-                  <tr>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Product</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Event</th>
-                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Jars / Units</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">By</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredHistory.map((row, i) => (
-                    <tr key={i} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatDate(row.date)}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{row.product}</td>
-                      <td className="px-4 py-3">
-                        {row.event === "produced" ? (
-                          row.submissionId
-                            ? <Link href={`/submission/${row.submissionId}`} className="inline-flex items-center gap-1 hover:underline">
-                                <span className="inline-block rounded-full bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-0.5">Produced</span>
-                              </Link>
-                            : <span className="inline-block rounded-full bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-0.5">Produced</span>
-                        ) : row.event === "dispatched" ? (
-                          <span className="inline-block rounded-full bg-red-100 text-red-700 text-xs font-semibold px-2.5 py-0.5">Dispatched</span>
-                        ) : (
-                          <span className="inline-block rounded-full bg-amber-100 text-amber-700 text-xs font-semibold px-2.5 py-0.5">Adjustment</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-gray-900">
-                        {row.event === "adjustment" && row.units > 0 ? "+" : ""}{row.units}
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{row.by}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-
+      </div>
       </main>
+
+      {/* Right panel — history */}
+      <aside className="hidden lg:flex flex-col w-96 shrink-0 sticky top-0 h-screen border-l border-gray-200 bg-white overflow-hidden">
+        <div className="px-4 py-4 border-b border-gray-200 shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-gray-900">
+              History
+              {filteredHistory.length > 0 && <span className="ml-1.5 text-gray-400 font-normal text-xs">({filteredHistory.length})</span>}
+            </h2>
+          </div>
+          <input
+            type="text"
+            className="input w-full text-xs mb-2"
+            placeholder="Search product…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <div className="flex gap-1">
+            {(["week", "month", "all"] as Period[]).map(p => (
+              <button
+                key={p}
+                onClick={() => { setPeriod(p); setDateFrom(""); setDateTo(""); }}
+                className={`flex-1 px-2 py-1.5 rounded text-xs font-medium border transition-colors ${period === p && !dateFrom && !dateTo ? "bg-brand border-brand/50 text-brown" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
+              >
+                {p === "week" ? "Week" : p === "month" ? "Month" : "All"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+          {loading ? (
+            <div className="p-4 text-sm text-gray-400 text-center">Loading…</div>
+          ) : filteredHistory.length === 0 ? (
+            <div className="p-4 text-sm text-gray-400 text-center">No events found.</div>
+          ) : filteredHistory.map((row, i) => (
+            <div key={i} className="px-4 py-3 hover:bg-gray-50 transition-colors">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="mb-0.5">
+                    {row.event === "produced" ? (
+                      row.submissionId
+                        ? <Link href={`/submission/${row.submissionId}`} className="inline-block rounded-full bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 hover:opacity-80">PRODUCED</Link>
+                        : <span className="inline-block rounded-full bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5">PRODUCED</span>
+                    ) : row.event === "dispatched" ? (
+                      <span className="inline-block rounded-full bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5">DISPATCHED</span>
+                    ) : (
+                      <span className="inline-block rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5">ADJUSTMENT</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-medium text-gray-900 truncate">{row.product}</p>
+                  <p className="text-xs text-gray-400">{row.by}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-bold tabular-nums text-gray-900">
+                    {row.event === "adjustment" && row.units > 0 ? "+" : ""}{row.units}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">{formatDate(row.date)}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </aside>
+      </div>
 
       {/* Reconcile slide-in panel */}
       {reconProduct && (() => {

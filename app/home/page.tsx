@@ -89,7 +89,7 @@ export default function Dashboard() {
 
     if (subRes.data) {
       const all = subRes.data as (Submission & { checklist: Checklist })[];
-      setRecentSubs(all.filter(s => s.checklist).slice(0, 8));
+      setRecentSubs(all.filter(s => s.checklist).slice(0, 30));
       setPendingSignOff(all.filter(s => s.checklist && !s.signed_off_at).slice(0, 20));
     }
 
@@ -154,7 +154,8 @@ export default function Dashboard() {
           <div className="w-8" />
         </div>
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-6xl w-full mx-auto space-y-6">
+        <div className="flex flex-1 min-h-0">
+        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 space-y-6">
 
           {/* ── Header ─────────────────────────────────────────────────── */}
           <div className="flex items-center justify-between">
@@ -249,69 +250,74 @@ export default function Dashboard() {
             </div>
           </section>
 
-          {/* ── Stock + Recent ─────────────────────────────────────────── */}
-          <div className="grid gap-6 lg:grid-cols-2">
-
-            {/* Finished goods stock — weekly snapshot */}
-            <section className="card overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700">This Week&apos;s Production</h3>
-                <Link href="/admin/finished-goods" className="text-xs text-brown/70 hover:text-brown hover:underline">View all →</Link>
-              </div>
-              <div className="divide-y divide-gray-100">
-                {loading
-                  ? <div className="p-4 text-center text-sm text-gray-400">Loading…</div>
-                  : skuStock.length === 0
-                    ? <div className="p-4 text-center text-sm text-gray-400">No production this week.</div>
-                    : skuStock.map(sku => (
-                      <div key={sku.name} className="flex items-center gap-3 px-4 py-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{sku.name}</p>
-                          <p className="text-xs text-gray-400">{sku.dispatched > 0 ? `${sku.dispatched} dispatched this week` : "No dispatches this week"}</p>
-                        </div>
-                        <p className={`text-lg font-bold tabular-nums shrink-0 ${sku.produced === 0 ? "text-gray-300" : "text-gray-900"}`}>
-                          {sku.produced}
-                        </p>
+          {/* ── This Week's Production ─────────────────────────────────── */}
+          <section className="card overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700">This Week&apos;s Production</h3>
+              <Link href="/admin/finished-goods" className="text-xs text-brown/70 hover:text-brown hover:underline">View all →</Link>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {loading
+                ? <div className="p-4 text-center text-sm text-gray-400">Loading…</div>
+                : skuStock.length === 0
+                  ? <div className="p-4 text-center text-sm text-gray-400">No production this week.</div>
+                  : skuStock.map(sku => (
+                    <div key={sku.name} className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{sku.name}</p>
+                        <p className="text-xs text-gray-400">{sku.dispatched > 0 ? `${sku.dispatched} dispatched this week` : "No dispatches this week"}</p>
                       </div>
-                    ))
-                }
-              </div>
-            </section>
+                      <p className={`text-lg font-bold tabular-nums shrink-0 ${sku.produced === 0 ? "text-gray-300" : "text-gray-900"}`}>
+                        {sku.produced}
+                      </p>
+                    </div>
+                  ))
+              }
+            </div>
+          </section>
 
-            {/* Recent activity */}
-            <section className="card overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700">Recent Submissions</h3>
-                <Link href="/dashboard" className="text-xs text-brown/70 hover:text-brown hover:underline">View all →</Link>
-              </div>
-              <div className="divide-y divide-gray-100">
-                {loading
-                  ? <div className="p-4 text-center text-sm text-gray-400">Loading…</div>
-                  : recentSubs.length === 0
-                    ? <div className="p-4 text-center text-sm text-gray-400">No submissions yet.</div>
-                    : recentSubs.map(s => {
-                        const dt = new Date(s.submitted_at);
-                        const isToday = dt.toDateString() === new Date().toDateString();
-                        const timeStr = isToday
-                          ? dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
-                          : dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-                        return (
-                          <Link key={s.id} href={`/submission/${s.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">{s.checklist?.name}</p>
-                              <p className="text-xs text-gray-400">{s.submitted_by} · {timeStr}</p>
-                            </div>
-                            {!s.signed_off_at && (
-                              <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-brown">Pending</span>
-                            )}
-                          </Link>
-                        );
-                      })
-                }
-              </div>
-            </section>
-          </div>
         </main>
+
+        {/* ── Activity log — right panel ──────────────────────────────── */}
+        <aside className="hidden xl:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-l border-gray-200 bg-white overflow-hidden">
+          <div className="px-4 py-4 border-b border-gray-200 shrink-0 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-900">Activity log</h2>
+            <Link href="/dashboard" className="text-xs text-brown/70 hover:text-brown transition-colors">View all →</Link>
+          </div>
+          <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+            {loading
+              ? <div className="p-4 text-sm text-gray-400 text-center">Loading…</div>
+              : recentSubs.length === 0
+                ? <div className="p-4 text-sm text-gray-400 text-center">No submissions yet.</div>
+                : recentSubs.map(s => {
+                    const dt = new Date(s.submitted_at);
+                    const isToday = dt.toDateString() === new Date().toDateString();
+                    const timeStr = isToday
+                      ? dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+                      : dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+                    return (
+                      <Link key={s.id} href={`/submission/${s.id}`} className="block px-4 py-3 hover:bg-gray-50 transition">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-brown/60 mb-0.5">{s.checklist?.category ?? "General"}</p>
+                            <p className="text-sm font-medium text-gray-900 truncate leading-tight">{s.checklist?.name}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{s.submitted_by}</p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-xs text-gray-400">{timeStr}</p>
+                            {!s.signed_off_at && (
+                              <span className="inline-block mt-1 rounded-full bg-brand/40 px-1.5 py-0.5 text-[10px] font-semibold text-brown">Pending</span>
+                            )}
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })
+            }
+          </div>
+        </aside>
+
+        </div>
       </div>
     </div>
   );

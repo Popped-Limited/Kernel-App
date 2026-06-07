@@ -249,7 +249,9 @@ export default function GoodsInPage() {
 
   return (
     <>
-      <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-3xl w-full mx-auto space-y-6">
+      <div className="flex flex-1 min-h-0">
+      <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+      <div className="max-w-2xl space-y-6">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-3">
             <BackButton />
@@ -467,56 +469,41 @@ export default function GoodsInPage() {
           </form>
         </div>
 
-        {/* Recent entries */}
-        <div>
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Recent deliveries</h2>
-          {loading ? (
-            <div className="card p-4 text-center text-sm text-gray-500">Loading…</div>
-          ) : recentLots.length === 0 ? (
-            <div className="card p-4 text-center text-sm text-gray-500">No deliveries logged yet.</div>
-          ) : (
-            <div className="card overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="border-b border-gray-200 bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Ingredient</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Batch code</th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Received (g)</th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Remaining (g)</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">BBE</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Date in</th>
-                    <th className="w-16 px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {recentLots.map(lot => (
-                    <tr key={lot.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-900">{lot.ingredient?.name}</td>
-                      <td className="px-4 py-3 font-mono text-gray-700">{lot.julian_code}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-gray-600">{lot.quantity_received_g.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">
-                        <span className={lot.quantity_remaining_g === 0 ? "text-gray-400 line-through" : "text-gray-900 font-medium"}>
-                          {lot.quantity_remaining_g.toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-500">{lot.best_before_date ? formatDate(lot.best_before_date) : "—"}</td>
-                      <td className="px-4 py-3 text-gray-500">{formatDate(lot.received_date)}</td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => openEditLot(lot)}
-                          className="text-xs text-brand-dark font-medium hover:underline"
-                        >
-                          Edit
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+      </div>
       </main>
+
+      {/* Right panel — recent deliveries */}
+      <aside className="hidden lg:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-l border-gray-200 bg-white overflow-hidden">
+        <div className="px-4 py-4 border-b border-gray-200 shrink-0 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-900">Recent deliveries</h2>
+          <span className="text-xs text-gray-400">{recentLots.length} entries</span>
+        </div>
+        <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+          {loading ? (
+            <div className="p-4 text-sm text-gray-400 text-center">Loading…</div>
+          ) : recentLots.length === 0 ? (
+            <div className="p-4 text-sm text-gray-400 text-center">No deliveries yet.</div>
+          ) : recentLots.map(lot => (
+            <div key={lot.id} className="px-4 py-3 hover:bg-gray-50 transition">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{lot.ingredient?.name}</p>
+                  <p className="text-xs font-mono text-gray-500 mt-0.5">{lot.julian_code}</p>
+                  <p className="text-xs text-gray-400">{lot.quantity_received_g.toLocaleString()}g received
+                    {lot.quantity_remaining_g === 0 && <span className="ml-1 text-gray-300 line-through">used</span>}
+                  </p>
+                  {lot.supplier && <p className="text-xs text-gray-400 truncate">{lot.supplier}</p>}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-xs text-gray-400">{formatDate(lot.received_date)}</p>
+                  <button onClick={() => openEditLot(lot)} className="text-xs text-brown/60 hover:text-brown hover:underline mt-1 block">Edit</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </aside>
+      </div>
 
       {/* Edit lot panel */}
       {editingLot && (
