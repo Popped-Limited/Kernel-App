@@ -159,12 +159,47 @@ export default function SubmissionPage() {
               </>
             )}
           </div>
-          {submission.batch_notes && (
-            <div className="rounded-lg bg-brand/10 border border-brand/30 px-4 py-3">
-              <p className="text-xs text-brown font-semibold mb-1">Batch notes</p>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{submission.batch_notes}</p>
-            </div>
-          )}
+          {submission.batch_notes && (() => {
+            // Parse batch_notes into structured fields (same style as checklist answers)
+            const lines = submission.batch_notes!.split("\n").map(l => l.trim()).filter(Boolean);
+            const fields: { label: string; value: string }[] = [];
+            const products: string[] = [];
+            let inProducts = false;
+            for (const line of lines) {
+              if (line === "Products:") { inProducts = true; continue; }
+              if (inProducts && line.startsWith("•")) {
+                products.push(line.replace(/^•\s*/, ""));
+                continue;
+              }
+              if (!line.startsWith("•")) inProducts = false;
+              const colonIdx = line.indexOf(":");
+              if (colonIdx > 0) {
+                const label = line.slice(0, colonIdx).trim();
+                const value = line.slice(colonIdx + 1).trim();
+                if (value) fields.push({ label, value });
+              }
+            }
+            return (
+              <div className="divide-y divide-gray-100 -mx-5 mt-3 border-t border-gray-100">
+                {fields.map(f => (
+                  <div key={f.label} className="px-5 py-3">
+                    <p className="text-xs text-gray-500 font-medium mb-0.5">{f.label}</p>
+                    <p className="text-sm text-gray-900">{f.value}</p>
+                  </div>
+                ))}
+                {products.length > 0 && (
+                  <div className="px-5 py-3">
+                    <p className="text-xs text-gray-500 font-medium mb-1.5">Products</p>
+                    <div className="space-y-1">
+                      {products.map((p, i) => (
+                        <p key={i} className="text-sm text-gray-900">{p}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           {submission.notes && (
             <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">
               <p className="text-xs text-gray-500 font-medium mb-1">Manager notes</p>
