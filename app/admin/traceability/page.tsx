@@ -38,6 +38,7 @@ interface DispatchInfo {
   reference: string | null;
   dispatched_by: string;
   notes: string | null;
+  batch_submission_id: string | null;
 }
 
 interface TraceResult {
@@ -46,6 +47,19 @@ interface TraceResult {
   lots: LotInfo[];
   batches: BatchInfo[];
   dispatches: DispatchInfo[];
+}
+
+/** Extract the batch/Julian code from a batch submission's answers */
+function getBatchCode(batch: BatchInfo): string {
+  for (const ans of batch.answers ?? []) {
+    if (!ans.value) continue;
+    const label = (ans.question?.label ?? "").toLowerCase();
+    const type  = ans.question?.type ?? "";
+    if (type === "text" && (label.includes("julian") || label.includes("batch code") || label.includes("lot number") || label.includes("batch ref"))) {
+      return ans.value;
+    }
+  }
+  return "";
 }
 
 export default function TraceabilityPage() {
@@ -556,6 +570,7 @@ export default function TraceabilityPage() {
                       <th className="text-left py-1 font-medium">Date</th>
                       <th className="text-left py-1 font-medium">Product</th>
                       <th className="text-left py-1 font-medium">Customer</th>
+                      <th className="text-left py-1 font-medium">Batch code</th>
                       <th className="text-right py-1 font-medium">×6</th>
                       <th className="text-right py-1 font-medium">×3</th>
                       <th className="text-right py-1 font-medium">Singles</th>
@@ -565,11 +580,17 @@ export default function TraceabilityPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {result.dispatches.map((d) => (
+                    {result.dispatches.map((d) => {
+                      const linkedBatch = d.batch_submission_id
+                        ? result.batches.find(b => b.id === d.batch_submission_id)
+                        : null;
+                      const batchCode = linkedBatch ? getBatchCode(linkedBatch) : "";
+                      return (
                       <tr key={d.id}>
                         <td className="py-1.5 text-gray-600 whitespace-nowrap">{formatDate(d.dispatch_date)}</td>
                         <td className="py-1.5 font-medium text-gray-900">{d.product}</td>
                         <td className="py-1.5 text-gray-600">{d.customer}</td>
+                        <td className="py-1.5 font-mono text-gray-700">{batchCode || <span className="text-gray-300">—</span>}</td>
                         <td className="py-1.5 text-right tabular-nums text-gray-600">{d.cases_of_6 || "—"}</td>
                         <td className="py-1.5 text-right tabular-nums text-gray-600">{d.cases_of_3 || "—"}</td>
                         <td className="py-1.5 text-right tabular-nums text-gray-600">{d.singles || "—"}</td>
@@ -577,7 +598,8 @@ export default function TraceabilityPage() {
                         <td className="py-1.5 pl-3 text-gray-500">{d.reference ?? "—"}</td>
                         <td className="py-1.5 text-gray-500">{d.dispatched_by}</td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
