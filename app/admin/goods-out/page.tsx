@@ -183,6 +183,7 @@ export default function GoodsOutPage() {
     rows.forEach((row, i) => {
       if (!row.product) errs[`product_${i}`] = "Required";
       if (rowTotal(row) <= 0) errs[`units_${i}`] = "Enter at least one unit";
+      if (!row.batchSubmissionId) errs[`batch_${i}`] = "A batch record must be linked for traceability";
     });
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -459,14 +460,14 @@ export default function GoodsOutPage() {
 
                       {/* Batch record */}
                       <div className="col-span-2">
-                        <label className="text-xs text-gray-500 block mb-0.5">Link batch record (traceability)</label>
+                        <label className="text-xs text-gray-500 block mb-0.5">Batch record (traceability) *</label>
                         <select
                           value={row.batchSubmissionId}
                           onChange={e => updateRow(idx, "batchSubmissionId", e.target.value)}
-                          className="input text-sm py-1.5"
+                          className={`input text-sm py-1.5 ${errors[`batch_${idx}`] ? "border-red-300" : ""}`}
                           disabled={!row.product}
                         >
-                          <option value="">No link…</option>
+                          <option value="">Select batch…</option>
                           {availableBatches.map(s => {
                             const { batchCode, totalJars } = batchSummary((s as any).answers ?? []);
                             const alreadyDispatched = dispatchedPerBatch[s.id] ?? 0;
@@ -484,6 +485,9 @@ export default function GoodsOutPage() {
                             );
                           })}
                         </select>
+                        {errors[`batch_${idx}`] && (
+                          <p className="mt-1 text-xs text-red-600">{errors[`batch_${idx}`]}</p>
+                        )}
                         {row.batchSubmissionId && (() => {
                           const s = batchSubmissions.find(b => b.id === row.batchSubmissionId);
                           if (!s) return null;
