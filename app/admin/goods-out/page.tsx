@@ -92,42 +92,7 @@ export default function GoodsOutPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const [dispRes, subRes, batchDispRes] = await Promise.all([
-      supabase
-        .from("dispatches")
-        .select("*")
-        .order("dispatch_date", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabase
-        .from("submissions")
-        .select("id, submitted_by, submitted_at, checklist:checklists(name, category), answers(value, question:questions(type, label))")
-        .order("submitted_at", { ascending: false })
-        .limit(200),
-      supabase
-        .from("dispatches")
-        .select("batch_submission_id, total_units")
-        .not("batch_submission_id", "is", null),
-    ]);
-    if (dispRes.data) setRecentDispatches(dispRes.data as Dispatch[]);
-    if (subRes.data) {
-      const productionOnly = (subRes.data as unknown as (Submission & { checklist: Checklist })[]).filter(
-        s => s.checklist?.category === "Production"
-      );
-      setBatchSubmissions(productionOnly);
-    }
-    if (batchDispRes.data) {
-      const totals: Record<string, number> = {};
-      for (const d of batchDispRes.data) {
-        if (d.batch_submission_id) {
-          totals[d.batch_submission_id] = (totals[d.batch_submission_id] ?? 0) + (d.total_units ?? 0);
-        }
-      }
-      setDispatchedPerBatch(totals);
-    }
-
-    // Also fetch all production checklists so the product list is always complete
-    // (even for products with no recent submissions)
+    // Fetch checklists first so we can filter submissions to production-only at the DB level
     const [{ data: clData }, { data: goChecklist }] = await Promise.all([
       supabase
         .from("checklists")
@@ -145,6 +110,45 @@ export default function GoodsOutPage() {
     ]);
     if (clData) setProductChecklists(clData as Checklist[]);
     if (goChecklist?.id) setGoodsOutChecklistId(goChecklist.id);
+
+    // Use production checklist IDs to fetch only production submissions (no wasted limit)
+    const productionChecklistIds = (clData ?? []).map(cl => cl.id);
+
+    const [dispRes, subRes, batchDispRes] = await Promise.all([
+      supabase
+        .from("dispatches")
+        .select("*")
+        .order("dispatch_date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(100),
+      productionChecklistIds.length > 0
+        ? supabase
+            .from("submissions")
+            .select("id, submitted_by, submitted_at, checklist:checklists(name, category), answers(value, question:questions(type, label))")
+            .in("checklist_id", productionChecklistIds)
+            .order("submitted_at", { ascending: false })
+            .limit(500)
+        : Promise.resolve({ data: [] }),
+      supabase
+        .from("dispatches")
+        .select("batch_submission_id, total_units")
+        .not("batch_submission_id", "is", null),
+    ]);
+
+    if (dispRes.data) setRecentDispatches(dispRes.data as Dispatch[]);
+    if (subRes.data) {
+      setBatchSubmissions(subRes.data as unknown as (Submission & { checklist: Checklist })[]);
+    }
+    if (batchDispRes.data) {
+      const totals: Record<string, number> = {};
+      for (const d of batchDispRes.data) {
+        if (d.batch_submission_id) {
+          totals[d.batch_submission_id] = (totals[d.batch_submission_id] ?? 0) + (d.total_units ?? 0);
+        }
+      }
+      setDispatchedPerBatch(totals);
+    }
+
     setLoading(false);
   }
 
