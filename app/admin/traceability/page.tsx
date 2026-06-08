@@ -505,7 +505,7 @@ export default function TraceabilityPage() {
               </button>
             )}
             {/* Batch Records */}
-            <Section title="Production Batch Records" count={result.batches.length} color="amber">
+            <Section title="Production Batch Records" count={result.batches.length}>
               {result.batches.length === 0 ? (
                 <p className="text-sm text-gray-400 py-2">No batch records found.</p>
               ) : (
@@ -526,7 +526,7 @@ export default function TraceabilityPage() {
             </Section>
 
             {/* Ingredient Lots */}
-            <Section title="Raw Material Lots" count={result.lots.length} color="blue" defaultOpen={false}>
+            <Section title="Raw Material Lots" count={result.lots.length}>
               {result.lots.length === 0 ? (
                 <p className="text-sm text-gray-400 py-2">No ingredient lots found.</p>
               ) : (
@@ -560,7 +560,7 @@ export default function TraceabilityPage() {
             </Section>
 
             {/* Dispatches */}
-            <Section title="Dispatches" count={result.dispatches.length} color="green">
+            <Section title="Dispatches" count={result.dispatches.length}>
               {result.dispatches.length === 0 ? (
                 <p className="text-sm text-gray-400 py-2">No dispatches linked to these batch records yet.</p>
               ) : (
@@ -630,31 +630,22 @@ export default function TraceabilityPage() {
   );
 }
 
-function Section({ title, count, color, children, defaultOpen = true }: {
-  title: string; count: number; color: "blue" | "amber" | "green"; children: React.ReactNode; defaultOpen?: boolean;
+function Section({ title, count, children }: {
+  title: string; count: number; children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const colors = {
-    blue: "bg-brand-cream border-brand/30 text-brown",
-    amber: "bg-amber-50 border-amber-200 text-amber-800",
-    green: "bg-brand-light border-brand/40 text-brown",
-  };
+  const [open, setOpen] = useState(false);
   return (
     <div className="card overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className={`w-full px-4 py-3 border-b flex items-center justify-between gap-2 ${colors[color]} hover:opacity-90 transition-opacity`}
+        className="w-full flex items-center gap-3 px-4 py-3 border-b border-brand/50 bg-brand-light text-brown text-left transition hover:opacity-90 focus:outline-none"
       >
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-sm">{title}</span>
-          <span className="text-xs font-medium opacity-70">{count} found</span>
-        </div>
-        <svg
-          className={`w-4 h-4 opacity-60 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        <span className="h-2 w-2 rounded-full shrink-0 bg-brand" />
+        <span className="text-sm font-semibold flex-1">{title}</span>
+        <span className="text-xs font-medium rounded-full px-2 py-0.5 bg-brand-light text-brown">{count}</span>
+        <svg className={`h-4 w-4 opacity-60 transition-transform ${open ? "rotate-90" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 4l4 4-4 4"/>
         </svg>
       </button>
       {open && <div className="px-4 py-3 overflow-x-auto">{children}</div>}
