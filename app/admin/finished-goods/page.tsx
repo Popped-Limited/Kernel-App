@@ -92,7 +92,7 @@ export default function FinishedGoodsPage() {
     const [subRes, dispRes, adjRes, clRes] = await Promise.all([
       supabase
         .from("submissions")
-        .select("id, submitted_at, submitted_by, checklist:checklists(name, category), answers(value, question:questions(type))")
+        .select("id, submitted_at, submitted_by, checklist:checklists(name, category), answers(value, question:questions(type, label))")
         .order("submitted_at", { ascending: false }),
       supabase
         .from("dispatches")
@@ -112,20 +112,30 @@ export default function FinishedGoodsPage() {
         .order("name"),
     ]);
 
-    // Parse production submissions → extract jar counts per submission
+    // Parse production submissions → prefer "Total units produced" field, fall back to jars_used
     const prods: ProductionRecord[] = [];
     for (const sub of ((subRes.data ?? []) as any[])) {
       const cl = sub.checklist as { name: string; category: string } | null;
       if (!cl || cl.category !== "Production") continue;
       const product = cl.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
-      let jars = 0;
+      let totalUnits = 0;
+      let jarsUsedFallback = 0;
       for (const ans of ((sub.answers ?? []) as any[])) {
-        if (ans.question?.type !== "packing_runs" || !ans.value) continue;
-        try {
-          const rows = JSON.parse(ans.value);
-          if (Array.isArray(rows)) for (const r of rows) jars += Number(r.jars_used) || 0;
-        } catch { /* ignore */ }
+        if (!ans.value) continue;
+        const label = (ans.question?.label ?? "").toLowerCase();
+        // Prefer explicit "total units produced" answer
+        if (label.includes("total units produced")) {
+          totalUnits += Number(ans.value) || 0;
+        }
+        // Fallback: sum jars_used from packing_runs
+        if (ans.question?.type === "packing_runs") {
+          try {
+            const rows = JSON.parse(ans.value);
+            if (Array.isArray(rows)) for (const r of rows) jarsUsedFallback += Number(r.jars_used) || 0;
+          } catch { /* ignore */ }
+        }
       }
+      const jars = totalUnits > 0 ? totalUnits : jarsUsedFallback;
       if (jars > 0) prods.push({ id: sub.id, submitted_at: sub.submitted_at, submitted_by: sub.submitted_by, product, jars });
     }
 
