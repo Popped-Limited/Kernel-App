@@ -66,6 +66,8 @@ export default function Dashboard() {
   const [skuStock, setSkuStock]             = useState<SkuStock[]>([]);
   const [loading, setLoading]               = useState(true);
   const [sidebarOpen, setSidebarOpen]       = useState(false);
+  const [activitySearch, setActivitySearch] = useState("");
+  const [activityPeriod, setActivityPeriod] = useState<"week" | "month">("week");
 
   useEffect(() => { load(); }, []);
 
@@ -288,40 +290,74 @@ export default function Dashboard() {
 
         {/* ── Activity log — right panel ──────────────────────────────── */}
         <aside className="hidden xl:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-l border-gray-200 bg-white overflow-hidden">
-          <div className="px-4 py-4 border-b border-gray-200 shrink-0 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">Activity log</h2>
-            <Link href="/dashboard" className="text-xs text-brown/70 hover:text-brown transition-colors">View all →</Link>
+          <div className="px-4 pt-4 pb-3 border-b border-gray-200 shrink-0 space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-900">Activity log</h2>
+              <Link href="/dashboard" className="text-xs text-brown/70 hover:text-brown transition-colors">View all →</Link>
+            </div>
+            <input
+              type="text"
+              placeholder="Search checklists or submitted by…"
+              value={activitySearch}
+              onChange={e => setActivitySearch(e.target.value)}
+              className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-brand"
+            />
+            <div className="flex gap-1">
+              {(["week", "month"] as const).map(p => (
+                <button key={p} onClick={() => setActivityPeriod(p)}
+                  className={`flex-1 px-2 py-1.5 rounded text-xs font-medium border transition-colors ${activityPeriod === p ? "bg-brand border-brand/50 text-brown" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}>
+                  {p === "week" ? "This Week" : "This Month"}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
-            {loading
-              ? <div className="p-4 text-sm text-gray-400 text-center">Loading…</div>
-              : recentSubs.length === 0
-                ? <div className="p-4 text-sm text-gray-400 text-center">No submissions yet.</div>
-                : recentSubs.map(s => {
-                    const dt = new Date(s.submitted_at);
-                    const isToday = dt.toDateString() === new Date().toDateString();
-                    const timeStr = isToday
-                      ? dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
-                      : dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-                    return (
-                      <Link key={s.id} href={`/submission/${s.id}`} className="block px-4 py-3 hover:bg-gray-50 transition">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-brown/60 mb-0.5">{s.checklist?.category ?? "General"}</p>
-                            <p className="text-sm font-medium text-gray-900 truncate leading-tight">{s.checklist?.name}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">{s.submitted_by}</p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <p className="text-xs text-gray-400">{timeStr}</p>
-                            {!s.signed_off_at && (
-                              <span className="inline-block mt-1 rounded-full bg-brand/40 px-1.5 py-0.5 text-[10px] font-semibold text-brown">Pending</span>
-                            )}
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })
-            }
+            {loading ? (
+              <div className="p-4 text-sm text-gray-400 text-center">Loading…</div>
+            ) : (() => {
+              const now = new Date();
+              const filtered = recentSubs.filter(s => {
+                const dt = new Date(s.submitted_at);
+                if (activityPeriod === "week") {
+                  const daysFromMon = now.getDay() === 0 ? 6 : now.getDay() - 1;
+                  const weekStart = new Date(now); weekStart.setDate(now.getDate() - daysFromMon); weekStart.setHours(0,0,0,0);
+                  if (dt < weekStart) return false;
+                } else {
+                  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                  if (dt < monthStart) return false;
+                }
+                if (activitySearch) {
+                  const q = activitySearch.toLowerCase();
+                  return s.checklist?.name?.toLowerCase().includes(q) || s.submitted_by?.toLowerCase().includes(q);
+                }
+                return true;
+              });
+              if (filtered.length === 0) return <div className="p-4 text-sm text-gray-400 text-center">No submissions found.</div>;
+              return filtered.map(s => {
+                const dt = new Date(s.submitted_at);
+                const isToday = dt.toDateString() === now.toDateString();
+                const timeStr = isToday
+                  ? dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+                  : dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+                return (
+                  <Link key={s.id} href={`/submission/${s.id}`} className="block px-4 py-3 hover:bg-gray-50 transition">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-brown/60 mb-0.5">{s.checklist?.category ?? "General"}</p>
+                        <p className="text-sm font-medium text-gray-900 truncate leading-tight">{s.checklist?.name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{s.submitted_by}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-xs text-gray-400">{timeStr}</p>
+                        {!s.signed_off_at && (
+                          <span className="inline-block mt-1 rounded-full bg-brand/40 px-1.5 py-0.5 text-[10px] font-semibold text-brown">Pending</span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              });
+            })()}
           </div>
         </aside>
 
