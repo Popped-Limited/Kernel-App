@@ -29,7 +29,7 @@ interface HistoryRow {
 }
 
 type SortMode = "alpha" | "stock";
-type Period = "week" | "month" | "all";
+type Period = "week" | "month";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -73,7 +73,7 @@ export default function FinishedGoodsPage() {
   const [search,   setSearch]   = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo,   setDateTo]   = useState("");
-  const [period,   setPeriod]   = useState<Period>("all");
+  const [period,   setPeriod]   = useState<Period>("week");
 
   // Reconcile panel
   const [reconProduct, setReconProduct] = useState<string | null>(null);
@@ -201,8 +201,9 @@ export default function FinishedGoodsPage() {
     ...adjustments.map(a => ({ date: a.created_at, product: a.product, event: "adjustment" as EventType, units: a.quantity, by: a.created_by })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [productions, dispatches, adjustments]);
 
-  const periodStart = period !== "all" && !dateFrom ? parsePeriodStart(period) : null;
+  const periodStart = !dateFrom ? parsePeriodStart(period) : null;
   const filteredHistory = allHistory.filter(row => {
+    if (row.event !== "produced") return false; // production panel only
     const rowDate = new Date(row.date);
     if (search && !row.product.toLowerCase().includes(search.toLowerCase())) return false;
     if (dateFrom && rowDate < new Date(dateFrom)) return false;
@@ -339,7 +340,7 @@ export default function FinishedGoodsPage() {
         <div className="px-4 py-4 border-b border-gray-200 shrink-0">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-gray-900">
-              History
+              Recent Production
               {filteredHistory.length > 0 && <span className="ml-1.5 text-gray-400 font-normal text-xs">({filteredHistory.length})</span>}
             </h2>
           </div>
@@ -351,13 +352,13 @@ export default function FinishedGoodsPage() {
             onChange={e => setSearch(e.target.value)}
           />
           <div className="flex gap-1">
-            {(["week", "month", "all"] as Period[]).map(p => (
+            {(["week", "month"] as Period[]).map(p => (
               <button
                 key={p}
                 onClick={() => { setPeriod(p); setDateFrom(""); setDateTo(""); }}
-                className={`flex-1 px-2 py-1.5 rounded text-xs font-medium border transition-colors ${period === p && !dateFrom && !dateTo ? "bg-brand border-brand/50 text-brown" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
+                className={`flex-1 px-2 py-1.5 rounded text-xs font-medium border transition-colors ${period === p ? "bg-brand border-brand/50 text-brown" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
               >
-                {p === "week" ? "Week" : p === "month" ? "Month" : "All"}
+                {p === "week" ? "This Week" : "This Month"}
               </button>
             ))}
           </div>

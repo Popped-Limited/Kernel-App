@@ -58,6 +58,7 @@ export default function GoodsOutPage() {
   const [saved, setSaved] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [panelSearch, setPanelSearch] = useState("");
+  const [panelPeriod, setPanelPeriod] = useState<"week" | "month">("week");
   const [goodsOutChecklistId, setGoodsOutChecklistId] = useState<string | null>(null);
   // Units already dispatched per batch_submission_id (from saved dispatches)
   const [dispatchedPerBatch, setDispatchedPerBatch] = useState<Record<string, number>>({});
@@ -533,10 +534,7 @@ export default function GoodsOutPage() {
       {/* Right panel — recent dispatches */}
       <aside className="hidden lg:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-l border-gray-200 bg-white overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-200 shrink-0 space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">Recent dispatches</h2>
-            <span className="text-xs text-gray-400">{recentDispatches.length} entries</span>
-          </div>
+          <h2 className="text-sm font-semibold text-gray-900">Recent dispatches</h2>
           <input
             type="text"
             placeholder="Search product or customer…"
@@ -544,17 +542,35 @@ export default function GoodsOutPage() {
             onChange={e => setPanelSearch(e.target.value)}
             className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-brand"
           />
+          <div className="flex gap-1">
+            {(["week", "month"] as const).map(p => (
+              <button key={p} onClick={() => setPanelPeriod(p)}
+                className={`flex-1 px-2 py-1.5 rounded text-xs font-medium border transition-colors ${panelPeriod === p ? "bg-brand border-brand/50 text-brown" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}>
+                {p === "week" ? "This Week" : "This Month"}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
           {loading ? (
             <div className="p-4 text-sm text-gray-400 text-center">Loading…</div>
           ) : recentDispatches.length === 0 ? (
             <div className="p-4 text-sm text-gray-400 text-center">No dispatches yet.</div>
-          ) : recentDispatches.filter(d =>
-              !panelSearch ||
-              d.product?.toLowerCase().includes(panelSearch.toLowerCase()) ||
-              d.customer?.toLowerCase().includes(panelSearch.toLowerCase())
-            ).map(d => (
+          ) : recentDispatches.filter(d => {
+              const now = new Date();
+              const dDate = new Date(d.dispatch_date);
+              if (panelPeriod === "week") {
+                const daysFromMon = now.getDay() === 0 ? 6 : now.getDay() - 1;
+                const weekStart = new Date(now); weekStart.setDate(now.getDate() - daysFromMon); weekStart.setHours(0,0,0,0);
+                if (dDate < weekStart) return false;
+              } else {
+                const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                if (dDate < monthStart) return false;
+              }
+              return !panelSearch ||
+                d.product?.toLowerCase().includes(panelSearch.toLowerCase()) ||
+                d.customer?.toLowerCase().includes(panelSearch.toLowerCase());
+            }).map(d => (
             <div key={d.id} className="px-4 py-3 hover:bg-gray-50 transition">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
