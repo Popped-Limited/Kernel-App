@@ -358,11 +358,12 @@ export default function GoodsOutPage() {
                 const total = rowTotal(row);
 
                 // Batches matching this product that still have stock available
-                const productBatches = batchSubmissions.filter(s =>
-                  row.product
-                    ? s.checklist?.name?.toLowerCase().startsWith(row.product.toLowerCase())
-                    : false
-                );
+                // Strip "— Production Record" suffix before comparing (same logic as dropdown)
+                const productBatches = batchSubmissions.filter(s => {
+                  if (!row.product) return false;
+                  const name = (s.checklist?.name ?? "").replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
+                  return name.toLowerCase() === row.product.toLowerCase();
+                });
                 const availableBatches = productBatches.filter(s => {
                   const { totalJars } = batchSummary((s as any).answers ?? []);
                   if (totalJars === 0) return true; // no production data — always show
