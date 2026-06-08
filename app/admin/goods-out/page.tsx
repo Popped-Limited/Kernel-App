@@ -1,7 +1,7 @@
 "use client";
 import BackButton from "@/components/BackButton";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
@@ -59,6 +59,8 @@ export default function GoodsOutPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [panelSearch, setPanelSearch] = useState("");
   const [goodsOutChecklistId, setGoodsOutChecklistId] = useState<string | null>(null);
+  // Units already dispatched per batch_submission_id (from saved dispatches)
+  const [dispatchedPerBatch, setDispatchedPerBatch] = useState<Record<string, number>>({});
 
   // Edit existing dispatch
   const [editingDispatch, setEditingDispatch] = useState<Dispatch | null>(null);
@@ -84,7 +86,7 @@ export default function GoodsOutPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const [dispRes, subRes] = await Promise.all([
+    const [dispRes, subRes, batchDispRes] = await Promise.all([
       supabase
         .from("dispatches")
         .select("*")
@@ -95,7 +97,11 @@ export default function GoodsOutPage() {
         .from("submissions")
         .select("id, submitted_by, submitted_at, checklist:checklists(name, category), answers(value, question:questions(type, label))")
         .order("submitted_at", { ascending: false })
-        .limit(100),
+        .limit(200),
+      supabase
+        .from("dispatches")
+        .select("batch_submission_id, total_units")
+        .not("batch_submission_id", "is", null),
     ]);
     if (dispRes.data) setRecentDispatches(dispRes.data as Dispatch[]);
     if (subRes.data) {
@@ -103,6 +109,15 @@ export default function GoodsOutPage() {
         s => s.checklist?.category === "Production"
       );
       setBatchSubmissions(productionOnly);
+    }
+    if (batchDispRes.data) {
+      const totals: Record<string, number> = {};
+      for (const d of batchDispRes.data) {
+        if (d.batch_submission_id) {
+          totals[d.batch_submission_id] = (totals[d.batch_submission_id] ?? 0) + (d.total_units ?? 0);
+        }
+      }
+      setDispatchedPerBatch(totals);
     }
 
     // Also fetch all production checklists so the product list is always complete
@@ -142,6 +157,18 @@ export default function GoodsOutPage() {
   }
 
   const grandTotal = rows.reduce((s, r) => s + rowTotal(r), 0);
+
+  // Units allocated to each batch in the current (unsaved) form rows
+  const formAllocatedPerBatch = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const r of rows) {
+      if (r.batchSubmissionId) {
+        const units = Number(r.casesOf6) * 6 + Number(r.casesOf3) * 3 + Number(r.singles);
+        totals[r.batchSubmissionId] = (totals[r.batchSubmissionId] ?? 0) + units;
+      }
+    }
+    return totals;
+  }, [rows]);
 
   function validate() {
     const errs: Record<string, string> = {};
@@ -321,10 +348,25 @@ export default function GoodsOutPage() {
             {/* Product cards */}
             <div className="space-y-3">
               {rows.map((row, idx) => {
-                const filteredBatches = row.product
-                  ? batchSubmissions.filter(s => s.checklist?.name?.startsWith(row.product))
-                  : batchSubmissions;
                 const total = rowTotal(row);
+
+                // Batches matching this product that still have stock available
+                const productBatches = batchSubmissions.filter(s =>
+                  row.product
+                    ? s.checklist?.name?.toLowerCase().startsWith(row.product.toLowerCase())
+                    : false
+                );
+                const availableBatches = productBatches.filter(s => {
+                  const { totalJars } = batchSummary((s as any).answers ?? []);
+                  if (totalJars === 0) return true; // no production data — always show
+                  const alreadyDispatched = dispatchedPerBatch[s.id] ?? 0;
+                  // Units this row currently allocates to this batch
+                  const thisRowAlloc = row.batchSubmissionId === s.id ? total : 0;
+                  // Units other rows allocate to this batch
+                  const otherRowsAlloc = (formAllocatedPerBatch[s.id] ?? 0) - thisRowAlloc;
+                  const remaining = totalJars - alreadyDispatched - otherRowsAlloc;
+                  return remaining > 0 || row.batchSubmissionId === s.id;
+                });
 
                 return (
                   <div key={idx} className="rounded-xl border border-gray-200 p-4 space-y-3">
@@ -419,20 +461,37 @@ export default function GoodsOutPage() {
                           disabled={!row.product}
                         >
                           <option value="">No link…</option>
-                          {filteredBatches.map(s => {
+                          {availableBatches.map(s => {
                             const { batchCode, totalJars } = batchSummary((s as any).answers ?? []);
-                            const product = s.checklist?.name?.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim() ?? "";
-                            const parts = [
+                            const alreadyDispatched = dispatchedPerBatch[s.id] ?? 0;
+                            const thisRowAlloc = row.batchSubmissionId === s.id ? total : 0;
+                            const otherRowsAlloc = (formAllocatedPerBatch[s.id] ?? 0) - thisRowAlloc;
+                            const remaining = totalJars > 0 ? totalJars - alreadyDispatched - otherRowsAlloc : null;
+                            const label = [
                               batchCode ? `Batch ${batchCode}` : formatDate(s.submitted_at.slice(0, 10)),
-                              totalJars > 0 ? `${totalJars.toLocaleString()} jars` : null,
+                              remaining !== null ? `${remaining.toLocaleString()} remaining` : null,
                             ].filter(Boolean).join(" · ");
                             return (
                               <option key={s.id} value={s.id}>
-                                {product} · {parts}
+                                {label}
                               </option>
                             );
                           })}
                         </select>
+                        {row.batchSubmissionId && (() => {
+                          const s = batchSubmissions.find(b => b.id === row.batchSubmissionId);
+                          if (!s) return null;
+                          const { totalJars } = batchSummary((s as any).answers ?? []);
+                          const alreadyDispatched = dispatchedPerBatch[s.id] ?? 0;
+                          const otherRowsAlloc = (formAllocatedPerBatch[s.id] ?? 0) - total;
+                          const remaining = totalJars - alreadyDispatched - otherRowsAlloc;
+                          if (remaining < 0) return (
+                            <p className="mt-1 text-xs text-red-600 font-medium">
+                              Over-allocated by {Math.abs(remaining)} units
+                            </p>
+                          );
+                          return null;
+                        })()}
                       </div>
                     </div>
                   </div>
