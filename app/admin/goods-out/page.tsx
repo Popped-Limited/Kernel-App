@@ -31,21 +31,26 @@ function emptyRow(): ProductRow {
 /** Pull batch code + total jars out of a submission's answers */
 function batchSummary(answers: Array<{ value: string | null; question: { type: string; label: string } | null }>) {
   let batchCode = "";
-  let totalJars = 0;
+  let totalUnits = 0;      // from explicit "total units produced" field
+  let jarsUsedFallback = 0; // from jars_used in packing_runs
   for (const ans of answers ?? []) {
     const type  = ans.question?.type ?? "";
     const label = (ans.question?.label ?? "").toLowerCase();
+    // Prefer explicit "total units produced" answer (matches Finished Goods logic)
+    if (label.includes("total units produced") && ans.value) {
+      totalUnits += Number(ans.value) || 0;
+    }
     if (type === "packing_runs" && ans.value) {
       try {
         const rows = JSON.parse(ans.value) as Array<{ jars_used?: string }>;
-        for (const r of rows) totalJars += Number(r.jars_used) || 0;
+        for (const r of rows) jarsUsedFallback += Number(r.jars_used) || 0;
       } catch { /* ignore */ }
     }
     if (!batchCode && type === "text" && (label.includes("batch") || label.includes("lot")) && ans.value) {
       batchCode = ans.value;
     }
   }
-  return { batchCode, totalJars };
+  return { batchCode, totalJars: totalUnits > 0 ? totalUnits : jarsUsedFallback };
 }
 
 export default function GoodsOutPage() {
