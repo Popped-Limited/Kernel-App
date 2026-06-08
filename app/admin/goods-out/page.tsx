@@ -119,15 +119,13 @@ export default function GoodsOutPage() {
         .from("dispatches")
         .select("*")
         .order("dispatch_date", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(100),
+        .order("created_at", { ascending: false }),
       productionChecklistIds.length > 0
         ? supabase
             .from("submissions")
             .select("id, submitted_by, submitted_at, checklist:checklists(name, category), answers(value, question:questions(type, label))")
             .in("checklist_id", productionChecklistIds)
             .order("submitted_at", { ascending: false })
-            .limit(500)
         : Promise.resolve({ data: [] }),
       supabase
         .from("dispatches")

@@ -65,8 +65,7 @@ export default function GoodsInPage() {
       supabase
         .from("ingredient_lots")
         .select("*, ingredient:ingredients(name)")
-        .order("created_at", { ascending: false })
-        .limit(20),
+        .order("created_at", { ascending: false }),
       supabase.from("suppliers").select("id, name").order("name"),
       supabase
         .from("checklists")

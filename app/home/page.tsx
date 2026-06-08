@@ -77,20 +77,28 @@ export default function Dashboard() {
     weekStart.setDate(now.getDate() - daysFromMon);
     weekStart.setHours(0, 0, 0, 0);
 
-    const [clRes, subRes, draftRes, dispRes, batchSubRes] = await Promise.all([
+    // Recent activity: last 60 days (display only — date filter is appropriate here)
+    const sixtyDaysAgo = new Date(now); sixtyDaysAgo.setDate(now.getDate() - 60);
+    const [clRes, recentSubRes, pendingSubRes, draftRes, dispRes, batchSubRes] = await Promise.all([
       supabase.from("checklists").select("*").eq("active", true).order("name"),
-      supabase.from("submissions").select("*, checklist:checklists(*)").order("submitted_at", { ascending: false }).limit(50),
-      supabase.from("batch_drafts").select("*, checklist:checklists(name, category)").order("last_saved_at", { ascending: false }).limit(10),
+      supabase.from("submissions").select("*, checklist:checklists(*)").gte("submitted_at", sixtyDaysAgo.toISOString()).order("submitted_at", { ascending: false }),
+      // Pending sign-offs: no date limit — must never miss one
+      supabase.from("submissions").select("*, checklist:checklists(*)").is("signed_off_at", null).order("submitted_at", { ascending: false }),
+      supabase.from("batch_drafts").select("*, checklist:checklists(name, category)").order("last_saved_at", { ascending: false }),
       supabase.from("dispatches").select("product, total_units").gte("dispatch_date", weekStart.toISOString().slice(0, 10)),
       supabase.from("submissions").select("id, checklist:checklists(name, category), answers(value, question:questions(type, label))").eq("checklists.category", "Production").gte("submitted_at", weekStart.toISOString()),
     ]);
 
     if (clRes.data) setChecklists(clRes.data as Checklist[]);
 
-    if (subRes.data) {
-      const all = subRes.data as (Submission & { checklist: Checklist })[];
-      setRecentSubs(all.filter(s => s.checklist).slice(0, 30));
-      setPendingSignOff(all.filter(s => s.checklist && !s.signed_off_at).slice(0, 20));
+    if (recentSubRes.data) {
+      const all = recentSubRes.data as (Submission & { checklist: Checklist })[];
+      setRecentSubs(all.filter(s => s.checklist));
+    }
+
+    if (pendingSubRes.data) {
+      const all = pendingSubRes.data as (Submission & { checklist: Checklist })[];
+      setPendingSignOff(all.filter(s => s.checklist));
     }
 
     if (draftRes.data) setOpenDrafts(draftRes.data as never);

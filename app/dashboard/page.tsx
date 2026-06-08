@@ -31,8 +31,7 @@ function SubmissionsPageInner() {
         supabase
           .from("submissions")
           .select("*, checklist:checklists(*)")
-          .order("submitted_at", { ascending: false })
-          .limit(500),
+          .order("submitted_at", { ascending: false }),
       ]);
       if (clRes.data) setChecklists(clRes.data);
       if (subRes.data) setSubmissions(subRes.data as SubmissionWithChecklist[]);
