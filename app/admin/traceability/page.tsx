@@ -250,29 +250,47 @@ export default function TraceabilityPage() {
       .ilike("product", `%${name}%`)
       .order("dispatch_date", { ascending: false });
 
-    if (!disps || disps.length === 0) {
-      setError(`No dispatches found for product matching "${name}".`);
-      return;
-    }
+    const dispatches = (disps ?? []) as DispatchInfo[];
 
-    const dispatches = disps as DispatchInfo[];
-
-    // 2. Find batch submissions linked to these dispatches
-    const batchSubmissionIds = [
+    // 2a. Batch submissions linked to dispatches
+    const linkedBatchIds = [
       ...new Set(
-        disps
+        (disps ?? [])
           .map((d: { batch_submission_id?: string }) => d.batch_submission_id)
           .filter(Boolean)
       ),
     ] as string[];
 
+    // 2b. Also find production submissions directly by checklist name
+    //     (catches batches not yet dispatched or dispatched without a batch link)
+    const { data: directSubs } = await supabase
+      .from("submissions")
+      .select("id, submitted_by, submitted_at, checklist:checklists(name, category), answers(value, question:questions(type, label))")
+      .order("submitted_at", { ascending: false });
+
+    const directBatchIds = (directSubs ?? [])
+      .filter((s: any) => {
+        const clName: string = s.checklist?.name ?? "";
+        const clCat: string = s.checklist?.category ?? "";
+        return clCat === "Production" && clName.toLowerCase().includes(name.toLowerCase());
+      })
+      .map((s: any) => s.id as string);
+
+    // Merge both sets of IDs, deduplicated
+    const allBatchIds = [...new Set([...linkedBatchIds, ...directBatchIds])];
+
     let batches: BatchInfo[] = [];
-    if (batchSubmissionIds.length > 0) {
+    if (allBatchIds.length > 0) {
       const { data: subs } = await supabase
         .from("submissions")
         .select("id, submitted_by, submitted_at, checklist:checklists(name), answers(value, question:questions(type, label))")
-        .in("id", batchSubmissionIds);
+        .in("id", allBatchIds);
       batches = (subs ?? []) as unknown as BatchInfo[];
+    }
+
+    if (dispatches.length === 0 && batches.length === 0) {
+      setError(`No records found for product matching "${name}".`);
+      return;
     }
 
     // 3. Find the raw material lots used in those batches
