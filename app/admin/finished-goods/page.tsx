@@ -314,7 +314,14 @@ export default function FinishedGoodsPage() {
                   const stock = stockFor(product);
                   return (
                     <tr key={product} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 font-medium text-gray-900">{product}</td>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/admin/finished-goods/${encodeURIComponent(product)}`}
+                          className="font-medium text-gray-900 hover:text-brown hover:underline"
+                        >
+                          {product}
+                        </Link>
+                      </td>
                       <td className="px-4 py-3 text-right tabular-nums text-gray-700">
                         {p30 > 0 ? p30.toLocaleString() : <span className="text-gray-300">—</span>}
                       </td>
