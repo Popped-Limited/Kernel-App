@@ -336,7 +336,7 @@ export default function FinishedGoodsPage() {
       </main>
 
       {/* Right panel — history */}
-      <aside className="hidden lg:flex flex-col w-96 shrink-0 sticky top-0 h-screen border-l border-gray-200 bg-white overflow-hidden">
+      <aside className="hidden lg:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-l border-gray-200 bg-white overflow-hidden">
         <div className="px-4 py-4 border-b border-gray-200 shrink-0">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-gray-900">
@@ -372,18 +372,11 @@ export default function FinishedGoodsPage() {
             <div key={i} className="px-4 py-3 hover:bg-gray-50 transition-colors">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <div className="mb-0.5">
-                    {row.event === "produced" ? (
-                      row.submissionId
-                        ? <Link href={`/submission/${row.submissionId}`} className="inline-block rounded-full bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 hover:opacity-80">PRODUCED</Link>
-                        : <span className="inline-block rounded-full bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5">PRODUCED</span>
-                    ) : row.event === "dispatched" ? (
-                      <span className="inline-block rounded-full bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5">DISPATCHED</span>
-                    ) : (
-                      <span className="inline-block rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5">ADJUSTMENT</span>
-                    )}
-                  </div>
-                  <p className="text-sm font-medium text-gray-900 truncate">{row.product}</p>
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {row.submissionId
+                      ? <Link href={`/submission/${row.submissionId}`} className="hover:underline">{row.product}</Link>
+                      : row.product}
+                  </p>
                   <p className="text-xs text-gray-400">{row.by}</p>
                 </div>
                 <div className="shrink-0 text-right">
