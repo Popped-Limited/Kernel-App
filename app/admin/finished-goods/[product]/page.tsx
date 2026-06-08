@@ -14,6 +14,14 @@ interface ProductionRun {
   bbe: string;
 }
 
+/** Format a date string nicely if it looks like YYYY-MM-DD */
+function formatBBE(val: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+    return formatDate(val);
+  }
+  return val;
+}
+
 /** Pull key fields from a submission's answers */
 function extractFields(answers: Array<{ value: string | null; question: { type: string; label: string } | null }>) {
   let batchCode = "";
@@ -25,9 +33,9 @@ function extractFields(answers: Array<{ value: string | null; question: { type: 
     const label = (ans.question?.label ?? "").toLowerCase();
     const type  = ans.question?.type ?? "";
 
-    // Total units produced — explicit field takes priority
-    if (label.includes("total units produced")) {
-      totalUnits = (totalUnits ?? 0) + (Number(ans.value) || 0);
+    // Total units produced — take FIRST match only (avoids doubling if multiple matching fields)
+    if (totalUnits === null && label.includes("total units produced")) {
+      totalUnits = Number(ans.value) || null;
     }
 
     // Batch / Julian code
@@ -35,9 +43,12 @@ function extractFields(answers: Array<{ value: string | null; question: { type: 
       batchCode = ans.value;
     }
 
-    // Best before / BBE
-    if (!bbe && (label.includes("best before") || label.includes("bbe") || label.includes("use by") || label.includes("expiry"))) {
-      bbe = ans.value;
+    // Best before / BBE — skip boolean values (checkboxes) and non-date/text types
+    if (!bbe &&
+        type !== "checkbox" && type !== "boolean" &&
+        ans.value !== "true" && ans.value !== "false" &&
+        (label.includes("best before") || label.includes("bbe") || label.includes("use by") || label.includes("expiry"))) {
+      bbe = formatBBE(ans.value);
     }
 
     // Fallback: pull jars_used from packing_runs if total units not yet found

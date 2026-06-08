@@ -98,7 +98,7 @@ export default function GoodsOutPage() {
         .select("*")
         .order("dispatch_date", { ascending: false })
         .order("created_at", { ascending: false })
-        .limit(30),
+        .limit(100),
       supabase
         .from("submissions")
         .select("id, submitted_by, submitted_at, checklist:checklists(name, category), answers(value, question:questions(type, label))")
