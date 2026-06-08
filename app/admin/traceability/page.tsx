@@ -422,6 +422,13 @@ export default function TraceabilityPage() {
               </button>
               <button
                 type="button"
+                onClick={() => { setSearchType("product"); setResult(null); setIngredientLots(null); setError(""); }}
+                className={`px-3 py-1.5 rounded text-xs font-medium transition ${searchType === "product" ? "bg-brand text-brown" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+              >
+                Finished product name
+              </button>
+              <button
+                type="button"
                 onClick={() => { setSearchType("lot"); setResult(null); setIngredientLots(null); setError(""); }}
                 className={`px-3 py-1.5 rounded text-xs font-medium transition ${searchType === "lot" ? "bg-brand text-brown" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
               >
@@ -432,14 +439,7 @@ export default function TraceabilityPage() {
                 onClick={() => { setSearchType("batch"); setResult(null); setIngredientLots(null); setError(""); }}
                 className={`px-3 py-1.5 rounded text-xs font-medium transition ${searchType === "batch" ? "bg-brand text-brown" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
               >
-                Batch Julian code
-              </button>
-              <button
-                type="button"
-                onClick={() => { setSearchType("product"); setResult(null); setIngredientLots(null); setError(""); }}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition ${searchType === "product" ? "bg-brand text-brown" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-              >
-                Finished product
+                Finished product Julian code
               </button>
             </div>
             <div className="flex gap-2">
