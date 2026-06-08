@@ -359,23 +359,13 @@ export default function GoodsOutPage() {
               {rows.map((row, idx) => {
                 const total = rowTotal(row);
 
-                // Batches matching this product that still have stock available
+                // All batches for this product — never filter by remaining stock,
+                // a batch must always be selectable for traceability purposes.
                 // Strip "— Production Record" suffix before comparing (same logic as dropdown)
                 const productBatches = batchSubmissions.filter(s => {
                   if (!row.product) return false;
                   const name = (s.checklist?.name ?? "").replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
                   return name.toLowerCase() === row.product.toLowerCase();
-                });
-                const availableBatches = productBatches.filter(s => {
-                  const { totalJars } = batchSummary((s as any).answers ?? []);
-                  if (totalJars === 0) return true; // no production data — always show
-                  const alreadyDispatched = dispatchedPerBatch[s.id] ?? 0;
-                  // Units this row currently allocates to this batch
-                  const thisRowAlloc = row.batchSubmissionId === s.id ? total : 0;
-                  // Units other rows allocate to this batch
-                  const otherRowsAlloc = (formAllocatedPerBatch[s.id] ?? 0) - thisRowAlloc;
-                  const remaining = totalJars - alreadyDispatched - otherRowsAlloc;
-                  return remaining > 0 || row.batchSubmissionId === s.id;
                 });
 
                 return (
@@ -471,7 +461,7 @@ export default function GoodsOutPage() {
                           disabled={!row.product}
                         >
                           <option value="">Select batch…</option>
-                          {availableBatches.map(s => {
+                          {productBatches.map(s => {
                             const { batchCode, totalJars } = batchSummary((s as any).answers ?? []);
                             const alreadyDispatched = dispatchedPerBatch[s.id] ?? 0;
                             const thisRowAlloc = row.batchSubmissionId === s.id ? total : 0;
