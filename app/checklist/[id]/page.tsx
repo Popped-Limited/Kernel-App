@@ -105,7 +105,7 @@ export default function ChecklistPage() {
   const [loading, setLoading] = useState(true);
   // Derive submitted_by from a name-like answer in the checklist
   function getSubmittedBy(qs: Question[], ans: AnswerMap): string {
-    const nameQ = qs.find(q => /name|operator|staff|packer|person|completed by|submitted by/i.test(q.label) && q.type === "text");
+    const nameQ = qs.find(q => /\b(your name|operator|packed by|completed by|submitted by|logged by|packer name|staff name|team member)\b/i.test(q.label) && q.type === "text");
     if (nameQ && ans[nameQ.id]?.trim()) return ans[nameQ.id].trim();
     return "Staff";
   }

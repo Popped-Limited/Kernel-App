@@ -238,11 +238,6 @@ function SubmissionsPageInner() {
                         <p className="font-medium text-gray-900">
                           {s.checklist?.name ?? <span className="text-gray-400 italic">Deleted checklist</span>}
                         </p>
-                        {s.checklist?.frequency && (
-                          <span className={`badge text-xs mt-0.5 ${frequencyBadgeColor(s.checklist.frequency as never)}`}>
-                            {frequencyLabel(s.checklist.frequency as never)}
-                          </span>
-                        )}
                       </td>
                       <td className="px-4 py-3 text-gray-700">{s.submitted_by}</td>
                       <td className="px-4 py-3 text-gray-600">{formatDateTime(s.submitted_at)}</td>
