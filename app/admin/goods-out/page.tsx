@@ -8,14 +8,6 @@ import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Dispatch, Submission, Checklist } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
-const SKUS = [
-  "Garlic Chilli Oil",
-  "Garlic Chilli Oil with Beef",
-  "Sichuan Chilli Crisp",
-  "Sichuan Chilli Crisp Double Heat",
-  "Hunan Salted Chillies",
-];
-
 interface ProductRow {
   product: string;
   casesOf6: string;
@@ -61,6 +53,7 @@ export default function GoodsOutPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [complianceWarning, setComplianceWarning] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [panelSearch, setPanelSearch] = useState("");
   const [panelPeriod, setPanelPeriod] = useState<"week" | "month">("week");
@@ -236,7 +229,7 @@ export default function GoodsOutPage() {
           ...(notes.trim() ? [`Notes: ${notes.trim()}`] : []),
         ].join("\n");
 
-        await fetch("/api/submit", {
+        const compRes = await fetch("/api/submit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -247,9 +240,13 @@ export default function GoodsOutPage() {
             batch_notes: batchNotes,
           }),
         });
+        if (!compRes.ok) {
+          console.error("Failed to create goods-out submission:", await compRes.text());
+          setComplianceWarning(true);
+        }
       } catch (e) {
-        // Non-fatal — dispatch was saved, compliance record failed silently
         console.error("Failed to create goods-out submission:", e);
+        setComplianceWarning(true);
       }
     }
 
@@ -520,6 +517,23 @@ export default function GoodsOutPage() {
               <label className="label">Notes</label>
               <input type="text" value={notes} onChange={e => setNotes(e.target.value)} className="input" placeholder="Optional" />
             </div>
+
+            {complianceWarning && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                <p className="font-semibold mb-0.5">Dispatch saved — compliance record failed</p>
+                <p className="text-xs text-amber-700">
+                  Your dispatch was logged successfully, but the compliance checklist entry could not be created automatically.
+                  Please go to <strong>Checklist Submissions</strong> and create a Goods Out record manually, or contact support.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setComplianceWarning(false)}
+                  className="mt-2 text-xs underline text-amber-700 hover:text-amber-900"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
 
             <div className="flex items-center gap-3 pt-1">
               <button type="submit" disabled={saving} className="btn-primary">

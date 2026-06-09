@@ -30,6 +30,7 @@ export default function GoodsInPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [complianceWarning, setComplianceWarning] = useState(false);
   const [goodsInChecklistId, setGoodsInChecklistId] = useState<string | null>(null);
   const [panelSearch, setPanelSearch] = useState("");
   const [panelPeriod, setPanelPeriod] = useState<"week" | "month">("week");
@@ -223,7 +224,7 @@ export default function GoodsInPage() {
           ...itemLines.map(l => `  • ${l}`),
         ].join("\n");
 
-        await fetch("/api/submit", {
+        const compRes = await fetch("/api/submit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -234,9 +235,13 @@ export default function GoodsInPage() {
             batch_notes: batchNotes,
           }),
         });
+        if (!compRes.ok) {
+          console.error("Failed to create goods-in submission:", await compRes.text());
+          setComplianceWarning(true);
+        }
       } catch (e) {
-        // Non-fatal — stock was saved, compliance record failed silently
         console.error("Failed to create goods-in submission:", e);
+        setComplianceWarning(true);
       }
     }
 
@@ -460,6 +465,23 @@ export default function GoodsInPage() {
                 + Add another ingredient
               </button>
             </div>
+
+            {complianceWarning && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                <p className="font-semibold mb-0.5">Delivery saved — compliance record failed</p>
+                <p className="text-xs text-amber-700">
+                  Your goods-in delivery was logged successfully, but the compliance checklist entry could not be created automatically.
+                  Please go to <strong>Checklist Submissions</strong> and create a Goods In record manually, or contact support.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setComplianceWarning(false)}
+                  className="mt-2 text-xs underline text-amber-700 hover:text-amber-900"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
 
             <div className="flex items-center gap-3 pt-1">
               <button type="submit" disabled={saving} className="btn-primary">
