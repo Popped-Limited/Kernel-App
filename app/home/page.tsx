@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import type { Checklist, Submission, IngredientLot, Ingredient, Dispatch } from "@/lib/types";
 import { frequencyLabel, frequencyBadgeColor } from "@/lib/utils";
 import AppSidebar from "@/components/AppSidebar";
+import ProductionCalendar from "@/components/ProductionCalendar";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -260,31 +261,8 @@ export default function Dashboard() {
             </div>
           </section>
 
-          {/* ── This Week's Production ─────────────────────────────────── */}
-          <section className="card overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700">This Week&apos;s Production</h3>
-              <Link href="/admin/finished-goods" className="text-xs text-brown/70 hover:text-brown hover:underline">View all →</Link>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {loading
-                ? <div className="p-4 text-center text-sm text-gray-400">Loading…</div>
-                : skuStock.length === 0
-                  ? <div className="p-4 text-center text-sm text-gray-400">No production this week.</div>
-                  : skuStock.map(sku => (
-                    <div key={sku.name} className="flex items-center gap-3 px-4 py-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{sku.name}</p>
-                        <p className="text-xs text-gray-400">{sku.dispatched > 0 ? `${sku.dispatched} dispatched this week` : "No dispatches this week"}</p>
-                      </div>
-                      <p className={`text-lg font-bold tabular-nums shrink-0 ${sku.produced === 0 ? "text-gray-300" : "text-gray-900"}`}>
-                        {sku.produced}
-                      </p>
-                    </div>
-                  ))
-              }
-            </div>
-          </section>
+          {/* ── Production Calendar ────────────────────────────────────── */}
+          <ProductionCalendar checklists={checklists} />
 
         </main>
 
