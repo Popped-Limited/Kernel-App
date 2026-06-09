@@ -151,22 +151,24 @@ export default function Dashboard() {
       <AppSidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* ── Main ─────────────────────────────────────────────────────────── */}
-      <div className="flex-1 lg:ml-56 flex flex-col min-h-screen">
+      <div className="flex-1 lg:ml-56 flex flex-col min-h-screen min-w-0">
 
         {/* Mobile top bar */}
-        <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-gray-200 flex items-center justify-between px-4 py-3">
-          <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded text-gray-600 hover:bg-gray-100">
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <rect y="3" width="20" height="2" rx="1"/><rect y="9" width="20" height="2" rx="1"/><rect y="15" width="20" height="2" rx="1"/>
+        <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-gray-200 flex items-center justify-between px-5 py-4">
+          <p className="font-serif text-3xl text-brown leading-none">Kernel</p>
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-lg bg-brand/20 hover:bg-brand/40 transition-colors"
+            aria-label="Open menu"
+          >
+            <svg className="h-6 w-6 text-brown" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M3 6h18M3 12h18M3 18h18"/>
             </svg>
           </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/kernel.png" alt="Kernel" className="h-7 w-auto" />
-          <div className="w-8" />
         </div>
 
-        <div className="flex flex-1 min-h-0">
-        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+        <div className="flex flex-1 min-h-0 min-w-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 space-y-6">
 
           {/* ── Header ─────────────────────────────────────────────────── */}
           <div className="flex items-center justify-between">
