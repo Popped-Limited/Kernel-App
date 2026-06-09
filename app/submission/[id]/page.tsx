@@ -238,7 +238,7 @@ export default function SubmissionPage() {
                 value={managerName}
                 onChange={(e) => setManagerName(e.target.value)}
                 className="input"
-                placeholder="e.g. The Kernel Inspector"
+                placeholder="e.g. Kernel Mustard"
               />
             </div>
             <div>

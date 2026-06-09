@@ -317,7 +317,7 @@ export default function GoodsInPage() {
                   value={loggedBy}
                   onChange={e => setLoggedBy(e.target.value)}
                   className={`input ${errors.loggedBy ? "border-red-300" : ""}`}
-                  placeholder="e.g. The Popcorn Sheriff"
+                  placeholder="e.g. Kernel Sanders"
                   autoComplete="name"
                 />
                 {errors.loggedBy && <p className="mt-1 text-xs text-red-600">{errors.loggedBy}</p>}

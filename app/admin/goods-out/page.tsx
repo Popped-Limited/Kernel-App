@@ -344,7 +344,7 @@ export default function GoodsOutPage() {
                   value={dispatchedBy}
                   onChange={e => setDispatchedBy(e.target.value)}
                   className={`input ${errors.dispatchedBy ? "border-red-300" : ""}`}
-                  placeholder="e.g. Chief Popping Officer"
+                  placeholder="e.g. Kernel Mustard"
                   autoComplete="name"
                 />
                 {errors.dispatchedBy && <p className="mt-1 text-xs text-red-600">{errors.dispatchedBy}</p>}
