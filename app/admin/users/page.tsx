@@ -38,11 +38,19 @@ function formatDate(iso: string) {
 }
 
 export default function UsersPage() {
-  const { role: myRole } = useOrganisation();
+  const { role: myRole, orgId, orgName } = useOrganisation();
   const [members, setMembers]   = useState<Member[]>([]);
   const [invites, setInvites]   = useState<Invite[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState("");
+
+  // Company name
+  const [companyName, setCompanyName]     = useState("");
+  const [nameSaving, setNameSaving]       = useState(false);
+  const [nameSuccess, setNameSuccess]     = useState("");
+  const [nameError, setNameError]         = useState("");
+
+  useEffect(() => { setCompanyName(orgName ?? ""); }, [orgName]);
 
   // Invite form
   const [inviteEmail, setInviteEmail] = useState("");
@@ -112,6 +120,20 @@ export default function UsersPage() {
     setRemoving(null);
   }
 
+  async function saveCompanyName(e: React.FormEvent) {
+    e.preventDefault();
+    setNameError(""); setNameSuccess("");
+    if (!companyName.trim()) { setNameError("Company name can't be blank"); return; }
+    setNameSaving(true);
+    const { error } = await supabase
+      .from("organisations")
+      .update({ name: companyName.trim() })
+      .eq("id", orgId!);
+    setNameSaving(false);
+    if (error) { setNameError(error.message); }
+    else { setNameSuccess("Saved — refresh the dashboard to see the updated name"); }
+  }
+
   async function sendInvite(e: React.FormEvent) {
     e.preventDefault();
     setInviting(true);
@@ -152,6 +174,31 @@ export default function UsersPage() {
       <p className="text-sm text-brown/60 mb-8">Manage who has access to your Kernel account</p>
 
       {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+
+      {/* Company name — admin only */}
+      {myRole === "admin" && (
+        <div className="card p-6 mb-6">
+          <h2 className="text-sm font-semibold text-brown mb-1">Company name</h2>
+          <p className="text-xs text-brown/50 mb-4">Shown on your dashboard header.</p>
+          <form onSubmit={saveCompanyName} className="flex items-end gap-3">
+            <div className="flex-1">
+              <input
+                type="text"
+                value={companyName}
+                onChange={e => { setCompanyName(e.target.value); setNameSuccess(""); setNameError(""); }}
+                className="input"
+                placeholder="e.g. Popped Limited"
+                disabled={nameSaving}
+              />
+            </div>
+            <button type="submit" disabled={nameSaving || !companyName.trim()} className="btn-primary px-5 py-2 shrink-0">
+              {nameSaving ? "Saving…" : "Save"}
+            </button>
+          </form>
+          {nameError   && <p className="text-sm text-red-600 mt-2">{nameError}</p>}
+          {nameSuccess && <p className="text-sm text-green-700 mt-2">{nameSuccess}</p>}
+        </div>
+      )}
 
       {/* Current members */}
       <div className="card mb-6">

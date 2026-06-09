@@ -8,6 +8,7 @@ import type { Checklist, Submission, IngredientLot, Ingredient, Dispatch } from 
 import { frequencyLabel, frequencyBadgeColor } from "@/lib/utils";
 import AppSidebar from "@/components/AppSidebar";
 import ProductionCalendar from "@/components/ProductionCalendar";
+import { useOrganisation } from "@/contexts/OrganisationContext";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -140,6 +141,8 @@ export default function Dashboard() {
     setLoading(false);
   }
 
+  const { orgName } = useOrganisation();
+
   const todayCount = recentSubs.filter(s => new Date(s.submitted_at).toDateString() === new Date().toDateString()).length;
   const freqSet = new Set(FREQ_GROUPS.flatMap(g => g.freqs));
   const uncategorised = checklists.filter(cl => !freqSet.has(cl.frequency));
@@ -172,7 +175,12 @@ export default function Dashboard() {
 
           {/* ── Header ─────────────────────────────────────────────────── */}
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
+            <div className="flex items-baseline gap-3">
+              <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
+              {orgName && (
+                <span className="text-xl font-bold text-gray-900">{orgName}</span>
+              )}
+            </div>
             <Link href="/admin/goods-in" className="btn-primary text-sm hidden sm:inline-flex">+ Goods In</Link>
           </div>
 
