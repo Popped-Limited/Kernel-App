@@ -242,8 +242,8 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
         </div>
       </div>
 
-      {/* 7-day grid — fixed height container so the day panel never drifts */}
-      <div className="grid grid-cols-7 divide-x divide-gray-100 border-b border-gray-100 h-[90px] overflow-hidden">
+      {/* 7-day grid — explicit 90px row track so nothing can ever push it taller */}
+      <div className="grid grid-cols-7 divide-x divide-gray-100 border-b border-gray-100 [grid-template-rows:90px]">
         {days.map((day, i) => {
           const dateStr = toDateStr(day);
           const isToday = dateStr === todayStr;
@@ -255,17 +255,19 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
             <button
               key={dateStr}
               onClick={() => setSelectedDay(isSelected ? null : dateStr)}
-              className={`text-left p-2 h-full transition-colors w-full ${
+              className={`text-left p-2 flex flex-col h-full overflow-hidden transition-colors w-full ${
                 isSelected ? "bg-brand/20" : isToday ? "bg-brand/10" : "hover:bg-gray-50"
               } ${isPast && !isToday ? "opacity-55" : ""}`}
             >
-              <div className="flex items-baseline gap-1 mb-1.5">
+              {/* Date label — always pinned to the top, never pushed by pills */}
+              <div className="flex items-baseline gap-1 mb-1 shrink-0">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{DAY_LABELS[i]}</span>
                 <span className={`text-xs font-bold ${isToday ? "text-brown" : "text-gray-700"}`}>
                   {day.getDate()}
                 </span>
               </div>
-              <div className="space-y-0.5 overflow-hidden">
+              {/* Pills area — fills remaining height, any overflow clipped */}
+              <div className="flex-1 space-y-0.5 overflow-hidden">
                 {!loading && dayEvents.slice(0, 2).map(ev => {
                   const bg = ev.type === "production" ? getColour(ev.checklist_id) : "#6B7280";
                   const fg = ev.type === "production" ? textFor(bg) : "#FFFFFF";
