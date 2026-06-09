@@ -171,7 +171,7 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
                     className={`text-[10px] font-medium rounded px-1.5 py-0.5 truncate leading-tight ${
                       ev.type === "production"
                         ? "bg-brand text-brown"
-                        : "bg-gray-200 text-gray-600"
+                        : "bg-gray-500 text-white"
                     }`}
                   >
                     {ev.title}

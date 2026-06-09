@@ -170,12 +170,12 @@ export default function Dashboard() {
 
           {/* ── Header ─────────────────────────────────────────────────── */}
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
-              <p className="text-sm text-gray-500">{new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
-            </div>
+            <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
             <Link href="/admin/goods-in" className="btn-primary text-sm hidden sm:inline-flex">+ Goods In</Link>
           </div>
+
+          {/* ── Production Calendar ────────────────────────────────────── */}
+          <ProductionCalendar checklists={checklists} />
 
           {/* ── Alert strip ────────────────────────────────────────────── */}
           {pendingSignOff.length > 0 && (
@@ -231,9 +231,6 @@ export default function Dashboard() {
               </div>
             </section>
           )}
-
-          {/* ── Production Calendar ────────────────────────────────────── */}
-          <ProductionCalendar checklists={checklists} />
 
           {/* ── Checklists ─────────────────────────────────────────────── */}
           <section>
