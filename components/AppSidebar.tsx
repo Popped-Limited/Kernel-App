@@ -146,45 +146,30 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
 
   return (
     <>
-      {mobileOpen && (
-        <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onClose} />
-      )}
-
-      <aside className={`
-        fixed top-0 left-0 z-40 h-screen w-56 bg-brand-light border-r border-brown/10 flex flex-col
-        transition-transform duration-200
-        ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
-        lg:translate-x-0
-      `}>
+      {/* Desktop sidebar — always visible on lg+, hidden on mobile */}
+      <aside className="hidden lg:flex fixed top-0 left-0 z-40 h-screen w-56 bg-brand-light border-r border-brown/10 flex-col">
         {/* Logo */}
-        <Link href="/home" onClick={onClose} className="px-4 py-4 border-b border-brown/15 flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+        <Link href="/home" className="px-4 py-4 border-b border-brown/15 flex items-center gap-2.5 hover:opacity-80 transition-opacity">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/popcorn.png" alt="" className="h-9 w-auto shrink-0 drop-shadow-sm" />
           <p className="font-serif text-4xl text-brown leading-none tracking-tight">Kernel</p>
         </Link>
 
         <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
-
-          {/* Dashboard — always visible */}
           <Link
             href="/home"
-            onClick={onClose}
             className={`flex items-center gap-2.5 rounded-md px-2.5 py-2.5 text-sm font-bold transition-colors ${
-              pathname === "/home"
-                ? "bg-brand text-brown"
-                : "text-brown hover:bg-brand/30"
+              pathname === "/home" ? "bg-brand text-brown" : "text-brown hover:bg-brand/30"
             }`}
           >
             <SvgIcon d={ICONS.home} />
             Dashboard
           </Link>
 
-          {/* Sections — each is a collapsible dropdown */}
           {NAV.filter(section => loading || canSee(role, section.minRole)).map(section => {
             const isOpen = !!openSections[section.title];
             return (
               <div key={section.title}>
-                {/* Section toggle button */}
                 <button
                   onClick={() => toggleSection(section.title)}
                   className="w-full flex items-center gap-2.5 rounded-md px-2.5 py-2.5 text-sm font-bold text-brown hover:bg-brand/30 transition-colors"
@@ -194,10 +179,8 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                   <Chevron open={isOpen} />
                 </button>
 
-                {/* Dropdown items */}
                 {isOpen && (
                   <ul className="mt-0.5 ml-2 space-y-0.5 border-l border-brown/20 pl-3">
-                    {/* Begin Production — only inside Production */}
                     {section.title === "Production" && (
                       <li>
                         <button
@@ -213,7 +196,6 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                               <li key={cl.id}>
                                 <Link
                                   href={`/checklist/${cl.id}`}
-                                  onClick={onClose}
                                   className="block rounded px-2 py-1.5 text-xs text-brown hover:bg-brown/10 transition-colors"
                                 >
                                   {cl.name.replace(" — Production Record", "").replace(" - Production Record", "")}
@@ -224,12 +206,10 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                         )}
                       </li>
                     )}
-
                     {section.items.map(item => (
                       <li key={item.href}>
                         <Link
                           href={item.href}
-                          onClick={onClose}
                           className={`block rounded px-2 py-1.5 text-sm transition-colors ${
                             pathname === item.href || pathname.startsWith(item.href + "/")
                               ? "bg-brand text-brown font-semibold"
@@ -258,6 +238,128 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
           <SignOutButton />
         </div>
       </aside>
+
+      {/* Mobile full-screen menu overlay */}
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex flex-col bg-brand-light">
+          {/* Mobile menu header */}
+          <div className="flex items-center justify-between px-6 py-5 border-b border-brown/15">
+            <p className="font-serif text-5xl text-brown leading-none tracking-tight">Kernel</p>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full bg-brown/10 hover:bg-brown/20 transition-colors"
+              aria-label="Close menu"
+            >
+              <svg className="h-6 w-6 text-brown" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Mobile nav — scrollable */}
+          <nav className="flex-1 overflow-y-auto py-4 px-5 space-y-1">
+            {/* Dashboard */}
+            <Link
+              href="/home"
+              onClick={onClose}
+              className={`flex items-center gap-4 rounded-xl px-4 py-4 text-lg font-bold transition-colors ${
+                pathname === "/home" ? "bg-brand text-brown" : "text-brown hover:bg-brand/30"
+              }`}
+            >
+              <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d={ICONS.home} />
+              </svg>
+              Dashboard
+            </Link>
+
+            {NAV.filter(section => loading || canSee(role, section.minRole)).map(section => {
+              const isOpen = !!openSections[section.title];
+              return (
+                <div key={section.title}>
+                  <button
+                    onClick={() => toggleSection(section.title)}
+                    className="w-full flex items-center gap-4 rounded-xl px-4 py-4 text-lg font-bold text-brown hover:bg-brand/30 transition-colors"
+                  >
+                    <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d={ICONS[section.icon as keyof typeof ICONS]} />
+                    </svg>
+                    <span className="flex-1 text-left">{section.title}</span>
+                    <svg
+                      className={`h-5 w-5 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                      viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    >
+                      <path d="M4 6l4 4 4-4" />
+                    </svg>
+                  </button>
+
+                  {isOpen && (
+                    <ul className="mt-1 ml-4 space-y-0.5 border-l-2 border-brown/20 pl-4">
+                      {section.title === "Production" && (
+                        <li>
+                          <button
+                            onClick={() => setBeginProdOpen(o => !o)}
+                            className="w-full flex items-center gap-3 rounded-lg px-3 py-3.5 text-base text-brown hover:bg-brown/10 transition-colors"
+                          >
+                            <span className="flex-1 text-left font-medium">Begin Production</span>
+                            <svg
+                              className={`h-4 w-4 shrink-0 transition-transform duration-200 ${beginProdOpen ? "rotate-180" : ""}`}
+                              viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                            >
+                              <path d="M4 6l4 4 4-4" />
+                            </svg>
+                          </button>
+                          {beginProdOpen && (
+                            <ul className="mt-0.5 ml-3 space-y-0.5 border-l border-brown/20 pl-3">
+                              {batchChecklists.map(cl => (
+                                <li key={cl.id}>
+                                  <Link
+                                    href={`/checklist/${cl.id}`}
+                                    onClick={onClose}
+                                    className="block rounded-lg px-3 py-3 text-base text-brown hover:bg-brown/10 transition-colors"
+                                  >
+                                    {cl.name.replace(" — Production Record", "").replace(" - Production Record", "")}
+                                  </Link>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
+                      )}
+                      {section.items.map(item => (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            onClick={onClose}
+                            className={`block rounded-lg px-3 py-3.5 text-base transition-colors ${
+                              pathname === item.href || pathname.startsWith(item.href + "/")
+                                ? "bg-brand text-brown font-semibold"
+                                : "text-brown hover:bg-brown/10"
+                            }`}
+                          >
+                            {item.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </nav>
+
+          {/* Mobile footer */}
+          <div className="px-5 py-5 border-t border-brown/15 space-y-2">
+            <button
+              onClick={() => { setSupportOpen(true); onClose(); }}
+              className="w-full flex items-center gap-4 px-4 py-4 rounded-xl text-base text-brown/70 hover:bg-brown/10 hover:text-brown transition-colors text-left"
+            >
+              <SvgIcon d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+              <span className="font-medium">Contact support</span>
+            </button>
+            <SignOutButton />
+          </div>
+        </div>
+      )}
 
       <SupportModal open={supportOpen} onClose={() => setSupportOpen(false)} />
     </>

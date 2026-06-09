@@ -5,12 +5,24 @@
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
+    /* Prevent horizontal overflow causing the page to be wider than the screen */
+    overflow-x: hidden;
   }
   body {
     @apply bg-brand-cream text-gray-900 antialiased;
+    overflow-x: hidden;
   }
   button:focus, button:focus-visible {
     outline: none;
+  }
+  /*
+   * iOS Safari auto-zooms when an <input> or <select> has font-size < 16px.
+   * Force 16px on mobile so the viewport never shifts on focus.
+   */
+  @media (max-width: 1023px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
   }
 }
 
