@@ -255,7 +255,7 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
             <button
               key={dateStr}
               onClick={() => setSelectedDay(isSelected ? null : dateStr)}
-              className={`text-left p-2 min-h-[90px] transition-colors w-full ${
+              className={`text-left p-2 h-[90px] transition-colors w-full ${
                 isSelected ? "bg-brand/20" : isToday ? "bg-brand/10" : "hover:bg-gray-50"
               } ${isPast && !isToday ? "opacity-55" : ""}`}
             >
@@ -265,8 +265,8 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
                   {day.getDate()}
                 </span>
               </div>
-              <div className="space-y-0.5">
-                {!loading && dayEvents.map(ev => {
+              <div className="space-y-0.5 overflow-hidden">
+                {!loading && dayEvents.slice(0, 2).map(ev => {
                   const bg = ev.type === "production" ? getColour(ev.checklist_id) : "#6B7280";
                   const fg = ev.type === "production" ? textFor(bg) : "#FFFFFF";
                   return (
@@ -279,6 +279,9 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
                     </div>
                   );
                 })}
+                {!loading && dayEvents.length > 2 && (
+                  <span className="text-[10px] text-gray-400 font-medium">+{dayEvents.length - 2} more</span>
+                )}
                 {!loading && dayEvents.length === 0 && (
                   <span className="text-[10px] text-gray-300">+ Add</span>
                 )}
