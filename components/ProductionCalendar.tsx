@@ -29,8 +29,12 @@ function addDays(d: Date, n: number): Date {
   return date;
 }
 
+/** Local date string YYYY-MM-DD — avoids UTC shift in BST/other timezones */
 function toDateStr(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -43,7 +47,6 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
   const [loading, setLoading] = useState(true);
   const [addingCustom, setAddingCustom] = useState(false);
   const [customTitle, setCustomTitle] = useState("");
-  const [createdBy, setCreatedBy] = useState("");
   const [saving, setSaving] = useState(false);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -71,14 +74,14 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
   useEffect(() => { setSelectedDay(null); setAddingCustom(false); }, [weekStart]);
 
   async function addEvent(title: string, type: "production" | "custom", checklistId?: string) {
-    if (!selectedDay || !createdBy.trim()) return;
+    if (!selectedDay) return;
     setSaving(true);
     await supabase.from("production_calendar").insert({
       event_date: selectedDay,
       title,
       type,
       checklist_id: checklistId ?? null,
-      created_by: createdBy.trim(),
+      created_by: "",
       organisation_id: orgId ?? null,
     });
     setSaving(false);
@@ -162,21 +165,18 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
                 </span>
               </div>
               <div className="space-y-0.5">
-                {loading
-                  ? null
-                  : dayEvents.map(ev => (
-                    <div
-                      key={ev.id}
-                      className={`text-[10px] font-medium rounded px-1.5 py-0.5 truncate leading-tight ${
-                        ev.type === "production"
-                          ? "bg-brand text-brown"
-                          : "bg-gray-200 text-gray-600"
-                      }`}
-                    >
-                      {ev.title}
-                    </div>
-                  ))
-                }
+                {!loading && dayEvents.map(ev => (
+                  <div
+                    key={ev.id}
+                    className={`text-[10px] font-medium rounded px-1.5 py-0.5 truncate leading-tight ${
+                      ev.type === "production"
+                        ? "bg-brand text-brown"
+                        : "bg-gray-200 text-gray-600"
+                    }`}
+                  >
+                    {ev.title}
+                  </div>
+                ))}
                 {!loading && dayEvents.length === 0 && (
                   <span className="text-[10px] text-gray-300">+ Add</span>
                 )}
@@ -210,10 +210,7 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
                 <div key={ev.id} className="flex items-center justify-between rounded-lg bg-white border border-gray-200 px-3 py-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className={`h-2 w-2 rounded-full shrink-0 ${ev.type === "production" ? "bg-brand" : "bg-gray-400"}`} />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{ev.title}</p>
-                      <p className="text-xs text-gray-400">{ev.created_by}</p>
-                    </div>
+                    <p className="text-sm font-medium text-gray-900 truncate">{ev.title}</p>
                   </div>
                   <button
                     onClick={() => deleteEvent(ev.id)}
@@ -226,18 +223,6 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
             </div>
           )}
 
-          {/* Your name */}
-          <div>
-            <label className="text-xs text-gray-500 font-medium block mb-1">Your name</label>
-            <input
-              type="text"
-              placeholder="e.g. Tom Palmer"
-              value={createdBy}
-              onChange={e => setCreatedBy(e.target.value)}
-              className="input text-sm w-full"
-            />
-          </div>
-
           {/* Production quick-add */}
           {productionChecklists.length > 0 && (
             <div>
@@ -249,8 +234,8 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
                     <button
                       key={cl.id}
                       onClick={() => addEvent(name, "production", cl.id)}
-                      disabled={saving || !createdBy.trim()}
-                      className="text-xs rounded-full px-3 py-1 bg-brand text-brown font-medium hover:bg-brand/70 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      disabled={saving}
+                      className="text-xs rounded-full px-3 py-1 bg-brand text-brown font-medium hover:bg-brand/70 transition disabled:opacity-40"
                     >
                       {name}
                     </button>
@@ -277,13 +262,13 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
                   placeholder="e.g. Prep day, Packing, Deep clean…"
                   value={customTitle}
                   onChange={e => setCustomTitle(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && customTitle.trim() && createdBy.trim() && addEvent(customTitle.trim(), "custom")}
+                  onKeyDown={e => e.key === "Enter" && customTitle.trim() && addEvent(customTitle.trim(), "custom")}
                   className="input text-sm flex-1"
                   autoFocus
                 />
                 <button
                   onClick={() => addEvent(customTitle.trim(), "custom")}
-                  disabled={!customTitle.trim() || saving || !createdBy.trim()}
+                  disabled={!customTitle.trim() || saving}
                   className="btn-primary text-xs shrink-0 disabled:opacity-40"
                 >
                   {saving ? "…" : "Add"}
@@ -297,10 +282,6 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
               </div>
             )}
           </div>
-
-          {!createdBy.trim() && (
-            <p className="text-xs text-amber-600">Enter your name above before adding events.</p>
-          )}
         </div>
       )}
     </section>
