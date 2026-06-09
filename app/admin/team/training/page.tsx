@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useOrganisation } from "@/contexts/OrganisationContext";
 
 interface TeamMember { id: string; name: string; position: string | null; active: boolean; }
 interface TrainingItem { id: string; name: string; sort_order: number; active: boolean; }
@@ -36,6 +37,7 @@ const STATUS_STYLES: Record<CellStatus, string> = {
 };
 
 export default function TrainingPage() {
+  const { orgId } = useOrganisation();
   const [members, setMembers]     = useState<TeamMember[]>([]);
   const [items, setItems]         = useState<TrainingItem[]>([]);
   const [records, setRecords]     = useState<TrainingRecord[]>([]);
@@ -47,7 +49,7 @@ export default function TrainingPage() {
   const [modalBy, setModalBy]     = useState("");
   const [saving, setSaving]       = useState(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (orgId) load(); }, [orgId]);
 
   async function load() {
     const [mRes, iRes, rRes] = await Promise.all([

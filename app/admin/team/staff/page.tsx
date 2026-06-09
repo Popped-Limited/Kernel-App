@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useOrganisation } from "@/contexts/OrganisationContext";
 
 interface TeamMember {
   id: string;
@@ -41,6 +42,7 @@ function certStatus(member: TeamMember): { label: string; cls: string } {
 }
 
 export default function StaffPage() {
+  const { orgId } = useOrganisation();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<TeamMember | null>(null);
@@ -50,13 +52,14 @@ export default function StaffPage() {
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { load(); }, []);
 
   async function load() {
     const { data } = await supabase.from("team_members").select("*").order("name");
     setMembers((data ?? []) as TeamMember[]);
     setLoading(false);
   }
+
+  useEffect(() => { if (orgId) load(); }, [orgId]);
 
   function openAdd() {
     setEditing(emptyMember() as TeamMember);
@@ -88,6 +91,7 @@ export default function StaffPage() {
       food_safety_cert_path: editing.food_safety_cert_path,
       food_safety_cert_expiry: editing.food_safety_cert_expiry || null,
       active: editing.active,
+      organisation_id: orgId,
     };
 
     if (isNew) {
