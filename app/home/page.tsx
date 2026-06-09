@@ -176,10 +176,10 @@ export default function Dashboard() {
           {/* ── Header ─────────────────────────────────────────────────── */}
           <div className="flex items-center justify-between">
             <div className="flex items-baseline gap-3">
-              <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
               {orgName && (
                 <span className="text-xl font-bold text-gray-900">{orgName}</span>
               )}
+              <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
             </div>
             <Link href="/admin/goods-in" className="btn-primary text-sm hidden sm:inline-flex">+ Goods In</Link>
           </div>
