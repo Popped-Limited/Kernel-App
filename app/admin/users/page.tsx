@@ -38,7 +38,7 @@ function formatDate(iso: string) {
 }
 
 export default function UsersPage() {
-  const { role: myRole, orgId, orgName } = useOrganisation();
+  const { role: myRole, orgId, orgName, setOrgName } = useOrganisation();
   const [members, setMembers]   = useState<Member[]>([]);
   const [invites, setInvites]   = useState<Invite[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -131,7 +131,7 @@ export default function UsersPage() {
       .eq("id", orgId!);
     setNameSaving(false);
     if (error) { setNameError(error.message); }
-    else { setNameSuccess("Saved — refresh the dashboard to see the updated name"); }
+    else { setOrgName(companyName.trim()); setNameSuccess("Saved"); }
   }
 
   async function sendInvite(e: React.FormEvent) {

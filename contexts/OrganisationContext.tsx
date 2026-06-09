@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 interface OrgContext {
   orgId: string | null;
   orgName: string | null;
+  setOrgName: (name: string) => void;
   role: "admin" | "manager" | "staff" | null;
   subscriptionStatus: string | null;
   trialEndsAt: string | null;
@@ -12,7 +13,7 @@ interface OrgContext {
   loading: boolean;
 }
 const Ctx = createContext<OrgContext>({
-  orgId: null, orgName: null, role: null,
+  orgId: null, orgName: null, setOrgName: () => {}, role: null,
   subscriptionStatus: null, trialEndsAt: null, stripeCustomerId: null,
   loading: true,
 });
@@ -69,7 +70,7 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
   }, []);
 
   return (
-    <Ctx.Provider value={{ orgId, orgName, role, subscriptionStatus, trialEndsAt, stripeCustomerId, loading }}>
+    <Ctx.Provider value={{ orgId, orgName, setOrgName, role, subscriptionStatus, trialEndsAt, stripeCustomerId, loading }}>
       {children}
     </Ctx.Provider>
   );
