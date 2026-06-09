@@ -303,8 +303,8 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
               className="text-gray-400 hover:text-gray-600 text-xl leading-none"
             >×</button>
           </div>
-          {/* Scrollable content */}
-          <div className="p-4 space-y-3">
+          {/* Scrollable content — capped height so date header never drifts */}
+          <div className="p-4 space-y-3 max-h-72 overflow-y-auto">
 
           {/* Existing events */}
           {selectedDayEvents.length > 0 && (
