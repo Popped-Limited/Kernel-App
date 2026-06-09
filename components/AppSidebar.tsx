@@ -243,8 +243,8 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex flex-col bg-brand-light">
           {/* Mobile menu header */}
-          <div className="flex items-center justify-between px-6 py-5 border-b border-brown/15">
-            <p className="font-serif text-5xl text-brown leading-none tracking-tight">Kernel</p>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-brown/15">
+            <p className="font-serif text-3xl text-brown leading-none tracking-tight">Kernel</p>
             <button
               onClick={onClose}
               className="p-2 rounded-full bg-brown/10 hover:bg-brown/20 transition-colors"
@@ -262,11 +262,11 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
             <Link
               href="/home"
               onClick={onClose}
-              className={`flex items-center gap-4 rounded-xl px-4 py-4 text-lg font-bold transition-colors ${
+              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-colors ${
                 pathname === "/home" ? "bg-brand text-brown" : "text-brown hover:bg-brand/30"
               }`}
             >
-              <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d={ICONS.home} />
               </svg>
               Dashboard
@@ -278,14 +278,14 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                 <div key={section.title}>
                   <button
                     onClick={() => toggleSection(section.title)}
-                    className="w-full flex items-center gap-4 rounded-xl px-4 py-4 text-lg font-bold text-brown hover:bg-brand/30 transition-colors"
+                    className="w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-brown hover:bg-brand/30 transition-colors"
                   >
-                    <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d={ICONS[section.icon as keyof typeof ICONS]} />
                     </svg>
                     <span className="flex-1 text-left">{section.title}</span>
                     <svg
-                      className={`h-5 w-5 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                      className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
                       viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
                     >
                       <path d="M4 6l4 4 4-4" />
@@ -293,29 +293,29 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                   </button>
 
                   {isOpen && (
-                    <ul className="mt-1 ml-4 space-y-0.5 border-l-2 border-brown/20 pl-4">
+                    <ul className="mt-0.5 ml-3 space-y-0.5 border-l-2 border-brown/20 pl-3">
                       {section.title === "Production" && (
                         <li>
                           <button
                             onClick={() => setBeginProdOpen(o => !o)}
-                            className="w-full flex items-center gap-3 rounded-lg px-3 py-3.5 text-base text-brown hover:bg-brown/10 transition-colors"
+                            className="w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-brown hover:bg-brown/10 transition-colors"
                           >
                             <span className="flex-1 text-left font-medium">Begin Production</span>
                             <svg
-                              className={`h-4 w-4 shrink-0 transition-transform duration-200 ${beginProdOpen ? "rotate-180" : ""}`}
+                              className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${beginProdOpen ? "rotate-180" : ""}`}
                               viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
                             >
                               <path d="M4 6l4 4 4-4" />
                             </svg>
                           </button>
                           {beginProdOpen && (
-                            <ul className="mt-0.5 ml-3 space-y-0.5 border-l border-brown/20 pl-3">
+                            <ul className="mt-0.5 ml-2 space-y-0.5 border-l border-brown/20 pl-3">
                               {batchChecklists.map(cl => (
                                 <li key={cl.id}>
                                   <Link
                                     href={`/checklist/${cl.id}`}
                                     onClick={onClose}
-                                    className="block rounded-lg px-3 py-3 text-base text-brown hover:bg-brown/10 transition-colors"
+                                    className="block rounded-lg px-3 py-2.5 text-sm text-brown hover:bg-brown/10 transition-colors"
                                   >
                                     {cl.name.replace(" — Production Record", "").replace(" - Production Record", "")}
                                   </Link>
@@ -330,7 +330,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                           <Link
                             href={item.href}
                             onClick={onClose}
-                            className={`block rounded-lg px-3 py-3.5 text-base transition-colors ${
+                            className={`block rounded-lg px-3 py-2.5 text-sm transition-colors ${
                               pathname === item.href || pathname.startsWith(item.href + "/")
                                 ? "bg-brand text-brown font-semibold"
                                 : "text-brown hover:bg-brown/10"
@@ -348,13 +348,13 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
           </nav>
 
           {/* Mobile footer */}
-          <div className="px-5 py-5 border-t border-brown/15 space-y-2">
+          <div className="px-3 py-4 border-t border-brown/15 space-y-1">
             <button
               onClick={() => { setSupportOpen(true); onClose(); }}
-              className="w-full flex items-center gap-4 px-4 py-4 rounded-xl text-base text-brown/70 hover:bg-brown/10 hover:text-brown transition-colors text-left"
+              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-brown/70 hover:bg-brown/10 hover:text-brown transition-colors text-left"
             >
               <SvgIcon d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
-              <span className="font-medium">Contact support</span>
+              Contact support
             </button>
             <SignOutButton />
           </div>

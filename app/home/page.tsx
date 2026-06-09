@@ -213,14 +213,14 @@ export default function Dashboard() {
                         <p className="text-sm font-medium text-brown truncate">{(d.checklist as Checklist | undefined)?.name ?? "Batch record"}</p>
                         <p className="text-xs text-brown/60">{d.started_by} · {ago}</p>
                       </Link>
-                      <Link href={`/checklist/${d.checklist_id}`} className="text-xs text-brown/70 shrink-0 hover:text-brown transition">Continue →</Link>
+                      <Link href={`/checklist/${d.checklist_id}`} className="hidden sm:block text-xs text-brown/70 shrink-0 hover:text-brown transition">Continue →</Link>
                       <button
                         onClick={async () => {
                           if (!confirm("Delete this in-progress draft? This can't be undone.")) return;
                           await supabase.from("batch_drafts").delete().eq("id", d.id);
                           load();
                         }}
-                        className="shrink-0 ml-1 rounded p-1 text-brown/40 hover:text-red-600 hover:bg-red-50 transition"
+                        className="hidden sm:block shrink-0 ml-1 rounded p-1 text-brown/40 hover:text-red-600 hover:bg-red-50 transition"
                         title="Delete draft"
                       >
                         <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
