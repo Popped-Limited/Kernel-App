@@ -232,6 +232,9 @@ export default function Dashboard() {
             </section>
           )}
 
+          {/* ── Production Calendar ────────────────────────────────────── */}
+          <ProductionCalendar checklists={checklists} />
+
           {/* ── Checklists ─────────────────────────────────────────────── */}
           <section>
             <h2 className="text-sm font-semibold text-gray-700 mb-3">Checklists</h2>
@@ -260,9 +263,6 @@ export default function Dashboard() {
               )}
             </div>
           </section>
-
-          {/* ── Production Calendar ────────────────────────────────────── */}
-          <ProductionCalendar checklists={checklists} />
 
         </main>
 
