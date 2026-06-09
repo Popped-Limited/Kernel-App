@@ -290,8 +290,9 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
 
       {/* Day panel */}
       {selectedDay && (
-        <div className="border-t border-brand/20 bg-brand/5 p-4 space-y-3">
-          <div className="flex items-center justify-between">
+        <div className="border-t border-brand/20 bg-brand/5">
+          {/* Pinned date header — always visible regardless of content below */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-brand/10">
             <p className="text-sm font-semibold text-gray-900">
               {new Date(selectedDay + "T12:00:00").toLocaleDateString("en-GB", {
                 weekday: "long", day: "numeric", month: "long",
@@ -302,6 +303,8 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
               className="text-gray-400 hover:text-gray-600 text-xl leading-none"
             >×</button>
           </div>
+          {/* Scrollable content */}
+          <div className="p-4 space-y-3">
 
           {/* Existing events */}
           {selectedDayEvents.length > 0 && (
@@ -403,6 +406,7 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
               </div>
             )}
           </div>
+          </div>{/* end scrollable content */}
         </div>
       )}
     </section>
