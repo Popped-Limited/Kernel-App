@@ -36,6 +36,7 @@ export interface Checklist {
   created_at: string;
   public_token: string | null;
   organisation_id: string | null;
+  color: string | null;
 }
 
 export interface Question {
