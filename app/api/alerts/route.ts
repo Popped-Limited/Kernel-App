@@ -108,9 +108,10 @@ export async function POST(req: NextRequest) {
   // Log alerts
   for (const m of missed) {
     await supabase.from("alert_log").insert({
-      checklist_id: m.id,
-      recipient: ALERT_EMAIL,
-      message: `Missed check: ${m.name}`,
+      checklist_id:    m.id,
+      organisation_id: ALERT_ORG_ID,
+      recipient:       ALERT_EMAIL,
+      message:         `Missed check: ${m.name}`,
     });
   }
 

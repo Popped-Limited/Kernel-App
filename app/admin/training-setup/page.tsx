@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useOrganisation } from "@/contexts/OrganisationContext";
 
 interface TrainingItem {
   id: string;
@@ -11,13 +12,14 @@ interface TrainingItem {
 }
 
 export default function TrainingSetupPage() {
+  const { orgId } = useOrganisation();
   const [items, setItems]       = useState<TrainingItem[]>([]);
   const [loading, setLoading]   = useState(true);
   const [newName, setNewName]   = useState("");
   const [adding, setAdding]     = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (orgId) load(); }, [orgId]);
 
   async function load() {
     const { data } = await supabase.from("training_items").select("*").order("sort_order").order("name");
@@ -31,10 +33,10 @@ export default function TrainingSetupPage() {
   }
 
   async function addItem() {
-    if (!newName.trim()) return;
+    if (!newName.trim() || !orgId) return;
     setAdding(true);
     const maxOrder = items.reduce((m, i) => Math.max(m, i.sort_order), 0);
-    await supabase.from("training_items").insert({ name: newName.trim(), sort_order: maxOrder + 1, active: true });
+    await supabase.from("training_items").insert({ name: newName.trim(), sort_order: maxOrder + 1, active: true, organisation_id: orgId });
     setNewName("");
     await load();
     setAdding(false);

@@ -88,6 +88,7 @@ export default function TrainingPage() {
       training_item_id: modal.itemId,
       completed_at:     modalDate || null,
       completed_by:     modalBy.trim() || null,
+      organisation_id:  orgId,
     };
     const existing = recordMap[modal.memberId]?.[modal.itemId];
     if (existing) {
