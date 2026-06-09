@@ -259,6 +259,7 @@ export default function ChecklistPage() {
       await supabase.from("batch_drafts").upsert({
         id: currentId,
         checklist_id: id,
+        organisation_id: checklist?.organisation_id ?? null,
         started_by: by || "Unknown",
         last_saved_at: new Date().toISOString(),
         answers: newAnswers,
