@@ -242,8 +242,8 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
         </div>
       </div>
 
-      {/* 7-day grid */}
-      <div className="grid grid-cols-7 divide-x divide-gray-100 border-b border-gray-100">
+      {/* 7-day grid — fixed height container so the day panel never drifts */}
+      <div className="grid grid-cols-7 divide-x divide-gray-100 border-b border-gray-100 h-[90px] overflow-hidden">
         {days.map((day, i) => {
           const dateStr = toDateStr(day);
           const isToday = dateStr === todayStr;
@@ -255,7 +255,7 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
             <button
               key={dateStr}
               onClick={() => setSelectedDay(isSelected ? null : dateStr)}
-              className={`text-left p-2 h-[90px] transition-colors w-full ${
+              className={`text-left p-2 h-full transition-colors w-full ${
                 isSelected ? "bg-brand/20" : isToday ? "bg-brand/10" : "hover:bg-gray-50"
               } ${isPast && !isToday ? "opacity-55" : ""}`}
             >
