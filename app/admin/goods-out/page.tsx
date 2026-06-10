@@ -304,12 +304,16 @@ export default function GoodsOutPage() {
     if (goodsOutChecklistId) {
       try {
         const grandTotal = inserts.reduce((s, r) => s + r.total_units, 0);
-        const itemLines = inserts.map(r => {
+        const itemLines = inserts.map((r, idx) => {
           const parts: string[] = [];
           if (r.cases_of_6) parts.push(`${r.cases_of_6}×6`);
           if (r.cases_of_3) parts.push(`${r.cases_of_3}×3`);
           if (r.singles) parts.push(`${r.singles} singles`);
-          return `  • ${r.product}: ${parts.join(", ")} (${r.total_units} units)`;
+          // Pull batch code + BBE from the linked production record
+          const linkedSub = batchSubmissions.find(b => b.id === rows[idx]?.batchSubmissionId);
+          const { batchCode, bbeDate } = linkedSub ? batchSummary((linkedSub as any).answers ?? []) : { batchCode: "", bbeDate: "" };
+          const traceability = [batchCode && `Batch: ${batchCode}`, bbeDate && `BBE: ${bbeDate}`].filter(Boolean).join(" · ");
+          return `  • ${r.product}: ${parts.join(", ")} (${r.total_units} units)${traceability ? ` — ${traceability}` : ""}`;
         });
         const batchNotes = [
           `Customer: ${customer.trim()}`,
