@@ -5,8 +5,86 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
-import type { Ingredient, IngredientLot } from "@/lib/types";
+import type { Ingredient, IngredientLot, Question } from "@/lib/types";
 import { formatDate, todayJulianCode } from "@/lib/utils";
+
+/** Returns current local datetime as YYYY-MM-DDThh:mm for datetime-local inputs */
+function nowLocalDateTime() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function renderComplianceField(
+  q: Question,
+  value: string,
+  onChange: (v: string) => void,
+) {
+  const base = "input text-sm py-1.5 w-full";
+  if (q.type === "dropdown" && q.options?.length) {
+    return (
+      <select value={value} onChange={e => onChange(e.target.value)} className={base}>
+        <option value="">Select…</option>
+        {q.options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    );
+  }
+  if (q.type === "multiple_choice" && q.options?.length) {
+    return (
+      <div className="flex flex-wrap gap-2 mt-0.5">
+        {q.options.map(o => (
+          <button
+            key={o}
+            type="button"
+            onClick={() => onChange(o)}
+            className={`px-3 py-1 rounded-full text-xs border transition-colors ${value === o ? "bg-brand border-brand/50 text-brown font-medium" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
+          >
+            {o}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  if (q.type === "checkbox") {
+    return (
+      <div className="flex gap-2 mt-0.5">
+        {["Yes", "No"].map(o => (
+          <button
+            key={o}
+            type="button"
+            onClick={() => onChange(o)}
+            className={`px-4 py-1.5 rounded-full text-xs border transition-colors ${value === o ? "bg-brand border-brand/50 text-brown font-medium" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
+          >
+            {o}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  if (q.type === "number") {
+    return (
+      <input
+        type="number"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className={base}
+        inputMode="decimal"
+        step="any"
+        placeholder={q.hint ?? ""}
+      />
+    );
+  }
+  // default: text
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className={base}
+      placeholder={q.hint ?? ""}
+    />
+  );
+}
 
 interface IngredientRow {
   ingredientId: string;
@@ -38,10 +116,12 @@ export default function GoodsInPage() {
   const [backfillResult, setBackfillResult] = useState<string | null>(null);
 
   const [rows, setRows] = useState<IngredientRow[]>([emptyRow()]);
-  const [receivedDate, setReceivedDate] = useState(new Date().toISOString().slice(0, 10));
+  const [receivedDateTime, setReceivedDateTime] = useState(nowLocalDateTime());
   const [supplierId, setSupplierId] = useState("");
   const [loggedBy, setLoggedBy] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [goodsInQuestions, setGoodsInQuestions] = useState<Question[]>([]);
+  const [complianceAnswers, setComplianceAnswers] = useState<Record<string, string>>({});
 
   // Edit lot panel
   const [editingLot, setEditingLot]       = useState<(IngredientLot & { ingredient: Ingredient }) | null>(null);
@@ -58,7 +138,7 @@ export default function GoodsInPage() {
   );
   const unitById = Object.fromEntries(ingredients.map(i => [i.id, i.unit ?? "g"]));
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (orgId) load(); }, [orgId]);
 
   async function load() {
     const [ingRes, lotRes, supRes, clRes] = await Promise.all([
@@ -79,7 +159,15 @@ export default function GoodsInPage() {
     if (ingRes.data) setIngredients(ingRes.data);
     if (lotRes.data) setRecentLots(lotRes.data as (IngredientLot & { ingredient: Ingredient })[]);
     if (supRes.data) setSuppliers(supRes.data as Supplier[]);
-    if (clRes.data?.id) setGoodsInChecklistId(clRes.data.id);
+    if (clRes.data?.id) {
+      setGoodsInChecklistId(clRes.data.id);
+      const { data: qData } = await supabase
+        .from("questions")
+        .select("*")
+        .eq("checklist_id", clRes.data.id)
+        .order("order_index");
+      if (qData) setGoodsInQuestions(qData as Question[]);
+    }
     setLoading(false);
   }
 
@@ -187,6 +275,7 @@ export default function GoodsInPage() {
     setSaving(true);
 
     const supplierName = suppliers.find(s => s.id === supplierId)?.name ?? null;
+    const receivedDate = receivedDateTime.slice(0, 10);
     const inserts = rows.map(row => {
       const qty = Number(row.quantityG);
       return {
@@ -219,10 +308,16 @@ export default function GoodsInPage() {
         });
         const batchNotes = [
           `Supplier: ${supplierName ?? "Unknown"}`,
-          `Date received: ${receivedDate}`,
+          `Date & time received: ${receivedDateTime.replace("T", " ")}`,
           `Items:`,
           ...itemLines.map(l => `  • ${l}`),
         ].join("\n");
+
+        const answers = goodsInQuestions.map(q => ({
+          question_id: q.id,
+          question_label: q.label,
+          answer: complianceAnswers[q.id] ?? "",
+        }));
 
         const compRes = await fetch("/api/submit", {
           method: "POST",
@@ -231,7 +326,7 @@ export default function GoodsInPage() {
             checklist_id: goodsInChecklistId,
             organisation_id: orgId ?? null,
             submitted_by: loggedBy.trim(),
-            answers: [],
+            answers,
             batch_notes: batchNotes,
           }),
         });
@@ -248,6 +343,8 @@ export default function GoodsInPage() {
     setSaved(true);
     setRows([emptyRow()]);
     setSupplierId("");
+    setComplianceAnswers({});
+    setReceivedDateTime(nowLocalDateTime());
     setErrors({});
     await load();
     setTimeout(() => setSaved(false), 3000);
@@ -288,11 +385,11 @@ export default function GoodsInPage() {
             {/* Shared delivery details */}
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
-                <label className="label">Date received *</label>
+                <label className="label">Date &amp; time received *</label>
                 <input
-                  type="date"
-                  value={receivedDate}
-                  onChange={e => setReceivedDate(e.target.value)}
+                  type="datetime-local"
+                  value={receivedDateTime}
+                  onChange={e => setReceivedDateTime(e.target.value)}
                   className="input"
                 />
               </div>
@@ -465,6 +562,27 @@ export default function GoodsInPage() {
                 + Add another ingredient
               </button>
             </div>
+
+            {/* Delivery checks */}
+            {goodsInQuestions.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900 border-t border-gray-100 pt-4">Delivery checks</h3>
+                {goodsInQuestions.map(q => (
+                  <div key={q.id}>
+                    <label className="text-xs text-gray-600 block mb-1 font-medium">
+                      {q.label}
+                      {q.required && <span className="text-red-400 ml-0.5">*</span>}
+                    </label>
+                    {q.hint && <p className="text-xs text-gray-400 mb-1">{q.hint}</p>}
+                    {renderComplianceField(
+                      q,
+                      complianceAnswers[q.id] ?? "",
+                      v => setComplianceAnswers(prev => ({ ...prev, [q.id]: v })),
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {complianceWarning && (
               <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">

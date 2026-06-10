@@ -5,8 +5,85 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
-import type { Dispatch, Submission, Checklist } from "@/lib/types";
+import type { Dispatch, Submission, Checklist, Question } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
+
+/** Returns current local datetime as YYYY-MM-DDThh:mm for datetime-local inputs */
+function nowLocalDateTime() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function renderComplianceField(
+  q: Question,
+  value: string,
+  onChange: (v: string) => void,
+) {
+  const base = "input text-sm py-1.5 w-full";
+  if (q.type === "dropdown" && q.options?.length) {
+    return (
+      <select value={value} onChange={e => onChange(e.target.value)} className={base}>
+        <option value="">Select…</option>
+        {q.options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    );
+  }
+  if (q.type === "multiple_choice" && q.options?.length) {
+    return (
+      <div className="flex flex-wrap gap-2 mt-0.5">
+        {q.options.map(o => (
+          <button
+            key={o}
+            type="button"
+            onClick={() => onChange(o)}
+            className={`px-3 py-1 rounded-full text-xs border transition-colors ${value === o ? "bg-brand border-brand/50 text-brown font-medium" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
+          >
+            {o}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  if (q.type === "checkbox") {
+    return (
+      <div className="flex gap-2 mt-0.5">
+        {["Yes", "No"].map(o => (
+          <button
+            key={o}
+            type="button"
+            onClick={() => onChange(o)}
+            className={`px-4 py-1.5 rounded-full text-xs border transition-colors ${value === o ? "bg-brand border-brand/50 text-brown font-medium" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
+          >
+            {o}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  if (q.type === "number") {
+    return (
+      <input
+        type="number"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className={base}
+        inputMode="decimal"
+        step="any"
+        placeholder={q.hint ?? ""}
+      />
+    );
+  }
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className={base}
+      placeholder={q.hint ?? ""}
+    />
+  );
+}
 
 interface ProductRow {
   product: string;
@@ -20,9 +97,10 @@ function emptyRow(): ProductRow {
   return { product: "", casesOf6: "0", casesOf3: "0", singles: "0", batchSubmissionId: "" };
 }
 
-/** Pull batch code + total jars out of a submission's answers */
+/** Pull batch code, BBE date, and total jars out of a submission's answers */
 function batchSummary(answers: Array<{ value: string | null; question: { type: string; label: string } | null }>) {
   let batchCode = "";
+  let bbeDate = "";
   let totalUnits = 0;      // from explicit "total units produced" field
   let jarsUsedFallback = 0; // from jars_used in packing_runs
   for (const ans of answers ?? []) {
@@ -41,8 +119,11 @@ function batchSummary(answers: Array<{ value: string | null; question: { type: s
     if (!batchCode && type === "text" && (label.includes("batch") || label.includes("lot")) && ans.value) {
       batchCode = ans.value;
     }
+    if (!bbeDate && (label.includes("best before") || label.includes("bbe")) && ans.value) {
+      bbeDate = ans.value;
+    }
   }
-  return { batchCode, totalJars: totalUnits > 0 ? totalUnits : jarsUsedFallback };
+  return { batchCode, bbeDate, totalJars: totalUnits > 0 ? totalUnits : jarsUsedFallback };
 }
 
 export default function GoodsOutPage() {
@@ -77,12 +158,14 @@ export default function GoodsOutPage() {
 
   const [rows, setRows] = useState<ProductRow[]>([emptyRow()]);
   const [customer, setCustomer] = useState("");
-  const [dispatchDate, setDispatchDate] = useState(new Date().toISOString().slice(0, 10));
+  const [dispatchDateTime, setDispatchDateTime] = useState(nowLocalDateTime());
   const [reference, setReference] = useState("");
   const [dispatchedBy, setDispatchedBy] = useState("");
   const [notes, setNotes] = useState("");
+  const [goodsOutQuestions, setGoodsOutQuestions] = useState<Question[]>([]);
+  const [complianceAnswers, setComplianceAnswers] = useState<Record<string, string>>({});
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (orgId) load(); }, [orgId]);
 
   async function load() {
     // Fetch checklists first so we can filter submissions to production-only at the DB level
@@ -102,7 +185,15 @@ export default function GoodsOutPage() {
         .maybeSingle(),
     ]);
     if (clData) setProductChecklists(clData as Checklist[]);
-    if (goChecklist?.id) setGoodsOutChecklistId(goChecklist.id);
+    if (goChecklist?.id) {
+      setGoodsOutChecklistId(goChecklist.id);
+      const { data: qData } = await supabase
+        .from("questions")
+        .select("*")
+        .eq("checklist_id", goChecklist.id)
+        .order("order_index");
+      if (qData) setGoodsOutQuestions(qData as Question[]);
+    }
 
     // Use production checklist IDs to fetch only production submissions (no wasted limit)
     const productionChecklistIds = (clData ?? []).map(cl => cl.id);
@@ -189,6 +280,7 @@ export default function GoodsOutPage() {
     if (!validate()) return;
     setSaving(true);
 
+    const dispatchDate = dispatchDateTime.slice(0, 10);
     const inserts = rows.map(row => ({
       dispatch_date: dispatchDate,
       product: row.product,
@@ -221,13 +313,19 @@ export default function GoodsOutPage() {
         });
         const batchNotes = [
           `Customer: ${customer.trim()}`,
-          `Date dispatched: ${dispatchDate}`,
+          `Date & time dispatched: ${dispatchDateTime.replace("T", " ")}`,
           ...(reference.trim() ? [`Reference: ${reference.trim()}`] : []),
           `Products:`,
           ...itemLines,
           `Total: ${grandTotal} units`,
           ...(notes.trim() ? [`Notes: ${notes.trim()}`] : []),
         ].join("\n");
+
+        const answers = goodsOutQuestions.map(q => ({
+          question_id: q.id,
+          question_label: q.label,
+          answer: complianceAnswers[q.id] ?? "",
+        }));
 
         const compRes = await fetch("/api/submit", {
           method: "POST",
@@ -236,7 +334,7 @@ export default function GoodsOutPage() {
             checklist_id: goodsOutChecklistId,
             organisation_id: orgId ?? null,
             submitted_by: dispatchedBy.trim(),
-            answers: [],
+            answers,
             batch_notes: batchNotes,
           }),
         });
@@ -255,6 +353,8 @@ export default function GoodsOutPage() {
     setCustomer("");
     setReference("");
     setNotes("");
+    setComplianceAnswers({});
+    setDispatchDateTime(nowLocalDateTime());
     setErrors({});
     await load();
     setTimeout(() => setSaved(false), 3000);
@@ -330,8 +430,8 @@ export default function GoodsOutPage() {
                 {errors.customer && <p className="mt-1 text-xs text-red-600">{errors.customer}</p>}
               </div>
               <div>
-                <label className="label">Dispatch date *</label>
-                <input type="date" value={dispatchDate} onChange={e => setDispatchDate(e.target.value)} className="input" />
+                <label className="label">Date &amp; time dispatched *</label>
+                <input type="datetime-local" value={dispatchDateTime} onChange={e => setDispatchDateTime(e.target.value)} className="input" />
               </div>
               <div>
                 <label className="label">Order reference</label>
@@ -481,16 +581,25 @@ export default function GoodsOutPage() {
                         {row.batchSubmissionId && (() => {
                           const s = batchSubmissions.find(b => b.id === row.batchSubmissionId);
                           if (!s) return null;
-                          const { totalJars } = batchSummary((s as any).answers ?? []);
+                          const { batchCode, bbeDate, totalJars } = batchSummary((s as any).answers ?? []);
                           const alreadyDispatched = dispatchedPerBatch[s.id] ?? 0;
                           const otherRowsAlloc = (formAllocatedPerBatch[s.id] ?? 0) - total;
                           const remaining = totalJars - alreadyDispatched - otherRowsAlloc;
-                          if (remaining < 0) return (
-                            <p className="mt-1 text-xs text-red-600 font-medium">
-                              Over-allocated by {Math.abs(remaining)} units
-                            </p>
+                          return (
+                            <>
+                              {(batchCode || bbeDate) && (
+                                <div className="mt-2 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
+                                  {batchCode && <span><span className="font-medium text-gray-500">Batch:</span> {batchCode}</span>}
+                                  {bbeDate && <span><span className="font-medium text-gray-500">BBE:</span> {bbeDate}</span>}
+                                </div>
+                              )}
+                              {remaining < 0 && (
+                                <p className="mt-1 text-xs text-red-600 font-medium">
+                                  Over-allocated by {Math.abs(remaining)} units
+                                </p>
+                              )}
+                            </>
                           );
-                          return null;
                         })()}
                       </div>
                     </div>
@@ -506,6 +615,27 @@ export default function GoodsOutPage() {
                 + Add another product
               </button>
             </div>
+
+            {/* Dispatch checks */}
+            {goodsOutQuestions.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900 border-t border-gray-100 pt-4">Dispatch checks</h3>
+                {goodsOutQuestions.map(q => (
+                  <div key={q.id}>
+                    <label className="text-xs text-gray-600 block mb-1 font-medium">
+                      {q.label}
+                      {q.required && <span className="text-red-400 ml-0.5">*</span>}
+                    </label>
+                    {q.hint && <p className="text-xs text-gray-400 mb-1">{q.hint}</p>}
+                    {renderComplianceField(
+                      q,
+                      complianceAnswers[q.id] ?? "",
+                      v => setComplianceAnswers(prev => ({ ...prev, [q.id]: v })),
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {grandTotal > 0 && (
               <p className="text-sm text-gray-600">
