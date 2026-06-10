@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     const { data: org, error: orgError } = await supabaseAdmin
       .from("organisations")
-      .insert({ name: org_name.trim(), slug, plan: "trial" })
+      .insert({ name: org_name.trim(), slug, plan: "unpopped" })
       .select("id")
       .single();
 
