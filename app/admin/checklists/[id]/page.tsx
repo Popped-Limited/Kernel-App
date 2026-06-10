@@ -438,6 +438,8 @@ function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel }:
   onCancel: () => void;
 }) {
   const needsOptions = question.type === "dropdown" || question.type === "multiple_choice";
+  const isMultiNumber = question.type === "multi_number";
+  const boxCount = Math.min(5, Math.max(1, parseInt(question.options?.[0] ?? "3") || 3));
 
   // Keep raw options text in local state so Enter key works naturally.
   // Blank lines are only stripped in saveQuestion() at save time.
@@ -474,13 +476,19 @@ function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel }:
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">Answer type</label>
-            <select
-              value={question.type ?? "checkbox"}
-              onChange={e => onChange({ ...question, type: e.target.value as QuestionType, options: null, follow_up: null })}
-              className="input"
-            >
-              {QUESTION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
+            {isMultiNumber ? (
+              <div className="input bg-gray-50 text-gray-500 cursor-not-allowed flex items-center">
+                Weight checks (multi-number)
+              </div>
+            ) : (
+              <select
+                value={question.type ?? "checkbox"}
+                onChange={e => onChange({ ...question, type: e.target.value as QuestionType, options: null, follow_up: null })}
+                className="input"
+              >
+                {QUESTION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            )}
           </div>
           <div className="flex flex-col justify-end pb-0.5">
             <label className="flex items-center gap-2 cursor-pointer">
@@ -510,6 +518,29 @@ function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel }:
               className="input font-mono text-xs"
               placeholder={"Yes\nNo\nNot applicable"}
             />
+          </div>
+        )}
+
+        {isMultiNumber && (
+          <div>
+            <label className="label">Number of boxes <span className="text-gray-400 font-normal text-xs">— how many weight checks to record</span></label>
+            <div className="flex gap-2 mt-0.5">
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => onChange({ ...question, options: [String(n)] })}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                    boxCount === n
+                      ? "bg-brand text-white border-brand"
+                      : "bg-white text-gray-700 border-gray-300 hover:border-brand/50"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">The batch record will show {boxCount} input box{boxCount === 1 ? "" : "es"} for this question.</p>
           </div>
         )}
 
