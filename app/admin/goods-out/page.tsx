@@ -327,8 +327,7 @@ export default function GoodsOutPage() {
 
         const answers = goodsOutQuestions.map(q => ({
           question_id: q.id,
-          question_label: q.label,
-          answer: complianceAnswers[q.id] ?? "",
+          value: complianceAnswers[q.id] ?? null,
         }));
 
         const compRes = await fetch("/api/submit", {
