@@ -464,8 +464,7 @@ export default function GoodsOutPage() {
               {rows.map((row, idx) => {
                 const total = rowTotal(row);
 
-                // All batches for this product — never filter by remaining stock,
-                // a batch must always be selectable for traceability purposes.
+                // All batches for this product.
                 // Strip "— Production Record" suffix before comparing (same logic as dropdown)
                 const productBatches = batchSubmissions.filter(s => {
                   if (!row.product) return false;
@@ -572,6 +571,10 @@ export default function GoodsOutPage() {
                             const thisRowAlloc = row.batchSubmissionId === s.id ? total : 0;
                             const otherRowsAlloc = (formAllocatedPerBatch[s.id] ?? 0) - thisRowAlloc;
                             const remaining = totalJars > 0 ? totalJars - alreadyDispatched - otherRowsAlloc : null;
+                            // Hide fully-dispatched batches (0 or negative remaining), unless
+                            // this row already has it selected — so the selection never vanishes.
+                            const isSelected = row.batchSubmissionId === s.id;
+                            if (remaining !== null && remaining <= 0 && !isSelected) return null;
                             const label = [
                               batchCode ? `Batch ${batchCode}` : formatDate(s.submitted_at.slice(0, 10)),
                               remaining !== null ? `${remaining.toLocaleString()} remaining` : null,
