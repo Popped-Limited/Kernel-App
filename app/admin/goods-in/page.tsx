@@ -602,7 +602,7 @@ export default function GoodsInPage() {
 
             <div className="flex items-center gap-3 pt-1">
               <button type="submit" disabled={saving} className="btn-primary">
-                {saving ? "Saving…" : `Save ${rows.length} ingredient${rows.length !== 1 ? "s" : ""}`}
+                {saving ? "Saving…" : "Save delivery"}
               </button>
               {saved && <span className="text-sm text-brown/70 font-medium">Saved ✓</span>}
             </div>
