@@ -124,6 +124,8 @@ export default function ProductionBuilderPage() {
 
   // Step 4 — Quality
   const [includeWeightChecks, setIncludeWeightChecks] = useState(true);
+  const [tareSampleCount, setTareSampleCount] = useState(5);      // tare weight samples (1–5)
+  const [finishedCheckCount, setFinishedCheckCount] = useState(3); // finished-product checks per stage (1–5)
   const [inspectionToggles, setInspectionToggles] = useState<Record<string, boolean>>({
     glass_check: true,
     containers_intact: true,
@@ -291,22 +293,22 @@ export default function ProductionBuilderPage() {
       const unitCap = unitLabel ? unitLabel.charAt(0).toUpperCase() + unitLabel.slice(1) : "Container";
       const closureCap = closureLabel ? closureLabel.charAt(0).toUpperCase() + closureLabel.slice(1) : "Lid";
       questions.push(q(
-        `Packaging tare weight samples — 5 ${unitCap} & ${closureCap} measurements (g)`,
+        `Packaging tare weight samples — ${tareSampleCount} ${unitCap} & ${closureCap} measurements (g)`,
         "multi_number",
         true,
-        ["5"],
-        `Weigh 5 ${simplePlural(unitLabel)} and enter each measurement`
+        [String(tareSampleCount)],
+        `Weigh ${tareSampleCount} ${simplePlural(unitLabel)} and enter each measurement`
       ));
       questions.push(q(
         "Tare weight used (g)",
         "number",
         true,
         null,
-        "Use the lightest of the 5 samples above"
+        `Use the lightest of the ${tareSampleCount} samples above`
       ));
-      questions.push(q("Finished product weight — Start of run (g)", "multi_number", true, ["3"]));
-      questions.push(q("Finished product weight — Middle of run (g)", "multi_number", true, ["3"]));
-      questions.push(q("Finished product weight — End of run (g)", "multi_number", true, ["3"]));
+      questions.push(q("Finished product weight — Start of run (g)", "multi_number", true, [String(finishedCheckCount)]));
+      questions.push(q("Finished product weight — Middle of run (g)", "multi_number", true, [String(finishedCheckCount)]));
+      questions.push(q("Finished product weight — End of run (g)", "multi_number", true, [String(finishedCheckCount)]));
     }
 
     // ── CCPs ──
@@ -557,11 +559,52 @@ export default function ProductionBuilderPage() {
                 <div>
                   <p className="text-sm font-semibold text-gray-800">Weight checks</p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Adds tare weight samples (5×) and finished product weight checks (start / middle / end of run, 3× each)
+                    Adds tare weight samples and finished product weight checks (start / middle / end of run)
                   </p>
                 </div>
                 <ToggleSwitch value={includeWeightChecks} onChange={setIncludeWeightChecks} />
               </div>
+
+              {includeWeightChecks && (
+                <div className="mt-4 space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-gray-700">Tare weight samples</p>
+                      <p className="text-xs text-gray-400 mt-0.5">How many containers to weigh for tare</p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setTareSampleCount(n)}
+                          className={`h-8 w-8 rounded-lg text-sm font-medium border transition ${tareSampleCount === n ? "border-brand-dark bg-brand-dark text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 border-t border-gray-100 pt-3">
+                    <div>
+                      <p className="text-sm text-gray-700">Finished product checks</p>
+                      <p className="text-xs text-gray-400 mt-0.5">Measurements at each of start / middle / end of run</p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setFinishedCheckCount(n)}
+                          className={`h-8 w-8 rounded-lg text-sm font-medium border transition ${finishedCheckCount === n ? "border-brand-dark bg-brand-dark text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Inspection checks */}
