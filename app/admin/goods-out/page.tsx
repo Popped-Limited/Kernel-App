@@ -48,14 +48,14 @@ function renderComplianceField(
   if (q.type === "checkbox") {
     return (
       <div className="flex gap-2 mt-0.5">
-        {["Yes", "No"].map(o => (
+        {[{ label: "Yes", val: "true" }, { label: "No", val: "false" }].map(o => (
           <button
-            key={o}
+            key={o.val}
             type="button"
-            onClick={() => onChange(o)}
-            className={`px-4 py-1.5 rounded-full text-xs border transition-colors ${value === o ? "bg-brand border-brand/50 text-brown font-medium" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
+            onClick={() => onChange(o.val)}
+            className={`px-4 py-1.5 rounded-full text-xs border transition-colors ${value === o.val ? "bg-brand border-brand/50 text-brown font-medium" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
           >
-            {o}
+            {o.label}
           </button>
         ))}
       </div>
@@ -119,8 +119,13 @@ function batchSummary(answers: Array<{ value: string | null; question: { type: s
     if (!batchCode && type === "text" && (label.includes("batch") || label.includes("lot")) && ans.value) {
       batchCode = ans.value;
     }
+    // Only accept an actual date as the BBE — skip checkbox "true"/"false"
+    // and other non-date answers that happen to mention "best before".
     if (!bbeDate && (label.includes("best before") || label.includes("bbe")) && ans.value) {
-      bbeDate = ans.value;
+      const v = ans.value.trim();
+      if ((type === "date" || /^\d{4}-\d{2}-\d{2}/.test(v))) {
+        bbeDate = v;
+      }
     }
   }
   return { batchCode, bbeDate, totalJars: totalUnits > 0 ? totalUnits : jarsUsedFallback };

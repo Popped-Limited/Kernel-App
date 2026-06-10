@@ -48,14 +48,14 @@ function renderComplianceField(
   if (q.type === "checkbox") {
     return (
       <div className="flex gap-2 mt-0.5">
-        {["Yes", "No"].map(o => (
+        {[{ label: "Yes", val: "true" }, { label: "No", val: "false" }].map(o => (
           <button
-            key={o}
+            key={o.val}
             type="button"
-            onClick={() => onChange(o)}
-            className={`px-4 py-1.5 rounded-full text-xs border transition-colors ${value === o ? "bg-brand border-brand/50 text-brown font-medium" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
+            onClick={() => onChange(o.val)}
+            className={`px-4 py-1.5 rounded-full text-xs border transition-colors ${value === o.val ? "bg-brand border-brand/50 text-brown font-medium" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
           >
-            {o}
+            {o.label}
           </button>
         ))}
       </div>
