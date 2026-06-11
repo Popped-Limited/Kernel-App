@@ -44,22 +44,37 @@ interface Props {
   densityByName?: Record<string, number>; // ingredient name → g/L
 }
 
+// Resolve a recipe ingredient name to a live ingredient key.
+// Strategy (in priority order):
+//   1. Exact match (case-insensitive) — the normal case, since recipes store the
+//      ingredient's exact name at creation time.
+//   2. A *single* unambiguous partial match — covers legacy/renamed ingredients.
+// If a loose match would be ambiguous (e.g. "Red chilli" matching both
+// "Long red chilli" AND "Red chilli powder") we return nothing rather than
+// silently picking the wrong ingredient. The user enters the code manually,
+// or fixes the recipe name under Manage checklists.
+function resolveKey(keys: string[], name: string): string | null {
+  if (!name) return null;
+  const lc = name.trim().toLowerCase();
+  // 1. Exact (case-insensitive)
+  const exact = keys.find(k => k.trim().toLowerCase() === lc);
+  if (exact) return exact;
+  // 2. Unambiguous partial match only
+  const partial = keys.filter(k => {
+    const klc = k.trim().toLowerCase();
+    return klc.includes(lc) || lc.includes(klc);
+  });
+  return partial.length === 1 ? partial[0] : null;
+}
+
 function findLots(ingredientLots: Record<string, IngredientLot[]>, name: string): IngredientLot[] {
-  if (ingredientLots[name]) return ingredientLots[name];
-  const lc = name.toLowerCase();
-  const match = Object.entries(ingredientLots).find(([key]) =>
-    key.toLowerCase().includes(lc) || lc.includes(key.toLowerCase())
-  );
-  return match?.[1] ?? [];
+  const key = resolveKey(Object.keys(ingredientLots), name);
+  return key ? ingredientLots[key] : [];
 }
 
 function findDensity(densityByName: Record<string, number>, name: string): number | null {
-  if (densityByName[name] != null) return densityByName[name];
-  const lc = name.toLowerCase();
-  const match = Object.entries(densityByName).find(([key]) =>
-    key.toLowerCase().includes(lc) || lc.includes(key.toLowerCase())
-  );
-  return match?.[1] ?? null;
+  const key = resolveKey(Object.keys(densityByName), name);
+  return key != null ? densityByName[key] : null;
 }
 
 export default function QuestionField({ question, value, onChange, error, ingredientLots, densityByName }: Props) {

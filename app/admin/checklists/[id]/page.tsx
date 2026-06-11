@@ -118,8 +118,13 @@ export default function EditChecklistPage() {
       type: editingQ.type!,
       required: editingQ.required ?? true,
       order_index: editingQ.order_index ?? questions.length,
-      // Strip blank lines that were kept during editing for natural textarea behaviour
-      options: editingQ.options ? editingQ.options.map(s => s.trim()).filter(Boolean) : null,
+      // Strip blank lines that were kept during editing for natural textarea behaviour.
+      // For ingredient_table ("name|weight"), drop rows with no ingredient name.
+      options: editingQ.options
+        ? (editingQ.type === "ingredient_table"
+            ? editingQ.options.map(s => s.trim()).filter(s => s.split("|")[0]?.trim())
+            : editingQ.options.map(s => s.trim()).filter(Boolean))
+        : null,
       hint: editingQ.hint?.trim() || null,
       follow_up: editingQ.follow_up ?? null,
       organisation_id: orgId,
@@ -439,7 +444,17 @@ function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel }:
 }) {
   const needsOptions = question.type === "dropdown" || question.type === "multiple_choice";
   const isMultiNumber = question.type === "multi_number";
+  const isIngredientTable = question.type === "ingredient_table";
   const boxCount = Math.min(5, Math.max(1, parseInt(question.options?.[0] ?? "3") || 3));
+
+  // Recipe rows for ingredient_table questions. Each option is stored as
+  // "Ingredient name|target weight in grams".
+  const recipeRows = (question.options ?? []).map(opt => {
+    const [name, weight] = (opt as string).split("|");
+    return { name: name ?? "", weight: weight ?? "" };
+  });
+  const setRecipeRows = (rows: { name: string; weight: string }[]) =>
+    onChange({ ...question, options: rows.map(r => `${r.name.trim()}|${r.weight.trim()}`) });
 
   // Keep raw options text in local state so Enter key works naturally.
   // Blank lines are only stripped in saveQuestion() at save time.
@@ -476,9 +491,9 @@ function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel }:
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">Answer type</label>
-            {isMultiNumber ? (
+            {isMultiNumber || isIngredientTable ? (
               <div className="input bg-gray-50 text-gray-500 cursor-not-allowed flex items-center">
-                Weight checks (multi-number)
+                {isIngredientTable ? "Recipe / ingredient table" : "Weight checks (multi-number)"}
               </div>
             ) : (
               <select
@@ -541,6 +556,61 @@ function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel }:
               ))}
             </div>
             <p className="text-xs text-gray-400 mt-1">The batch record will show {boxCount} input box{boxCount === 1 ? "" : "es"} for this question.</p>
+          </div>
+        )}
+
+        {isIngredientTable && (
+          <div>
+            <label className="label">Recipe ingredients <span className="text-gray-400 font-normal text-xs">— name and target weight (g) per ingredient</span></label>
+            <p className="text-xs text-gray-500 -mt-0.5 mb-2">
+              Ingredient names must match your ingredients list exactly (e.g. “Long red chilli”) so batch codes and stock link to the right ingredient.
+            </p>
+            <div className="space-y-2">
+              {recipeRows.map((row, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    value={row.name}
+                    onChange={e => {
+                      const next = recipeRows.slice();
+                      next[i] = { ...next[i], name: e.target.value };
+                      setRecipeRows(next);
+                    }}
+                    className="input flex-1 text-sm py-1.5"
+                    placeholder="Ingredient name"
+                  />
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={row.weight}
+                    onChange={e => {
+                      const next = recipeRows.slice();
+                      next[i] = { ...next[i], weight: e.target.value };
+                      setRecipeRows(next);
+                    }}
+                    className="input w-28 shrink-0 text-sm py-1.5"
+                    placeholder="Weight (g)"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setRecipeRows(recipeRows.filter((_, j) => j !== i))}
+                    className="shrink-0 rounded p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                    title="Remove ingredient"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9a1 1 0 001 1h6a1 1 0 001-1l1-9"/>
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setRecipeRows([...recipeRows, { name: "", weight: "" }])}
+              className="mt-2 w-full rounded-lg border border-dashed border-gray-300 py-2 text-sm text-gray-500 hover:border-brand hover:text-brand transition"
+            >
+              + Add ingredient
+            </button>
           </div>
         )}
 
