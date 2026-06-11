@@ -188,7 +188,7 @@ export default function Dashboard() {
 
           {/* ── Alert strip ────────────────────────────────────────────── */}
           {pendingSignOff.length > 0 && (
-            <Link href="/dashboard?filter=pending" className="flex items-center gap-3 rounded-xl border border-brown/10 bg-white px-4 py-3 hover:bg-brand-light transition">
+            <Link href="/dashboard?filter=pending" className="flex items-center gap-3 rounded-xl border border-brown/10 bg-white shadow-sm px-4 py-3 hover:bg-brand-light transition">
               <span className="h-2 w-2 rounded-full bg-brand-dark shrink-0" />
               <p className="text-sm font-medium text-brown">
                 {pendingSignOff.length} submission{pendingSignOff.length !== 1 ? "s" : ""} awaiting sign-off
@@ -206,7 +206,7 @@ export default function Dashboard() {
                   const mins = Math.round((Date.now() - new Date(d.last_saved_at).getTime()) / 60000);
                   const ago = mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
                   return (
-                    <div key={d.id} className="flex items-center gap-3 rounded-xl border border-brown/10 bg-white px-4 py-3 transition">
+                    <div key={d.id} className="flex items-center gap-3 rounded-xl border border-brown/10 bg-white shadow-sm px-4 py-3 transition">
                       <span className="h-2 w-2 rounded-full bg-brand-dark shrink-0 animate-pulse" />
                       <Link href={`/checklist/${d.checklist_id}`} className="flex-1 min-w-0 hover:opacity-80 transition">
                         <p className="text-sm font-medium text-brown truncate">{(d.checklist as Checklist | undefined)?.name ?? "Batch record"}</p>
