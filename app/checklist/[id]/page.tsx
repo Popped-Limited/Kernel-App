@@ -103,11 +103,22 @@ export default function ChecklistPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
+  // The logged-in user's display name — used when the checklist has no
+  // name question (or it was left blank), instead of a generic "Staff"
+  const [userName, setUserName] = useState("");
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      const metaName = (user.user_metadata?.full_name as string | undefined)?.trim();
+      setUserName(metaName || (user.email?.split("@")[0] ?? ""));
+    });
+  }, []);
+
   // Derive submitted_by from a name-like answer in the checklist
   function getSubmittedBy(qs: Question[], ans: AnswerMap): string {
-    const nameQ = qs.find(q => /\b(your name|operator|packed by|completed by|submitted by|logged by|packer name|staff name|team member)\b/i.test(q.label) && q.type === "text");
+    const nameQ = qs.find(q => /\b(your name|full name|visitor name|operator|packed by|completed by|submitted by|logged by|packer name|staff name|team member)\b/i.test(q.label) && q.type === "text");
     if (nameQ && ans[nameQ.id]?.trim()) return ans[nameQ.id].trim();
-    return "Staff";
+    return userName || "Staff";
   }
 
   // Ingredient lots for production checklists (ingredient name → lots)

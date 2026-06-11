@@ -12,6 +12,7 @@ function AcceptInviteContent() {
   const router = useRouter();
   const [state, setState]     = useState<State>("loading");
   const [message, setMessage] = useState("");
+  const [fullName, setFullName]             = useState("");
   const [password, setPassword]             = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError]   = useState("");
@@ -54,12 +55,13 @@ function AcceptInviteContent() {
     e.preventDefault();
     setPasswordError("");
 
+    if (!fullName.trim()) { setPasswordError("Please enter your name"); return; }
     if (password.length < 8) { setPasswordError("Password must be at least 8 characters"); return; }
     if (password !== confirmPassword) { setPasswordError("Passwords don't match"); return; }
 
     setState("saving-password");
 
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await supabase.auth.updateUser({ password, data: { full_name: fullName.trim() } });
     if (error) {
       setPasswordError(error.message);
       setState("set-password");
@@ -97,6 +99,18 @@ function AcceptInviteContent() {
               <p className="text-sm text-brown/60 mb-6">Choose a password so you can sign in next time.</p>
               <form onSubmit={handleSetPassword} className="space-y-3 text-left">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Your name</label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={e => setFullName(e.target.value)}
+                    className="input"
+                    placeholder="e.g. Jane Smith"
+                    autoFocus
+                    disabled={state === "saving-password"}
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                   <input
                     type="password"
@@ -104,7 +118,6 @@ function AcceptInviteContent() {
                     onChange={e => setPassword(e.target.value)}
                     className="input"
                     placeholder="Min. 8 characters"
-                    autoFocus
                     disabled={state === "saving-password"}
                   />
                 </div>
@@ -122,7 +135,7 @@ function AcceptInviteContent() {
                 {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
                 <button
                   type="submit"
-                  disabled={state === "saving-password" || !password || !confirmPassword}
+                  disabled={state === "saving-password" || !fullName.trim() || !password || !confirmPassword}
                   className="btn-primary w-full py-2.5 mt-2"
                 >
                   {state === "saving-password" ? "Saving…" : "Set password & continue"}

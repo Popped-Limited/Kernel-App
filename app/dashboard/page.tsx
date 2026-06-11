@@ -23,6 +23,33 @@ function SubmissionsPageInner() {
   );
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  // Quick time-range presets. Default to this week so the page opens with a
+  // manageable recent view; custom From/To dates override the preset.
+  const [rangePreset, setRangePreset] = useState<"this_week" | "last_week" | "this_month" | "last_month" | "all">("this_week");
+
+  // [fromISO, toISO) — to is exclusive (start of the day after the range ends)
+  function presetBounds(preset: typeof rangePreset): [string, string] | null {
+    if (preset === "all") return null;
+    const now = new Date();
+    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    // Week starts Monday
+    const dow = (now.getDay() + 6) % 7;
+    const monday = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow));
+    if (preset === "this_week") {
+      const end = new Date(monday); end.setDate(end.getDate() + 7);
+      return [iso(monday), iso(end)];
+    }
+    if (preset === "last_week") {
+      const start = new Date(monday); start.setDate(start.getDate() - 7);
+      return [iso(start), iso(monday)];
+    }
+    if (preset === "this_month") {
+      return [iso(new Date(now.getFullYear(), now.getMonth(), 1)), iso(new Date(now.getFullYear(), now.getMonth() + 1, 1))];
+    }
+    // last_month
+    return [iso(new Date(now.getFullYear(), now.getMonth() - 1, 1)), iso(new Date(now.getFullYear(), now.getMonth(), 1))];
+  }
 
   useEffect(() => {
     async function load() {
@@ -40,12 +67,17 @@ function SubmissionsPageInner() {
     load();
   }, []);
 
+  // Custom From/To dates take precedence over the quick-range preset
+  const usingCustomDates = Boolean(dateFrom || dateTo);
+  const bounds = usingCustomDates ? null : presetBounds(rangePreset);
+
   const filtered = submissions.filter((s) => {
     if (filterChecklist && s.checklist_id !== filterChecklist) return false;
     if (filterSigned === "pending" && s.signed_off_at) return false;
     if (filterSigned === "signed" && !s.signed_off_at) return false;
     if (dateFrom && s.submitted_at < dateFrom) return false;
     if (dateTo && s.submitted_at > dateTo + "T23:59:59") return false;
+    if (bounds && (s.submitted_at < bounds[0] || s.submitted_at >= bounds[1])) return false;
     return true;
   });
 
@@ -152,6 +184,29 @@ function SubmissionsPageInner() {
             </button>
           </div>
         </div>
+        {/* Quick time ranges */}
+        <div className="flex flex-wrap gap-2">
+          {([
+            ["this_week", "This week"],
+            ["last_week", "Last week"],
+            ["this_month", "This month"],
+            ["last_month", "Last month"],
+            ["all", "All time"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => { setRangePreset(key); setDateFrom(""); setDateTo(""); }}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                !usingCustomDates && rangePreset === key
+                  ? "bg-brand text-brown"
+                  : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* Filters */}
         <div className="card p-4 flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[180px]">
@@ -204,7 +259,7 @@ function SubmissionsPageInner() {
 
           {(dateFrom || dateTo || filterChecklist || filterSigned !== "all") && (
             <button
-              onClick={() => { setDateFrom(""); setDateTo(""); setFilterChecklist(""); setFilterSigned("all"); }}
+              onClick={() => { setDateFrom(""); setDateTo(""); setFilterChecklist(""); setFilterSigned("all"); setRangePreset("this_week"); }}
               className="text-xs text-gray-400 hover:text-gray-600"
             >
               Clear filters

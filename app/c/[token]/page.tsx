@@ -41,9 +41,19 @@ export default function GuestChecklistPage() {
     load();
   }, [token]);
 
+  // If the checklist itself already asks for a name (e.g. "Visitor full name"),
+  // use that answer as the submitter and skip the built-in name field so guests
+  // aren't asked for their name twice.
+  const checklistNameQ = questions.find(
+    q => q.type === "text" && /\b(full name|your name|visitor name)\b/i.test(q.label)
+  );
+  const submitterName = checklistNameQ ? (answers[checklistNameQ.id] ?? "") : visitorName;
+
   function validate(): boolean {
     let valid = true;
-    if (!visitorName.trim()) { setNameError("Please enter your name"); valid = false; }
+    if (checklistNameQ) {
+      setNameError("");
+    } else if (!visitorName.trim()) { setNameError("Please enter your name"); valid = false; }
     else setNameError("");
 
     const errs: Record<string, string> = {};
@@ -71,7 +81,7 @@ export default function GuestChecklistPage() {
       body: JSON.stringify({
         checklist_id: checklist!.id,
         organisation_id: checklist!.organisation_id,
-        submitted_by: visitorName.trim(),
+        submitted_by: submitterName.trim() || "Visitor",
         answers: questions.map((q) => ({
           question_id: q.id,
           value: answers[q.id] ?? null,
@@ -127,7 +137,7 @@ export default function GuestChecklistPage() {
             </svg>
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Thank you, {visitorName.split(" ")[0]}!</h2>
+            <h2 className="text-xl font-bold text-gray-900">Thank you{submitterName.trim() ? `, ${submitterName.trim().split(" ")[0]}` : ""}!</h2>
             <p className="mt-2 text-sm text-gray-600">{checklist!.name} has been recorded.</p>
           </div>
           <p className="text-xs text-gray-400 pt-2">Powered by Kernel</p>
@@ -161,7 +171,8 @@ export default function GuestChecklistPage() {
             </p>
           )}
 
-          {/* Visitor name — always required */}
+          {/* Visitor name — only shown when the checklist has no name question of its own */}
+          {!checklistNameQ && (
           <div className="card p-4" data-error={nameError ? true : undefined}>
             <label className="label">Your full name <span className="text-red-500">*</span></label>
             <input
@@ -175,6 +186,7 @@ export default function GuestChecklistPage() {
             />
             {nameError && <p className="mt-1 text-xs text-red-600">{nameError}</p>}
           </div>
+          )}
 
           {/* Checklist questions */}
           {questions.map((q) => (
