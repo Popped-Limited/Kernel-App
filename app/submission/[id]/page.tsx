@@ -160,6 +160,17 @@ export default function SubmissionPage() {
             )}
           </div>
           {submission.batch_notes && (() => {
+            // Production batch notes are free text written by the operator —
+            // show them verbatim. Only goods in/out records store structured
+            // "Label: value" notes that should be parsed into fields below.
+            if (submission.checklist?.category === "Production") {
+              return (
+                <div className="-mx-5 mt-3 border-t border-gray-100 px-5 py-3">
+                  <p className="text-xs text-gray-500 font-medium mb-0.5">Batch notes</p>
+                  <p className="text-sm text-gray-900 whitespace-pre-wrap">{submission.batch_notes}</p>
+                </div>
+              );
+            }
             // Parse batch_notes into structured fields (same style as checklist answers)
             const lines = submission.batch_notes!.split("\n").map(l => l.trim()).filter(Boolean);
             const fields: { label: string; value: string }[] = [];
