@@ -170,7 +170,7 @@ export default function MarketingPage() {
               gives you the infrastructure to match.
             </p>
             <p>
-              Your compliance backbone, the production records, the traceability, the SOPs,
+              The compliance backbone, the production records, the traceability, the SOPs,
               the training — everything that holds a food business together, so you can stop
               carrying the admin weight and focus on what you&apos;re actually here to make.
             </p>
