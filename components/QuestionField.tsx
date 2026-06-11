@@ -104,7 +104,7 @@ export default function QuestionField({ question, value, onChange, error, ingred
           onClick={() => onChange(checked ? "false" : "true")}
           className={`flex w-full items-start gap-3 rounded-xl border p-4 text-left transition ${
             checked
-              ? "border-brand/40 bg-brand/5"
+              ? "border-brand bg-white"
               : "border-gray-200 bg-white hover:border-gray-300"
           } ${error ? "border-red-300" : ""}`}
         >

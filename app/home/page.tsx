@@ -143,7 +143,6 @@ export default function Dashboard() {
 
   const { orgName } = useOrganisation();
 
-  const todayCount = recentSubs.filter(s => new Date(s.submitted_at).toDateString() === new Date().toDateString()).length;
   const freqSet = new Set(FREQ_GROUPS.flatMap(g => g.freqs));
   const uncategorised = checklists.filter(cl => !freqSet.has(cl.frequency));
 
@@ -189,7 +188,7 @@ export default function Dashboard() {
 
           {/* ── Alert strip ────────────────────────────────────────────── */}
           {pendingSignOff.length > 0 && (
-            <Link href="/dashboard?filter=pending" className="flex items-center gap-3 rounded-xl border border-brand/50 bg-brand-light px-4 py-3 hover:bg-brand transition">
+            <Link href="/dashboard?filter=pending" className="flex items-center gap-3 rounded-xl border border-brown/10 bg-white px-4 py-3 hover:bg-brand-light transition">
               <span className="h-2 w-2 rounded-full bg-brand-dark shrink-0" />
               <p className="text-sm font-medium text-brown">
                 {pendingSignOff.length} submission{pendingSignOff.length !== 1 ? "s" : ""} awaiting sign-off
@@ -197,14 +196,6 @@ export default function Dashboard() {
               <span className="ml-auto text-xs text-brown/70">Review →</span>
             </Link>
           )}
-
-          {/* ── Stats ──────────────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <StatCard label="Today's submissions" value={todayCount} loading={loading} href="/dashboard" />
-            <StatCard label="Awaiting sign-off" value={pendingSignOff.length} loading={loading} href="/dashboard?filter=pending" warn={pendingSignOff.length > 0} />
-            <StatCard label="Active checklists" value={checklists.length} loading={loading} />
-            <StatCard label="In-progress batches" value={openDrafts.length} loading={loading} warn={openDrafts.length > 0} />
-          </div>
 
           {/* ── In-progress batches ────────────────────────────────────── */}
           {openDrafts.length > 0 && (
@@ -215,7 +206,7 @@ export default function Dashboard() {
                   const mins = Math.round((Date.now() - new Date(d.last_saved_at).getTime()) / 60000);
                   const ago = mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
                   return (
-                    <div key={d.id} className="flex items-center gap-3 rounded-xl border border-brand/50 bg-brand-light px-4 py-3 transition">
+                    <div key={d.id} className="flex items-center gap-3 rounded-xl border border-brown/10 bg-white px-4 py-3 transition">
                       <span className="h-2 w-2 rounded-full bg-brand-dark shrink-0 animate-pulse" />
                       <Link href={`/checklist/${d.checklist_id}`} className="flex-1 min-w-0 hover:opacity-80 transition">
                         <p className="text-sm font-medium text-brown truncate">{(d.checklist as Checklist | undefined)?.name ?? "Batch record"}</p>
@@ -411,26 +402,6 @@ function SignOutButton() {
       Sign out
     </button>
   );
-}
-
-function StatCard({ label, value, loading, warn, href }: {
-  label: string; value: number; loading: boolean; warn?: boolean; href?: string;
-}) {
-  const cardCls = warn ? "border-brand/50 bg-brand-light" : "border-gray-200 bg-white";
-  const valCls  = warn ? "text-brown" : "text-gray-900";
-  const lblCls  = warn ? "text-brown/70" : "text-gray-500";
-  const inner = (
-    <>
-      <p className={`text-xs font-semibold uppercase tracking-wide ${lblCls}`}>{label}</p>
-      {loading
-        ? <div className="mt-2 h-8 w-14 animate-pulse rounded bg-gray-200" />
-        : <p className={`mt-1 text-3xl font-bold ${valCls}`}>{value}</p>
-      }
-    </>
-  );
-  const cls = `rounded-xl border-2 p-4 shadow-sm transition ${cardCls} ${href ? "hover:shadow-md cursor-pointer" : ""}`;
-  if (href) return <Link href={href} className={cls}>{inner}</Link>;
-  return <div className={cls}>{inner}</div>;
 }
 
 function ChevronIcon({ open }: { open: boolean }) {
