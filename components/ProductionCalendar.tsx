@@ -127,6 +127,17 @@ function ColourPicker({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+// Resolve a checklist's calendar colour: its saved colour, or the same palette
+// fallback the calendar auto-assigns. Used elsewhere (e.g. dashboard In Progress
+// dots) so colours stay consistent with the calendar.
+export function checklistColour(checklists: Checklist[], checklistId: string | null | undefined): string {
+  if (!checklistId) return "#6B7280";
+  const production = checklists.filter(cl => cl.category === "Production");
+  const idx = production.findIndex(cl => cl.id === checklistId);
+  if (idx === -1) return "#6B7280";
+  return production[idx].color ?? PALETTE[idx % PALETTE.length];
+}
+
 export default function ProductionCalendar({ checklists }: { checklists: Checklist[] }) {
   const { orgId } = useOrganisation();
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));

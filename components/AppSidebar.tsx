@@ -99,7 +99,7 @@ function SignOutButton() {
   return (
     <button
       onClick={handleSignOut}
-      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-brown/70 hover:bg-brown/10 hover:text-brown transition-colors text-left"
+      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-brown/70 hover:bg-brand/30 hover:text-brown transition-colors text-left"
     >
       <SvgIcon d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
       Sign out
@@ -186,7 +186,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                       <li>
                         <button
                           onClick={() => setBeginProdOpen(o => !o)}
-                          className="w-full flex items-center gap-2 rounded px-2 py-1.5 text-sm text-brown hover:bg-brown/10 transition-colors"
+                          className="w-full flex items-center gap-2 rounded px-2 py-1.5 text-sm text-brown hover:bg-brand/30 transition-colors"
                         >
                           <span className="flex-1 text-left">Begin Production</span>
                           <Chevron open={beginProdOpen} />
@@ -197,7 +197,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                               <li key={cl.id}>
                                 <Link
                                   href={`/checklist/${cl.id}`}
-                                  className="block rounded px-2 py-1.5 text-xs text-brown hover:bg-brown/10 transition-colors"
+                                  className="block rounded px-2 py-1.5 text-xs text-brown hover:bg-brand/30 transition-colors"
                                 >
                                   {cl.name.replace(" — Production Record", "").replace(" - Production Record", "")}
                                 </Link>
@@ -214,7 +214,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                           className={`block rounded px-2 py-1.5 text-sm transition-colors ${
                             pathname === item.href || pathname.startsWith(item.href + "/")
                               ? "bg-brand text-brown font-semibold"
-                              : "text-brown hover:bg-brown/10"
+                              : "text-brown hover:bg-brand/30"
                           }`}
                         >
                           {item.label}
@@ -231,7 +231,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
         <div className="px-3 py-4 border-t border-brown/15 space-y-1">
           <button
             onClick={() => setSupportOpen(true)}
-            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-brown/70 hover:bg-brown/10 hover:text-brown transition-colors text-left"
+            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-brown/70 hover:bg-brand/30 hover:text-brown transition-colors text-left"
           >
             <SvgIcon d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
             Contact support
@@ -299,7 +299,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                         <li>
                           <button
                             onClick={() => setBeginProdOpen(o => !o)}
-                            className="w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-brown hover:bg-brown/10 transition-colors"
+                            className="w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-brown hover:bg-brand/30 transition-colors"
                           >
                             <span className="flex-1 text-left font-medium">Begin Production</span>
                             <svg
@@ -316,7 +316,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                                   <Link
                                     href={`/checklist/${cl.id}`}
                                     onClick={onClose}
-                                    className="block rounded-lg px-3 py-2.5 text-sm text-brown hover:bg-brown/10 transition-colors"
+                                    className="block rounded-lg px-3 py-2.5 text-sm text-brown hover:bg-brand/30 transition-colors"
                                   >
                                     {cl.name.replace(" — Production Record", "").replace(" - Production Record", "")}
                                   </Link>
@@ -334,7 +334,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                             className={`block rounded-lg px-3 py-2.5 text-sm transition-colors ${
                               pathname === item.href || pathname.startsWith(item.href + "/")
                                 ? "bg-brand text-brown font-semibold"
-                                : "text-brown hover:bg-brown/10"
+                                : "text-brown hover:bg-brand/30"
                             }`}
                           >
                             {item.label}
@@ -352,7 +352,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
           <div className="px-3 py-4 border-t border-brown/15 space-y-1">
             <button
               onClick={() => { setSupportOpen(true); onClose(); }}
-              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-brown/70 hover:bg-brown/10 hover:text-brown transition-colors text-left"
+              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-brown/70 hover:bg-brand/30 hover:text-brown transition-colors text-left"
             >
               <SvgIcon d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
               Contact support

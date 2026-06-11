@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import type { Checklist, Submission, IngredientLot, Ingredient, Dispatch } from "@/lib/types";
 import { frequencyLabel, frequencyBadgeColor } from "@/lib/utils";
 import AppSidebar from "@/components/AppSidebar";
-import ProductionCalendar from "@/components/ProductionCalendar";
+import ProductionCalendar, { checklistColour } from "@/components/ProductionCalendar";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -206,8 +206,8 @@ export default function Dashboard() {
                   const mins = Math.round((Date.now() - new Date(d.last_saved_at).getTime()) / 60000);
                   const ago = mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
                   return (
-                    <div key={d.id} className="flex items-center gap-3 rounded-xl border border-brown/10 bg-white shadow-sm px-4 py-3 transition">
-                      <span className="h-2 w-2 rounded-full bg-brand-dark shrink-0 animate-pulse" />
+                    <div key={d.id} className="flex items-center gap-3 rounded-xl border border-brown/10 bg-white shadow-sm px-4 py-3 hover:bg-brand-light transition">
+                      <span className="h-2 w-2 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: checklistColour(checklists, d.checklist_id) }} />
                       <Link href={`/checklist/${d.checklist_id}`} className="flex-1 min-w-0 hover:opacity-80 transition">
                         <p className="text-sm font-medium text-brown truncate">{(d.checklist as Checklist | undefined)?.name ?? "Batch record"}</p>
                         <p className="text-xs text-brown/60">{d.started_by} · {ago}</p>
@@ -281,7 +281,7 @@ export default function Dashboard() {
             <div className="flex gap-1">
               {(["week", "month"] as const).map(p => (
                 <button key={p} onClick={() => setActivityPeriod(p)}
-                  className={`flex-1 px-2 py-1.5 rounded text-xs font-medium border transition-colors ${activityPeriod === p ? "bg-brand border-brand/50 text-brown" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}>
+                  className={`flex-1 px-2 py-1.5 rounded text-xs font-medium border transition-colors ${activityPeriod === p ? "bg-brand border-brand/50 text-brown" : "bg-white border-gray-200 text-gray-600 hover:bg-brand-light"}`}>
                   {p === "week" ? "This Week" : "This Month"}
                 </button>
               ))}
