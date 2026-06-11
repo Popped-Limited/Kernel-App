@@ -44,27 +44,16 @@ interface Props {
   densityByName?: Record<string, number>; // ingredient name → g/L
 }
 
-// Resolve a recipe ingredient name to a live ingredient key.
-// Strategy (in priority order):
-//   1. Exact match (case-insensitive) — the normal case, since recipes store the
-//      ingredient's exact name at creation time.
-//   2. A *single* unambiguous partial match — covers legacy/renamed ingredients.
-// If a loose match would be ambiguous (e.g. "Red chilli" matching both
-// "Long red chilli" AND "Red chilli powder") we return nothing rather than
-// silently picking the wrong ingredient. The user enters the code manually,
-// or fixes the recipe name under Manage checklists.
+// Resolve a recipe ingredient name to a live ingredient key by EXACT name
+// (case-insensitive, trimmed). No partial/substring matching: ingredient names
+// can be very similar (e.g. "Long red chilli" vs "Red chilli powder"), so a
+// loose match could silently link the wrong ingredient's batch codes/stock.
+// If there's no exact match, nothing links and the user enters the code
+// manually, or fixes the recipe name under Manage checklists.
 function resolveKey(keys: string[], name: string): string | null {
   if (!name) return null;
   const lc = name.trim().toLowerCase();
-  // 1. Exact (case-insensitive)
-  const exact = keys.find(k => k.trim().toLowerCase() === lc);
-  if (exact) return exact;
-  // 2. Unambiguous partial match only
-  const partial = keys.filter(k => {
-    const klc = k.trim().toLowerCase();
-    return klc.includes(lc) || lc.includes(klc);
-  });
-  return partial.length === 1 ? partial[0] : null;
+  return keys.find(k => k.trim().toLowerCase() === lc) ?? null;
 }
 
 function findLots(ingredientLots: Record<string, IngredientLot[]>, name: string): IngredientLot[] {
