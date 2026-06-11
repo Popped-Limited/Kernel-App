@@ -190,7 +190,10 @@ export default function SubmissionPage() {
                 if (d) {
                   const trace = d[4] ?? "";
                   const batch = trace.match(/Batch:\s*([^·]*)/)?.[1]?.trim() ?? "";
-                  const bbe = trace.match(/BBE:\s*(.*)/)?.[1]?.trim() ?? "";
+                  let bbe = trace.match(/BBE:\s*(.*)/)?.[1]?.trim() ?? "";
+                  // Records saved before the BBE extraction fix may have a stray
+                  // checkbox value ("true") baked in where the date should be
+                  if (!/^\d{4}-\d{2}-\d{2}/.test(bbe)) bbe = "";
                   dispatched.push({ name: d[1], breakdown: d[2], units: d[3], batch, bbe });
                   continue;
                 }
