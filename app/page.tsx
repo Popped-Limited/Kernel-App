@@ -166,8 +166,8 @@ export default function MarketingPage() {
           </h2>
           <div className={styles.transformBody}>
             <p>
-              Packed with potential, a great product, and genuine passion. Kernel gives you
-              the infrastructure to match.
+              You&apos;re packed with potential, a great product, and genuine passion. Kernel
+              gives you the infrastructure to match.
             </p>
             <p>
               Your compliance backbone, the production records, the traceability, the SOPs,
