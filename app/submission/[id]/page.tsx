@@ -177,6 +177,8 @@ export default function SubmissionPage() {
             const products: string[] = [];
             // Goods-in item lines: "Name: 70,200g (Lot: 26162) · BBE: 2027-08-27"
             const items: { name: string; qty: string; lot: string; bbe: string }[] = [];
+            // Goods-out lines: "Product: 2×6, 1×3 (15 units) — Batch: GCO-123 · BBE: 2027-08-27"
+            const dispatched: { name: string; breakdown: string; units: string; batch: string; bbe: string }[] = [];
             let inProducts = false;
             for (const line of lines) {
               if (line === "Products:" || line === "Items:") { inProducts = line === "Products:"; continue; }
@@ -184,6 +186,14 @@ export default function SubmissionPage() {
                 const txt = line.replace(/^•\s*/, "");
                 const m = txt.match(/^(.*?):\s*(.*?)\s*\(Lot:\s*([^)]*)\)(?:\s*·\s*BBE:\s*(.*))?$/);
                 if (m) { items.push({ name: m[1], qty: m[2], lot: m[3], bbe: m[4] ?? "" }); continue; }
+                const d = txt.match(/^(.*?):\s*(.*?)\s*\(([\d,]+)\s*units?\)(?:\s*—\s*(.*))?$/);
+                if (d) {
+                  const trace = d[4] ?? "";
+                  const batch = trace.match(/Batch:\s*([^·]*)/)?.[1]?.trim() ?? "";
+                  const bbe = trace.match(/BBE:\s*(.*)/)?.[1]?.trim() ?? "";
+                  dispatched.push({ name: d[1], breakdown: d[2], units: d[3], batch, bbe });
+                  continue;
+                }
                 if (inProducts) { products.push(txt); continue; }
               }
               if (!line.startsWith("•")) inProducts = false;
@@ -222,6 +232,35 @@ export default function SubmissionPage() {
                               <td className="px-3 py-1.5 text-right tabular-nums text-gray-900">{it.qty}</td>
                               <td className="px-3 py-1.5 font-mono text-gray-700">{it.lot}</td>
                               <td className="px-3 py-1.5 text-gray-700">{it.bbe || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {dispatched.length > 0 && (
+                  <div className="px-5 py-3">
+                    <p className="text-xs text-gray-500 font-medium mb-1.5">Products dispatched</p>
+                    <div className="rounded-lg border border-gray-200 overflow-x-auto text-xs">
+                      <table className="w-full">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                          <tr>
+                            <th className="text-left px-3 py-2 font-semibold text-gray-600">Product</th>
+                            <th className="text-left px-3 py-2 font-semibold text-gray-600">Breakdown</th>
+                            <th className="text-right px-3 py-2 font-semibold text-gray-600">Units</th>
+                            <th className="text-left px-3 py-2 font-semibold text-gray-600">Batch code</th>
+                            <th className="text-left px-3 py-2 font-semibold text-gray-600">BBE</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {dispatched.map((d, i) => (
+                            <tr key={i}>
+                              <td className="px-3 py-1.5 font-medium text-gray-900">{d.name}</td>
+                              <td className="px-3 py-1.5 text-gray-700">{d.breakdown}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums text-gray-900">{d.units}</td>
+                              <td className="px-3 py-1.5 font-mono text-gray-700">{d.batch || "—"}</td>
+                              <td className="px-3 py-1.5 text-gray-700">{d.bbe || "—"}</td>
                             </tr>
                           ))}
                         </tbody>
