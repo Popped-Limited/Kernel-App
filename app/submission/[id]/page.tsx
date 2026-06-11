@@ -175,12 +175,16 @@ export default function SubmissionPage() {
             const lines = submission.batch_notes!.split("\n").map(l => l.trim()).filter(Boolean);
             const fields: { label: string; value: string }[] = [];
             const products: string[] = [];
+            // Goods-in item lines: "Name: 70,200g (Lot: 26162) · BBE: 2027-08-27"
+            const items: { name: string; qty: string; lot: string; bbe: string }[] = [];
             let inProducts = false;
             for (const line of lines) {
-              if (line === "Products:") { inProducts = true; continue; }
-              if (inProducts && line.startsWith("•")) {
-                products.push(line.replace(/^•\s*/, ""));
-                continue;
+              if (line === "Products:" || line === "Items:") { inProducts = line === "Products:"; continue; }
+              if (line.startsWith("•")) {
+                const txt = line.replace(/^•\s*/, "");
+                const m = txt.match(/^(.*?):\s*(.*?)\s*\(Lot:\s*([^)]*)\)(?:\s*·\s*BBE:\s*(.*))?$/);
+                if (m) { items.push({ name: m[1], qty: m[2], lot: m[3], bbe: m[4] ?? "" }); continue; }
+                if (inProducts) { products.push(txt); continue; }
               }
               if (!line.startsWith("•")) inProducts = false;
               const colonIdx = line.indexOf(":");
@@ -198,6 +202,33 @@ export default function SubmissionPage() {
                     <p className="text-sm text-gray-900">{f.value}</p>
                   </div>
                 ))}
+                {items.length > 0 && (
+                  <div className="px-5 py-3">
+                    <p className="text-xs text-gray-500 font-medium mb-1.5">Items received</p>
+                    <div className="rounded-lg border border-gray-200 overflow-x-auto text-xs">
+                      <table className="w-full">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                          <tr>
+                            <th className="text-left px-3 py-2 font-semibold text-gray-600">Ingredient</th>
+                            <th className="text-right px-3 py-2 font-semibold text-gray-600">Quantity</th>
+                            <th className="text-left px-3 py-2 font-semibold text-gray-600">Batch code</th>
+                            <th className="text-left px-3 py-2 font-semibold text-gray-600">BBE</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {items.map((it, i) => (
+                            <tr key={i}>
+                              <td className="px-3 py-1.5 font-medium text-gray-900">{it.name}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums text-gray-900">{it.qty}</td>
+                              <td className="px-3 py-1.5 font-mono text-gray-700">{it.lot}</td>
+                              <td className="px-3 py-1.5 text-gray-700">{it.bbe || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
                 {products.length > 0 && (
                   <div className="px-5 py-3">
                     <p className="text-xs text-gray-500 font-medium mb-1.5">Products</p>
