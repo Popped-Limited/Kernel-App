@@ -166,15 +166,13 @@ export default function MarketingPage() {
           </h2>
           <div className={styles.transformBody}>
             <p>
-              Packed with potential. A great product, real craft, genuine passion. You know your
-              business, every recipe, every process, every standard you hold yourself to.
-              You just need the infrastructure to match.
+              Packed with potential, a great product, and genuine passion. Kernel gives you
+              the infrastructure to match.
             </p>
             <p>
-              That&apos;s what Kernel gives you. The compliance backbone, the production records,
-              the traceability, the SOPs, the training — everything that holds a food business
-              together, so you can stop carrying the admin weight and focus on what
-              you&apos;re actually here to make.
+              Your compliance backbone, the production records, the traceability, the SOPs,
+              the training — everything that holds a food business together, so you can stop
+              carrying the admin weight and focus on what you&apos;re actually here to make.
             </p>
           </div>
         </div>
