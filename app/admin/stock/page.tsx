@@ -22,6 +22,35 @@ function fmtQty(qty: number, unit: "g" | "units") {
   return unit === "units" ? `${qty} units` : `${(qty / 1000).toFixed(2)} kg`;
 }
 
+/**
+ * Sum the ingredient quantities held by in-progress batch drafts, per lot id.
+ * Stock is only deducted from lots when a batch record is SUBMITTED, so a
+ * long-running draft (e.g. a two-week ferment) still shows here as committed
+ * stock — this lets the page show "in production" alongside "in stock" so
+ * weekly reconciliation matches what's physically on the shelf.
+ */
+function reservedFromDrafts(drafts: { answers: Record<string, unknown> | null }[]): Record<string, number> {
+  const reserved: Record<string, number> = {};
+  for (const draft of drafts) {
+    for (const val of Object.values(draft.answers ?? {})) {
+      if (typeof val !== "string") continue;
+      try {
+        const parsed = JSON.parse(val);
+        const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
+        if (!Array.isArray(rows) || rows.length === 0) continue;
+        for (const row of rows) {
+          for (const lot of (row.lots ?? [])) {
+            if (lot.lot_id && Number(lot.weight_g) > 0) {
+              reserved[lot.lot_id] = (reserved[lot.lot_id] || 0) + Number(lot.weight_g);
+            }
+          }
+        }
+      } catch { /* not ingredient_table format — skip */ }
+    }
+  }
+  return reserved;
+}
+
 const ALLERGENS = [
   "Celery", "Gluten", "Crustaceans", "Eggs", "Fish", "Lupin",
   "Milk", "Molluscs", "Mustard", "Tree nuts", "Peanuts", "Sesame",
@@ -43,6 +72,8 @@ export default function RawMaterialsPage() {
   const [activeTab, setActiveTab]   = useState<ItemType>("ingredient");
   const [expanded, setExpanded]     = useState<Record<string, boolean>>({});
   const [hasDoc, setHasDoc]         = useState<Set<string>>(new Set());
+  // Lot id → grams held by in-progress batch drafts (not yet deducted from stock)
+  const [reservedByLot, setReservedByLot] = useState<Record<string, number>>({});
 
   // Reconcile panel
   const [reconLot, setReconLot]         = useState<{ lot: IngredientLot; ing: IngredientWithLots } | null>(null);
@@ -93,12 +124,15 @@ export default function RawMaterialsPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const [lotsRes, ingsRes, supRes, docsRes] = await Promise.all([
+    const [lotsRes, ingsRes, supRes, docsRes, draftsRes] = await Promise.all([
       supabase.from("ingredient_lots").select("*, ingredient:ingredients(*)").order("julian_code"),
       supabase.from("ingredients").select("*").order("name"),
       supabase.from("suppliers").select("id, name").order("name"),
       supabase.from("documents").select("entity_id, doc_type").in("entity_type", ["ingredient", "packaging", "supply"]),
+      supabase.from("batch_drafts").select("id, answers"),
     ]);
+
+    setReservedByLot(reservedFromDrafts((draftsRes.data ?? []) as { answers: Record<string, unknown> | null }[]));
 
     const sups = (supRes.data ?? []) as Supplier[];
     setSuppliers(sups);
@@ -373,6 +407,7 @@ export default function RawMaterialsPage() {
                   <tbody className="divide-y divide-gray-100">
                     {tabItems.map(ing => {
                       const totalRemaining = ing.lots.reduce((s, l) => s + l.quantity_remaining_g, 0);
+                      const totalReserved = ing.lots.reduce((s, l) => s + (reservedByLot[l.id] ?? 0), 0);
                       const isOpen = expanded[ing.id];
                       const hasStock = totalRemaining > 0;
                       const noLots = ing.lots.length === 0;
@@ -429,6 +464,11 @@ export default function RawMaterialsPage() {
                                   <p className={`font-semibold tabular-nums ${!hasStock ? "text-red-600" : "text-gray-900"}`}>
                                     {fmtQty(totalRemaining, unit)}
                                   </p>
+                                  {totalReserved > 0 && (
+                                    <p className="text-xs text-amber-600 font-medium whitespace-nowrap" title="Allocated to in-progress batch records — deducted when the batch is submitted">
+                                      {fmtQty(totalReserved, unit)} in production
+                                    </p>
+                                  )}
                                   {value != null && (
                                     <p className="text-xs text-brown font-medium">
                                       £{value.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -461,6 +501,8 @@ export default function RawMaterialsPage() {
                                       <th className="text-left py-1 font-medium">Batch / ref</th>
                                       <th className="text-right py-1 font-medium">Received</th>
                                       <th className="text-right py-1 font-medium">Remaining</th>
+                                      <th className="text-right py-1 font-medium" title="Allocated to in-progress batch records — deducted when the batch is submitted">In production</th>
+                                      <th className="text-right py-1 font-medium" title="Remaining minus in production — what should physically be on the shelf">On shelf</th>
                                       <th className="text-left py-1 font-medium pl-4">Date in</th>
                                       <th className="text-left py-1 font-medium">Supplier</th>
                                       <th className="text-left py-1 font-medium">Best before</th>
@@ -468,11 +510,19 @@ export default function RawMaterialsPage() {
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
-                                    {ing.lots.map(lot => (
+                                    {ing.lots.map(lot => {
+                                      const lotReserved = reservedByLot[lot.id] ?? 0;
+                                      return (
                                       <tr key={lot.id} className={lot.quantity_remaining_g === 0 ? "opacity-40" : ""}>
                                         <td className="py-1.5 font-mono font-semibold text-gray-900">{lot.julian_code}</td>
                                         <td className="py-1.5 text-right tabular-nums text-gray-600">{fmtQty(lot.quantity_received_g, unit)}</td>
                                         <td className="py-1.5 text-right tabular-nums font-semibold text-gray-900">{fmtQty(lot.quantity_remaining_g, unit)}</td>
+                                        <td className={`py-1.5 text-right tabular-nums ${lotReserved > 0 ? "text-amber-600 font-medium" : "text-gray-300"}`}>
+                                          {lotReserved > 0 ? fmtQty(lotReserved, unit) : "—"}
+                                        </td>
+                                        <td className="py-1.5 text-right tabular-nums font-semibold text-gray-700">
+                                          {fmtQty(Math.max(0, lot.quantity_remaining_g - lotReserved), unit)}
+                                        </td>
                                         <td className="py-1.5 pl-4 text-gray-500">{formatDate(lot.received_date)}</td>
                                         <td className="py-1.5 text-gray-500">{lot.supplier ?? "—"}</td>
                                         <td className="py-1.5 text-gray-500">{lot.best_before_date ? formatDate(lot.best_before_date) : "—"}</td>
@@ -487,7 +537,8 @@ export default function RawMaterialsPage() {
                                           )}
                                         </td>
                                       </tr>
-                                    ))}
+                                      );
+                                    })}
                                   </tbody>
                                 </table>
                               </td>
