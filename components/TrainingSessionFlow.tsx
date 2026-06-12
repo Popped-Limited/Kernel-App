@@ -168,7 +168,7 @@ export default function TrainingSessionFlow({ members, items, records, orgId, on
             </div>
             {selectedItems.length > 0 && docItems.length < selectedItems.length && (
               <p className="text-xs text-gray-400 mt-2">
-                {selectedItems.length - docItems.length} selected area{selectedItems.length - docItems.length === 1 ? " has" : "s have"} no document uploaded — they&apos;ll be included in the sign-off but skipped in the slideshow.
+                {`${selectedItems.length - docItems.length} selected area${selectedItems.length - docItems.length === 1 ? " has no document uploaded" : "s have no documents uploaded"} — they'll be included in the sign-off but skipped in the slideshow.`}
               </p>
             )}
           </div>
@@ -176,7 +176,7 @@ export default function TrainingSessionFlow({ members, items, records, orgId, on
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={onClose} className="btn-ghost text-sm">Cancel</button>
             <button onClick={begin} disabled={memberIds.size === 0 || itemIds.size === 0} className="btn-primary text-sm">
-              {docItems.length > 0 ? `Start session (${docItems.length} document${docItems.length === 1 ? "" : "s"})` : "Skip to sign-off"}
+              {docItems.length > 0 ? `Begin training (${docItems.length} document${docItems.length === 1 ? "" : "s"})` : "Begin training"}
             </button>
           </div>
         </div>
