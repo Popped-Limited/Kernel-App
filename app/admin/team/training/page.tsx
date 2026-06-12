@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
+import TrainingSessionFlow from "@/components/TrainingSessionFlow";
 
 interface TeamMember { id: string; name: string; position: string | null; active: boolean; }
-interface TrainingItem { id: string; name: string; sort_order: number; active: boolean; }
+interface TrainingItem { id: string; name: string; sort_order: number; active: boolean; document_path?: string | null; }
 interface TrainingRecord {
   id: string;
   team_member_id: string;
@@ -49,18 +50,70 @@ export default function TrainingPage() {
   const [modalBy, setModalBy]     = useState("");
   const [saving, setSaving]       = useState(false);
 
+  // Training documents
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetRef = useRef<TrainingItem | null>(null);
+  const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
+  const [docMenu, setDocMenu] = useState<string | null>(null); // item id with open View/Update menu
+
+  // Group training session flow
+  const [sessionOpen, setSessionOpen] = useState(false);
+
   useEffect(() => { if (orgId) load(); }, [orgId]);
 
   async function load() {
     const [mRes, iRes, rRes] = await Promise.all([
       supabase.from("team_members").select("id,name,position,active").eq("active", true).order("name"),
-      supabase.from("training_items").select("id,name,sort_order,active").eq("active", true).order("sort_order"),
+      // select * so the page keeps working if document_path hasn't been migrated yet
+      supabase.from("training_items").select("*").eq("active", true).order("sort_order"),
       supabase.from("training_records").select("*"),
     ]);
     setMembers((mRes.data ?? []) as TeamMember[]);
     setItems((iRes.data ?? []) as TrainingItem[]);
     setRecords((rRes.data ?? []) as TrainingRecord[]);
     setLoading(false);
+  }
+
+  // ── Training documents ───────────────────────────────────────────────────
+
+  function pickDocument(item: TrainingItem) {
+    uploadTargetRef.current = item;
+    setDocMenu(null);
+    fileInputRef.current?.click();
+  }
+
+  async function handleFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    const item = uploadTargetRef.current;
+    if (!file || !item || !orgId) return;
+
+    setUploadingItemId(item.id);
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "pdf";
+    const path = `training/${orgId}/${item.id}-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("team-documents").upload(path, file, { upsert: true });
+    if (upErr) {
+      alert("Upload failed: " + upErr.message);
+      setUploadingItemId(null);
+      return;
+    }
+    const oldPath = item.document_path;
+    const { error: dbErr } = await supabase.from("training_items").update({ document_path: path }).eq("id", item.id);
+    if (dbErr) {
+      alert("Could not link the document — has the training-documents migration been run? " + dbErr.message);
+    } else if (oldPath) {
+      // Tidy up the replaced file; non-fatal if it fails
+      await supabase.storage.from("team-documents").remove([oldPath]);
+    }
+    setUploadingItemId(null);
+    await load();
+  }
+
+  async function viewDocument(item: TrainingItem) {
+    setDocMenu(null);
+    if (!item.document_path) return;
+    const { data } = await supabase.storage.from("team-documents").createSignedUrl(item.document_path, 3600);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
   }
 
   // Build fast lookup map
@@ -127,9 +180,18 @@ export default function TrainingPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Training Matrix</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Click any cell to mark training as complete</p>
+            <p className="text-sm text-gray-500 mt-0.5">Click any cell to mark training as complete · Click a training name to attach its policy document</p>
           </div>
-          <a href="/admin/training-setup" className="btn-ghost text-sm">Manage training items →</a>
+          <div className="flex items-center gap-2">
+            <a href="/admin/training-setup" className="btn-ghost text-sm">Manage training items →</a>
+            <button
+              onClick={() => setSessionOpen(true)}
+              disabled={loading || members.length === 0 || items.length === 0}
+              className="btn-primary text-sm"
+            >
+              Begin training session
+            </button>
+          </div>
         </div>
 
         {/* Summary pills */}
@@ -177,9 +239,41 @@ export default function TrainingPage() {
             <tbody className="divide-y divide-gray-100">
               {items.map((item, ri) => (
                 <tr key={item.id} className={ri % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                  {/* Sticky item name */}
+                  {/* Sticky item name — click to attach a policy document */}
                   <td className="sticky left-0 z-10 px-4 py-2.5 text-xs font-medium text-gray-700 border-r border-gray-200 bg-inherit">
-                    {item.name}
+                    <div className="flex items-center gap-1.5 relative">
+                      <button
+                        type="button"
+                        onClick={() => { if (!item.document_path) pickDocument(item); }}
+                        className={`text-left ${item.document_path ? "cursor-default" : "hover:text-brown hover:underline decoration-dotted underline-offset-2"}`}
+                        title={item.document_path ? undefined : "Click to upload the policy document"}
+                      >
+                        {item.name}
+                      </button>
+                      {uploadingItemId === item.id ? (
+                        <span className="h-3.5 w-3.5 shrink-0 border-2 border-brown/20 border-t-brown rounded-full animate-spin" />
+                      ) : item.document_path ? (
+                        <button
+                          type="button"
+                          onClick={() => setDocMenu(docMenu === item.id ? null : item.id)}
+                          className="shrink-0 text-brown/60 hover:text-brown transition"
+                          title="Policy document attached"
+                        >
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9 1H4a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V5L9 1z"/><path d="M9 1v4h4"/>
+                          </svg>
+                        </button>
+                      ) : null}
+                      {docMenu === item.id && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setDocMenu(null)} />
+                          <div className="absolute left-0 top-full mt-1 z-20 bg-white rounded-lg border border-gray-200 shadow-lg py-1 w-28">
+                            <button onClick={() => viewDocument(item)} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-brand-light transition">View</button>
+                            <button onClick={() => pickDocument(item)} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-brand-light transition">Update</button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </td>
                   {members.map(member => {
                     const record = recordMap[member.id]?.[item.id];
@@ -210,6 +304,27 @@ export default function TrainingPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Hidden file input for training document uploads */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.png,.jpg,.jpeg,.webp"
+        className="hidden"
+        onChange={handleFileChosen}
+      />
+
+      {/* Group training session flow */}
+      {sessionOpen && orgId && (
+        <TrainingSessionFlow
+          members={members}
+          items={items}
+          records={records}
+          orgId={orgId}
+          onClose={() => setSessionOpen(false)}
+          onSaved={() => load()}
+        />
       )}
 
       {/* Cell modal */}
