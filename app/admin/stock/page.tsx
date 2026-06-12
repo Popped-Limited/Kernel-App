@@ -76,12 +76,26 @@ export default function RawMaterialsPage() {
   const [reservedByLot, setReservedByLot] = useState<Record<string, number>>({});
 
   // Reconcile panel
+  // reconMode controls how the typed number is interpreted:
+  //   "remove" → the amount to write off (new remaining = current − typed)
+  //   "count"  → the actual amount left after a stocktake (new remaining = typed)
   const [reconLot, setReconLot]         = useState<{ lot: IngredientLot; ing: IngredientWithLots } | null>(null);
-  const [reconActual, setReconActual]   = useState("");
+  const [reconMode, setReconMode]       = useState<"remove" | "count">("remove");
+  const [reconInput, setReconInput]     = useState("");
   const [reconReason, setReconReason]   = useState("wastage");
   const [reconNotes, setReconNotes]     = useState("");
   const [reconSaving, setReconSaving]   = useState(false);
   const [reconError, setReconError]     = useState("");
+
+  // Resolve the typed value + mode into the new remaining quantity (in grams /
+  // units), shared by the live preview and the save handler so they never drift.
+  function reconNewRemainingG(lot: IngredientLot, unit: "g" | "units"): number | null {
+    if (reconInput === "") return null;
+    const typed = parseFloat(reconInput);
+    if (isNaN(typed)) return null;
+    const typedG = unit === "units" ? Math.round(typed) : Math.round(typed * 1000);
+    return reconMode === "count" ? typedG : lot.quantity_remaining_g - typedG;
+  }
 
   // Edit / create panel
   const [editing, setEditing]           = useState<IngredientWithLots | null>(null);
@@ -219,7 +233,8 @@ export default function RawMaterialsPage() {
   function openReconcile(lot: IngredientLot, ing: IngredientWithLots, e: React.MouseEvent) {
     e.stopPropagation();
     setReconLot({ lot, ing });
-    setReconActual("");
+    setReconMode("remove");
+    setReconInput("");
     setReconReason("wastage");
     setReconNotes("");
     setReconError("");
@@ -230,12 +245,14 @@ export default function RawMaterialsPage() {
     const { lot, ing } = reconLot;
     const unit = ing.unit ?? "g";
 
-    const actualG = unit === "units"
-      ? parseFloat(reconActual)
-      : Math.round(parseFloat(reconActual) * 1000);
+    const actualG = reconNewRemainingG(lot, unit);
 
-    if (isNaN(actualG) || actualG < 0) {
+    if (actualG === null) {
       setReconError("Please enter a valid amount");
+      return;
+    }
+    if (actualG < 0) {
+      setReconError(`That's more than the ${fmtQty(lot.quantity_remaining_g, unit)} currently remaining`);
       return;
     }
     if (actualG > lot.quantity_received_g) {
@@ -559,13 +576,11 @@ export default function RawMaterialsPage() {
       {reconLot && (() => {
         const { lot, ing } = reconLot;
         const unit = ing.unit ?? "g";
+        const unitLabel = unit === "units" ? "units" : "kg";
         const currentDisplay = fmtQty(lot.quantity_remaining_g, unit);
-        const actualG = reconActual === ""
-          ? null
-          : unit === "units" ? parseFloat(reconActual) : Math.round(parseFloat(reconActual) * 1000);
-        const writtenOff = actualG !== null && !isNaN(actualG) && actualG >= 0
-          ? lot.quantity_remaining_g - actualG
-          : null;
+        const newRemainingG = reconNewRemainingG(lot, unit);
+        const writtenOff = newRemainingG !== null ? lot.quantity_remaining_g - newRemainingG : null;
+        const overRemove = newRemainingG !== null && newRemainingG < 0;
 
         return (
           <div className="fixed inset-0 z-50 flex">
@@ -586,10 +601,31 @@ export default function RawMaterialsPage() {
                   <p className="text-2xl font-bold text-amber-900 mt-0.5">{currentDisplay}</p>
                 </div>
 
-                {/* Actual amount input */}
+                {/* Mode toggle — write off an amount, or record a counted total */}
+                <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-gray-100">
+                  {([
+                    { key: "remove", label: "Write off amount" },
+                    { key: "count",  label: "Counted stock" },
+                  ] as const).map(m => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      onClick={() => { setReconMode(m.key); setReconInput(""); }}
+                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                        reconMode === m.key ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Amount input */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Actual amount remaining ({unit === "units" ? "units" : "kg"})
+                    {reconMode === "remove"
+                      ? `Amount to write off (${unitLabel})`
+                      : `Actual amount counted (${unitLabel})`}
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -598,20 +634,31 @@ export default function RawMaterialsPage() {
                       min="0"
                       className="input flex-1"
                       placeholder={unit === "units" ? "0" : "0.000"}
-                      value={reconActual}
-                      onChange={e => setReconActual(e.target.value)}
+                      value={reconInput}
+                      onChange={e => setReconInput(e.target.value)}
                     />
                     <button
                       type="button"
-                      onClick={() => setReconActual("0")}
+                      onClick={() => {
+                        // "Write off all" → leaves zero remaining, whichever mode
+                        const all = unit === "units" ? String(lot.quantity_remaining_g) : (lot.quantity_remaining_g / 1000).toString();
+                        setReconInput(reconMode === "remove" ? all : "0");
+                      }}
                       className="text-xs px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 whitespace-nowrap"
                     >
                       Write off all
                     </button>
                   </div>
-                  {writtenOff !== null && writtenOff >= 0 && (
+
+                  {/* Live preview — always shows both numbers so it can't be misread */}
+                  {overRemove ? (
+                    <p className="mt-2 text-xs text-red-600">
+                      That&apos;s more than the {currentDisplay} currently in stock.
+                    </p>
+                  ) : writtenOff !== null && newRemainingG !== null && (
                     <p className="mt-2 text-xs text-gray-600">
-                      <span className="font-semibold text-gray-800">{fmtQty(writtenOff, unit)}</span> will be written off
+                      <span className="font-semibold text-gray-800">{fmtQty(writtenOff, unit)}</span> written off ·
+                      {" "}<span className="font-semibold text-gray-800">{fmtQty(newRemainingG, unit)}</span> remaining
                     </p>
                   )}
                 </div>
@@ -655,7 +702,7 @@ export default function RawMaterialsPage() {
                   <button onClick={() => setReconLot(null)} className="btn-ghost flex-1">Cancel</button>
                   <button
                     onClick={saveReconcile}
-                    disabled={reconSaving || reconActual === ""}
+                    disabled={reconSaving || reconInput === "" || overRemove}
                     className="btn-primary flex-1"
                   >
                     {reconSaving ? "Saving…" : "Save reconciliation"}
