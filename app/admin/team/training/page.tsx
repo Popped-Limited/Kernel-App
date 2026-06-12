@@ -179,7 +179,7 @@ export default function TrainingPage() {
       <div className="mb-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Training Matrix</h1>
+            <h1 className="text-xl font-bold text-gray-900">Training Portal</h1>
             <p className="text-sm text-gray-500 mt-0.5">Click any cell to mark training as complete · Click a training name to attach its policy document</p>
           </div>
           <div className="flex items-center gap-2">
@@ -240,7 +240,9 @@ export default function TrainingPage() {
               {items.map((item, ri) => (
                 <tr key={item.id} className={ri % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
                   {/* Sticky item name — click to attach a policy document */}
-                  <td className="sticky left-0 z-10 px-4 py-2.5 text-xs font-medium text-gray-700 border-r border-gray-200 bg-inherit">
+                  {/* Raise the cell above sibling sticky cells while its doc menu is open,
+                      otherwise the next row's sticky cell paints over the dropdown */}
+                  <td className={`sticky left-0 ${docMenu === item.id ? "z-30" : "z-10"} px-4 py-2.5 text-xs font-medium text-gray-700 border-r border-gray-200 bg-inherit`}>
                     <div className="flex items-center gap-1.5 relative">
                       <button
                         type="button"
