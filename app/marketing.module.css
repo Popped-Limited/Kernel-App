@@ -408,30 +408,14 @@
   display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 
-/* CLIMATE */
-.climate {
-  padding: 0 52px 72px; display: flex; justify-content: center;
+/* CLIMATE LINE (inside pricing card) */
+.planClimate {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13px; line-height: 1.4;
+  color: rgba(247,242,232,0.6);
+  margin-bottom: 24px;
 }
-.climateCard {
-  max-width: 720px; width: 100%;
-  display: flex; align-items: flex-start; gap: 20px;
-  background: #F2F7F0; border: 1px solid rgba(90,150,110,0.25);
-  border-radius: 20px; padding: 28px 32px;
-}
-.climateLeaf {
-  flex-shrink: 0; width: 48px; height: 48px; border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(90,150,110,0.12); color: #4A8C5E;
-}
-.climateText { flex: 1; }
-.climateEyebrow {
-  font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
-  color: #4A8C5E; margin-bottom: 6px;
-}
-.climateHeadline {
-  font-size: 19px; font-weight: 600; line-height: 1.35; color: #1C1A10; margin-bottom: 8px;
-}
-.climateBody { font-size: 14px; line-height: 1.7; color: #5C6B5A; }
+.planClimate svg { flex-shrink: 0; color: #F0D870; }
 
 /* FOOTER */
 .footer {
@@ -734,8 +718,6 @@
   .valueBar { flex-direction: column; gap: 0; padding: 0 24px; }
   .valueBarItem:first-child { border-right: none; border-bottom: 1px solid rgba(200,168,75,0.2); }
   .guarantee { padding: 0 24px; }
-  .climate { padding: 0 24px 56px; }
-  .climateCard { flex-direction: column; gap: 14px; padding: 24px; }
   .pricingGrid {
     display: flex !important;
     overflow-x: auto;
