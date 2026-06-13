@@ -367,6 +367,26 @@ export default function MarketingPage() {
         </p>
       </section>
 
+      {/* Climate */}
+      <section className={`${styles.climate} ${styles.fadeIn}`}>
+        <div className={styles.climateCard}>
+          <div className={styles.climateLeaf} aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" width="26" height="26">
+              <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+              <path d="M2 22c1.5-7 6-10 9-12" />
+            </svg>
+          </div>
+          <div className={styles.climateText}>
+            <p className={styles.climateEyebrow}>Powered by Stripe Climate</p>
+            <h3 className={styles.climateHeadline}>1% of your subscription removes carbon from the atmosphere</h3>
+            <p className={styles.climateBody}>
+              We contribute 1% of every payment to a portfolio of frontier carbon removal projects through Stripe Climate —
+              at no extra cost to you. Running a compliant food business and helping the planet shouldn&apos;t be a trade-off.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className={styles.footer}>
         <div className={styles.footerLogo}>
