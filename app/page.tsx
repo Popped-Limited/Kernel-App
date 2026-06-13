@@ -218,43 +218,43 @@ export default function MarketingPage() {
             <div className={styles.featureIcon}>📋</div>
             <span className={styles.featureTag}>Compliance</span>
             <div className={styles.featureTitle}>SALSA-ready checklists</div>
-            <div className={styles.featureDesc}>QR codes at every station. Staff scan, fill in, submit. Missed check alerts, digital sign-offs, full audit trail.</div>
+            <div className={styles.featureDesc}>Scan a QR code, fill it in, submit. Digital sign-offs and a full audit trail.</div>
           </div>
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>📦</div>
             <span className={styles.featureTag}>Supply chain</span>
             <div className={styles.featureTitle}>Goods in & out</div>
-            <div className={styles.featureDesc}>Log every delivery and dispatch. Assign Julian codes. Full supplier approval management built in.</div>
+            <div className={styles.featureDesc}>Log every delivery and dispatch, with supplier approval built in.</div>
           </div>
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>🔍</div>
             <span className={styles.featureTag}>Traceability</span>
             <div className={styles.featureTitle}>Full forward & backward trace</div>
-            <div className={styles.featureDesc}>Search any ingredient — see every batch it went into. Search any batch — see exactly where it was dispatched. Recall-ready in seconds.</div>
+            <div className={styles.featureDesc}>Trace any ingredient to every batch, and any batch to every customer. Recall-ready in seconds.</div>
           </div>
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>🏭</div>
             <span className={styles.featureTag}>Production</span>
             <div className={styles.featureTitle}>Digital production records</div>
-            <div className={styles.featureDesc}>Log every production run, assign batch codes, track every ingredient used. HACCP-compliant batch records at the touch of a button.</div>
+            <div className={styles.featureDesc}>Batch codes, ingredients and HACCP records logged for every production run.</div>
           </div>
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>💰</div>
             <span className={styles.featureTag}>Inventory</span>
             <div className={styles.featureTitle}>Inventory management</div>
-            <div className={styles.featureDesc}>Stock deducts automatically when you run a batch. Assign costs to ingredients and see your live stock value — ready for bookkeeping without spreadsheets.</div>
+            <div className={styles.featureDesc}>Stock deducts automatically as you produce. See your live stock value any time.</div>
           </div>
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>🔔</div>
             <span className={styles.featureTag}>Alerts</span>
             <div className={styles.featureTitle}>Missed check alerts</div>
-            <div className={styles.featureDesc}>Get an email the moment a check is overdue. Nothing falls through the cracks on a busy production day.</div>
+            <div className={styles.featureDesc}>Get an email the moment a check is overdue. Nothing slips through.</div>
           </div>
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>📖</div>
             <span className={styles.featureTag}>SOPs</span>
             <div className={styles.featureTitle}>SOP builder & storage</div>
-            <div className={styles.featureDesc}>Write, store and share your standard operating procedures in one place. Staff access the latest version every time — no more outdated printouts.</div>
+            <div className={styles.featureDesc}>Write and store your SOPs in one place. Staff always see the latest version.</div>
           </div>
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>🎓</div>
