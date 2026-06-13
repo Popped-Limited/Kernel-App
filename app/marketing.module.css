@@ -353,7 +353,7 @@
 .pricingCardFeatured .pricePer { color: rgba(247,242,232,0.4); }
 
 .priceContext {
-  font-size: 13px; color: #7A7050; margin-bottom: 36px; line-height: 1.5;
+  font-size: 13px; color: #7A7050; margin-bottom: 14px; line-height: 1.5;
 }
 .priceContext strong { color: #C89A18; font-weight: 500; }
 .pricingCardFeatured .priceContext { color: rgba(247,242,232,0.45); }
@@ -413,7 +413,7 @@
   display: flex; align-items: center; gap: 7px;
   font-size: 13px; line-height: 1.4;
   color: rgba(247,242,232,0.6);
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 .planClimate svg { flex-shrink: 0; color: #F0D870; }
 

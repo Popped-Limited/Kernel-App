@@ -164,7 +164,7 @@ export default function BillingPage() {
       </div>
 
       {/* Stripe Climate contribution */}
-      <div className="card p-6 mt-4 border-brand/30 bg-brand-light/50">
+      <div className="card p-6 mt-4">
         <div className="flex items-start gap-3">
           <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-lg bg-brand/25 text-brown">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
@@ -175,7 +175,7 @@ export default function BillingPage() {
           <div>
             <p className="text-sm font-semibold text-brown">1% goes to carbon removal</p>
             <p className="text-sm text-brown-light mt-1">
-              We direct 1% of your subscription to frontier carbon removal projects through Stripe Climate — at no extra cost to you.
+              We direct 1% of your subscription to frontier carbon removal projects through Stripe Climate.
             </p>
           </div>
         </div>

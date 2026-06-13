@@ -344,19 +344,19 @@ export default function MarketingPage() {
               <div className={styles.planName}>One flat price.</div>
               <p className={styles.planTagline}>Try free for 7 days, then £149/month. Every feature, unlimited users, no surprises.</p>
             </div>
-            <p className={styles.planClimate}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="15" height="15" aria-hidden="true">
-                <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
-                <path d="M2 22c1.5-7 6-10 9-12" />
-              </svg>
-              1% of your subscription funds carbon removal — at no extra cost
-            </p>
             <div className={styles.priceRow}>
               <span className={styles.priceCurrency}>£</span>
               <span className={styles.priceAmount}>149</span>
               <span className={styles.pricePer}>/mo</span>
             </div>
             <p className={styles.priceContext}><strong>7-day free trial</strong> · Cancel any time</p>
+            <p className={styles.planClimate}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="15" height="15" aria-hidden="true">
+                <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+                <path d="M2 22c1.5-7 6-10 9-12" />
+              </svg>
+              1% of your subscription funds carbon removal
+            </p>
             <div className={styles.planDivider} />
             <ul className={styles.planFeatures}>
               {FEATURES_ALL.map((f) => (
