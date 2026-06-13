@@ -76,7 +76,7 @@ export default function MarketingPage() {
     "Missed check email alerts",
     "Julian code tracking",
     "SOP builder & storage",
-    "Staff training records",
+    "Training portal — upload policies & run guided sessions",
   ];
 
   return (
@@ -259,8 +259,8 @@ export default function MarketingPage() {
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>🎓</div>
             <span className={styles.featureTag}>Training</span>
-            <div className={styles.featureTitle}>Staff training records</div>
-            <div className={styles.featureDesc}>Log who&apos;s been trained on what and when. Keep a full training history for every team member — audit-ready and always up to date.</div>
+            <div className={styles.featureTitle}>Training portal</div>
+            <div className={styles.featureDesc}>Upload your policies, then run guided training sessions that walk staff through each document and sign off the whole team at once. The training matrix tracks who&apos;s covered what — audit-ready and always up to date.</div>
           </div>
         </div>
       </section>

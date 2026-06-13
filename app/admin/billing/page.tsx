@@ -149,7 +149,7 @@ export default function BillingPage() {
             "Full forward & backward traceability",
             "Auto-deducting inventory & live stock value",
             "SOP builder & storage",
-            "Staff training records",
+            "Training portal — policies, guided sessions & records",
             "Missed check email alerts",
             "Unlimited users",
           ].map(item => (
