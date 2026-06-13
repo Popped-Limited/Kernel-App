@@ -260,7 +260,7 @@ export default function MarketingPage() {
             <div className={styles.featureIcon}>🎓</div>
             <span className={styles.featureTag}>Training</span>
             <div className={styles.featureTitle}>Training portal</div>
-            <div className={styles.featureDesc}>Upload your policies, then run guided training sessions that walk staff through each document and sign off the whole team at once. The training matrix tracks who&apos;s covered what — audit-ready and always up to date.</div>
+            <div className={styles.featureDesc}>Upload your policies and run guided sessions — sign off the whole team in one go.</div>
           </div>
         </div>
       </section>
