@@ -177,7 +177,7 @@ export default function BillingPage() {
             <p className="text-sm text-green-700/80 mt-1">
               We direct 1% of your subscription to frontier carbon removal projects through Stripe Climate — at no extra cost to you.
               {" "}
-              <a href="https://climate.stripe.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-green-900">
+              <a href="https://stripe.com/climate" target="_blank" rel="noopener noreferrer" className="underline hover:text-green-900">
                 Learn more
               </a>
             </p>
