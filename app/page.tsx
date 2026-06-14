@@ -261,15 +261,13 @@ export default function MarketingPage() {
             </div>
             <div className={styles.founderRight}>
               <p className={styles.founderBody}>
-                We know what you need because we are you. The pre-audit panic. The endless folders
-                of paper records you&apos;re expected to maintain. The spreadsheet you&apos;re still
-                updating at 10pm instead of working on your next product.
+                We know what you need because we are you. Kernel started as an internal tool for a
+                growing food brand — paying £400 a month for compliance software that wasn&apos;t
+                made for us.
               </p>
               <p className={styles.founderBody}>
-                Kernel started as an internal tool for a growing food brand — paying £400 a month
-                for compliance software that wasn&apos;t made for us. We got tired of waiting for
-                something that actually fit, so we built it ourselves. Every feature exists because
-                a real food business needed it.
+                We got tired of waiting for something that actually fit, so we built it ourselves.
+                Every feature exists because a real food business needed it.
               </p>
             </div>
           </div>
