@@ -253,7 +253,20 @@
   margin-bottom: 16px;
 }
 .pricingHeadline em { font-style: italic; color: #C89A18; }
-.pricingSub { font-size: 16px; color: #7A7050; max-width: 480px; margin: 0 auto; }
+.pricingSub { font-size: 18px; color: #7A7050; max-width: 480px; margin: 0 auto; }
+
+/* Pricing CTA cluster */
+.pricingCta {
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  margin-top: 44px;
+}
+.pricingCta .btnPrimary { font-size: 16px; padding: 16px 40px; }
+.pricingCta .guarantee { margin-top: 4px; }
+.pricingClimate {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13px; color: #7A7050;
+}
+.pricingClimate svg { flex-shrink: 0; color: #C89A18; }
 
 /* Value bar */
 .valueBar {
@@ -640,13 +653,22 @@
 .founderQuote {
   font-family: var(--font-instrument-serif), Georgia, serif;
   font-style: italic;
-  font-size: clamp(22px, 2.5vw, 30px);
+  font-size: clamp(24px, 2.6vw, 32px);
   color: #C89A18;
   letter-spacing: -0.01em;
   line-height: 1.3;
-  margin-top: 8px;
-  padding-left: 20px;
+  margin: 56px 0 0;
+  padding-left: 22px;
   border-left: 2px solid rgba(200,168,75,0.3);
+}
+.founderCite {
+  display: block;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-style: normal;
+  font-size: 14px;
+  font-weight: 500;
+  color: #7A7050;
+  margin-top: 16px;
 }
 
 @media (max-width: 900px) {

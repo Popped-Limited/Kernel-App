@@ -64,21 +64,6 @@ export default function MarketingPage() {
     setTimeout(() => setRainPieces([]), 5000);
   }
 
-  const FEATURES_ALL = [
-    "Unlimited QR code checklists",
-    "Full SALSA audit trail",
-    "Goods in & out logging",
-    "Full forward & backward traceability",
-    "Production records & batch logging",
-    "Auto-deducting inventory",
-    "Ingredient costing & live stock value",
-    "Supplier approval management",
-    "Missed check email alerts",
-    "Julian code tracking",
-    "SOP builder & storage",
-    "Training portal — upload policies & run guided sessions",
-  ];
-
   return (
     <div className={styles.page}>
       {/* Flash */}
@@ -168,11 +153,6 @@ export default function MarketingPage() {
             <p>
               You&apos;re packed with potential, a great product, and genuine passion. Kernel
               gives you the infrastructure to match.
-            </p>
-            <p>
-              The compliance backbone, the production records, the traceability, the SOPs,
-              the training — everything that holds a food business together, so you can stop
-              carrying the admin weight and focus on what you&apos;re actually here to make.
             </p>
           </div>
         </div>
@@ -274,6 +254,10 @@ export default function MarketingPage() {
               <h2 className={styles.showcaseHeadline}>
                 Built by a food founder.<br /><em>For food founders.</em>
               </h2>
+              <blockquote className={styles.founderQuote}>
+                &ldquo;I built the tool we always needed. Now it&apos;s yours.&rdquo;
+                <cite className={styles.founderCite}>Tom Palmer · Founder, Yep Kitchen</cite>
+              </blockquote>
             </div>
             <div className={styles.founderRight}>
               <p className={styles.founderBody}>
@@ -287,9 +271,6 @@ export default function MarketingPage() {
                 something that actually fit, so we built it ourselves. Every feature exists because
                 a real food business needed it.
               </p>
-              <p className={styles.founderQuote}>
-                &ldquo;We built the tool we always needed. Now it&apos;s yours.&rdquo;
-              </p>
             </div>
           </div>
         </div>
@@ -300,78 +281,24 @@ export default function MarketingPage() {
         <div className={`${styles.pricingTop} ${styles.fadeIn}`}>
           <p className={styles.pricingEyebrow}>Pricing</p>
           <h2 className={styles.pricingHeadline}>
-            One price.<br /><em>Everything included.</em>
+            £149 a month.<br /><em>Everything included.</em>
           </h2>
           <p className={styles.pricingSub}>
-            Growing food businesses are stuck between two bad choices.
-            We built the third option — try it free for 7 days.
+            Every feature. Unlimited users. No surprises.
           </p>
         </div>
 
-        {/* Without / With comparison */}
-        <div className={`${styles.vsComparison} ${styles.fadeIn}`}>
-          <div className={styles.vsCol}>
-            <p className={styles.vsColEyebrow}>Without Kernel</p>
-            <ul className={styles.vsColList}>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Audit prep takes days, not minutes</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Traceability means searching through folders</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>More products means more admin</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Compliance software costs £300–500/month</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>SOPs live in folders no one can find</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Multiple tools, multiple logins, multiple bills</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Built on effort, not infrastructure</li>
-            </ul>
-          </div>
-          <div className={`${styles.vsCol} ${styles.vsColKernel}`}>
-            <p className={styles.vsColEyebrow}>With Kernel</p>
-            <ul className={styles.vsColList}>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Audit-ready records, always up to date</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Full traceability in seconds, not hours</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Scales with your product range automatically</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>SOPs & training records, always accessible</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>£149/month — a fraction of the alternative</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Everything in one place, one login</li>
-              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Built for growing food businesses like yours</li>
-            </ul>
-          </div>
+        <div className={`${styles.pricingCta} ${styles.fadeIn}`}>
+          <Link href="/signup" className={styles.btnPrimary}>Start your 7-day free trial</Link>
+          <p className={styles.guarantee}>🔒 &nbsp;No contracts · Cancel any time</p>
+          <p className={styles.pricingClimate}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="15" height="15" aria-hidden="true">
+              <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+              <path d="M2 22c1.5-7 6-10 9-12" />
+            </svg>
+            1% of your subscription funds carbon removal
+          </p>
         </div>
-
-        {/* Single pricing card */}
-        <div className={`${styles.pricingSingle} ${styles.fadeIn}`}>
-          <div className={`${styles.pricingCard} ${styles.pricingCardFeatured}`}>
-            <div className={styles.planHeader}>
-              <span className={styles.planBadge}><span className={styles.planPopularDot} /> 7-day free trial</span>
-              <div className={styles.planName}>One flat price.</div>
-              <p className={styles.planTagline}>Try free for 7 days, then £149/month. Every feature, unlimited users, no surprises.</p>
-            </div>
-            <div className={styles.priceRow}>
-              <span className={styles.priceCurrency}>£</span>
-              <span className={styles.priceAmount}>149</span>
-              <span className={styles.pricePer}>/mo</span>
-            </div>
-            <p className={styles.priceContext}><strong>7-day free trial</strong> · Cancel any time</p>
-            <p className={styles.planClimate}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="15" height="15" aria-hidden="true">
-                <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
-                <path d="M2 22c1.5-7 6-10 9-12" />
-              </svg>
-              1% of your subscription funds carbon removal
-            </p>
-            <div className={styles.planDivider} />
-            <ul className={styles.planFeatures}>
-              {FEATURES_ALL.map((f) => (
-                <li key={f} className={styles.planFeatureItem}>
-                  <span className={styles.planCheck}>✓</span> {f}
-                </li>
-              ))}
-            </ul>
-            <Link href="/signup" className={styles.planBtn}>Start your free trial</Link>
-          </div>
-        </div>
-
-        <p className={styles.guarantee}>
-          🔒 &nbsp;7-day free trial. No long contracts. Cancel any time.
-        </p>
       </section>
 
       {/* Footer */}
