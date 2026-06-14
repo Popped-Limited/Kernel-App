@@ -254,10 +254,6 @@ export default function MarketingPage() {
               <h2 className={styles.showcaseHeadline}>
                 Built by a food founder.<br /><em>For food founders.</em>
               </h2>
-              <blockquote className={styles.founderQuote}>
-                &ldquo;I built the tool we always needed. Now it&apos;s yours.&rdquo;
-                <cite className={styles.founderCite}>Tom Palmer · Founder, Yep Kitchen</cite>
-              </blockquote>
             </div>
             <div className={styles.founderRight}>
               <p className={styles.founderBody}>

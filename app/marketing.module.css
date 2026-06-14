@@ -787,13 +787,26 @@
     border-color: rgba(232,192,64,0.2) !important;
   }
 
-  /* VS comparison — stack vertically */
+  /* VS comparison — horizontal carousel */
   .vsComparison {
-    grid-template-columns: 1fr;
-    margin: 24px 24px 40px;
+    display: flex !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: 24px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    grid-template-columns: unset !important;
     gap: 12px;
+    margin: 24px 0 40px;
+    padding: 0 24px 4px;
   }
-  .vsCol { padding: 28px 24px; }
+  .vsComparison::-webkit-scrollbar { display: none; }
+  .vsCol {
+    scroll-snap-align: start;
+    flex: 0 0 82vw !important;
+    max-width: 360px;
+    padding: 28px 24px;
+  }
 
   /* Single pricing card */
   .pricingSingle { padding: 0 24px; }
