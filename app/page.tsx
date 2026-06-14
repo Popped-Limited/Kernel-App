@@ -288,6 +288,34 @@ export default function MarketingPage() {
           </p>
         </div>
 
+        {/* Without / With comparison */}
+        <div className={`${styles.vsComparison} ${styles.fadeIn}`}>
+          <div className={styles.vsCol}>
+            <p className={styles.vsColEyebrow}>Without Kernel</p>
+            <ul className={styles.vsColList}>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Audit prep takes days, not minutes</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Traceability means searching through folders</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>More products means more admin</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Compliance software costs £300–500/month</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>SOPs live in folders no one can find</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Multiple tools, multiple logins, multiple bills</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcNo}`}>✗</span>Built on effort, not infrastructure</li>
+            </ul>
+          </div>
+          <div className={`${styles.vsCol} ${styles.vsColKernel}`}>
+            <p className={styles.vsColEyebrow}>With Kernel</p>
+            <ul className={styles.vsColList}>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Audit-ready records, always up to date</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Full traceability in seconds, not hours</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Scales with your product range automatically</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>SOPs &amp; training records, always accessible</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>£149/month — a fraction of the alternative</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Everything in one place, one login</li>
+              <li><span className={`${styles.mcBullet} ${styles.mcYes}`}>✓</span>Built for growing food businesses like yours</li>
+            </ul>
+          </div>
+        </div>
+
         <div className={`${styles.pricingCta} ${styles.fadeIn}`}>
           <Link href="/signup" className={styles.btnPrimary}>Start your 7-day free trial</Link>
           <p className={styles.guarantee}>🔒 &nbsp;No contracts · Cancel any time</p>
