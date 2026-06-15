@@ -62,6 +62,7 @@ interface BatchDraft {
   id: string;
   checklist_id: string;
   started_by: string;
+  started_at?: string | null;
   last_saved_at: string;
   answers: AnswerMap;
 }
@@ -129,7 +130,8 @@ export default function ChecklistPage() {
   const [batchNotes, setBatchNotes] = useState("");
 
   // Draft save state (Production checklists only)
-  const [existingDraft, setExistingDraft] = useState<BatchDraft | null>(null);
+  // All in-progress batches for THIS product, newest first — the user picks which to resume
+  const [existingDrafts, setExistingDrafts] = useState<BatchDraft[]>([]);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [draftStatus, setDraftStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -166,7 +168,7 @@ export default function ChecklistPage() {
             .order("julian_code"),
           supabase
             .from("batch_drafts")
-            .select("id, checklist_id, started_by, last_saved_at, answers")
+            .select("id, checklist_id, started_by, started_at, last_saved_at, answers")
             .order("last_saved_at", { ascending: false }),
         ]);
 
@@ -179,10 +181,13 @@ export default function ChecklistPage() {
           setDensityByName(density);
         }
 
-        // Find the most recent draft for THIS checklist for the resume prompt
-        const thisChecklistDraft = (allDrafts ?? []).find(d => d.checklist_id === id);
-        if (thisChecklistDraft) {
-          setExistingDraft(thisChecklistDraft as BatchDraft);
+        // Gather ALL in-progress batches for THIS product (newest first) so the user
+        // can pick which one to resume rather than only seeing the most recent.
+        const thisChecklistDrafts = (allDrafts ?? [])
+          .filter(d => d.checklist_id === id)
+          .sort((a, b) => new Date(b.last_saved_at).getTime() - new Date(a.last_saved_at).getTime());
+        if (thisChecklistDrafts.length > 0) {
+          setExistingDrafts(thisChecklistDrafts as BatchDraft[]);
           setShowResumePrompt(true);
         }
       }
@@ -204,7 +209,7 @@ export default function ChecklistPage() {
       if (rawLotsRef.current.length === 0) return; // lots not loaded yet
       const { data: freshDrafts } = await supabase
         .from("batch_drafts")
-        .select("id, checklist_id, started_by, last_saved_at, answers");
+        .select("id, checklist_id, started_by, started_at, last_saved_at, answers");
       if (freshDrafts) {
         allDraftsRef.current = freshDrafts as BatchDraft[];
         const { byName, density } = buildIngredientMaps(
@@ -294,39 +299,29 @@ export default function ChecklistPage() {
     if (errors[questionId]) setErrors((prev) => { const e = { ...prev }; delete e[questionId]; return e; });
   }
 
-  async function resumeDraft() {
-    if (!existingDraft) return;
-    setDraftId(existingDraft.id);
-    draftIdRef.current = existingDraft.id;
+  function resumeDraft(draft: BatchDraft) {
+    setDraftId(draft.id);
+    draftIdRef.current = draft.id;
     // Extract batch notes from the saved answers map, then keep only real question answers
-    const { __batch_notes__: savedNotes, ...questionAnswers } = existingDraft.answers ?? {};
+    const { __batch_notes__: savedNotes, ...questionAnswers } = draft.answers ?? {};
     setAnswers(questionAnswers as AnswerMap);
     if (savedNotes) setBatchNotes(savedNotes);
     setShowResumePrompt(false);
     // Recompute lot availability excluding THIS draft's own reservations so the
     // user doesn't see their already-reserved quantities subtracted twice
     if (rawLotsRef.current.length > 0) {
-      const { byName, density } = buildIngredientMaps(rawLotsRef.current, allDraftsRef.current, existingDraft.id);
+      const { byName, density } = buildIngredientMaps(rawLotsRef.current, allDraftsRef.current, draft.id);
       setIngredientLots(byName);
       setDensityByName(density);
     }
   }
 
-  async function startFresh() {
-    if (existingDraft) {
-      await supabase.from("batch_drafts").delete().eq("id", existingDraft.id);
-      // Remove deleted draft from cache and recompute lot availability
-      allDraftsRef.current = allDraftsRef.current.filter(d => d.id !== existingDraft.id);
-      if (rawLotsRef.current.length > 0) {
-        const { byName, density } = buildIngredientMaps(rawLotsRef.current, allDraftsRef.current, null);
-        setIngredientLots(byName);
-        setDensityByName(density);
-      }
-    }
-    setExistingDraft(null);
+  // Start a brand-new batch. This NEVER touches existing in-progress batches —
+  // they stay saved and reservable. A new draft id is created on first edit.
+  function startNewBatch() {
     setShowResumePrompt(false);
-    setBatchNotes(""); // clear any notes from the discarded draft
-    // Draft ID will be created on first field change
+    setBatchNotes("");
+    setAnswers({});
   }
 
   // Progress calculation for production checklists
@@ -454,12 +449,19 @@ export default function ChecklistPage() {
 
   // ── Resume prompt (Production only) ─────────────────────────────────────────
 
-  if (isProduction && showResumePrompt && existingDraft) {
-    const savedAt = new Date(existingDraft.last_saved_at);
-    const timeAgo = Math.round((Date.now() - savedAt.getTime()) / 60000);
-    const timeLabel = timeAgo < 60
-      ? `${timeAgo} min${timeAgo !== 1 ? "s" : ""} ago`
-      : `${Math.round(timeAgo / 60)} hr${Math.round(timeAgo / 60) !== 1 ? "s" : ""} ago`;
+  if (isProduction && showResumePrompt && existingDrafts.length > 0) {
+    const fmtStarted = (d: BatchDraft) => {
+      const iso = d.started_at ?? d.last_saved_at;
+      return new Date(iso).toLocaleString("en-GB", {
+        day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+      });
+    };
+    const lastEdited = (d: BatchDraft) => {
+      const mins = Math.round((Date.now() - new Date(d.last_saved_at).getTime()) / 60000);
+      return mins < 60 ? `${mins} min${mins !== 1 ? "s" : ""} ago`
+        : `${Math.round(mins / 60)} hr${Math.round(mins / 60) !== 1 ? "s" : ""} ago`;
+    };
+    const plural = existingDrafts.length !== 1;
 
     return (
       <div className="min-h-screen bg-brand-cream flex flex-col">
@@ -474,7 +476,7 @@ export default function ChecklistPage() {
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="card max-w-sm w-full p-6 space-y-4">
+          <div className="card max-w-md w-full p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
                 <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -482,21 +484,35 @@ export default function ChecklistPage() {
                 </svg>
               </div>
               <div>
-                <p className="font-semibold text-gray-900 text-sm">In-progress batch found</p>
-                <p className="text-xs text-gray-500">Started by {existingDraft.started_by} · {timeLabel}</p>
+                <p className="font-semibold text-gray-900 text-sm">{existingDrafts.length} batch{plural ? "es" : ""} in progress</p>
+                <p className="text-xs text-gray-500">Pick one to continue, or start a new batch.</p>
               </div>
             </div>
-            <p className="text-sm text-gray-600">
-              There is an unfinished batch record for this product. Do you want to continue where it left off, or start a new record?
-            </p>
-            <div className="flex flex-col gap-2">
-              <button onClick={resumeDraft} className="btn-primary w-full">
-                Resume this batch
-              </button>
-              <button onClick={startFresh} className="btn-secondary w-full">
-                Start a new batch
-              </button>
+
+            {/* List of in-progress batches for this product */}
+            <div className="space-y-2">
+              {existingDrafts.map(draft => (
+                <button
+                  key={draft.id}
+                  onClick={() => resumeDraft(draft)}
+                  className="w-full flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-left hover:border-brand hover:bg-brand-light transition"
+                >
+                  <span className="h-2 w-2 rounded-full bg-brand-dark shrink-0 animate-pulse" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">Started {fmtStarted(draft)}</p>
+                    <p className="text-xs text-gray-500">by {draft.started_by} · last edited {lastEdited(draft)}</p>
+                  </div>
+                  <span className="text-xs font-medium text-brand-dark shrink-0">Resume →</span>
+                </button>
+              ))}
             </div>
+
+            <button onClick={startNewBatch} className="btn-secondary w-full">
+              Start a new batch
+            </button>
+            <p className="text-[11px] text-gray-400 text-center -mt-1">
+              Starting a new batch won&apos;t affect the {plural ? "ones" : "one"} above — {plural ? "they stay" : "it stays"} saved.
+            </p>
           </div>
         </div>
       </div>
