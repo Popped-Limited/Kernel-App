@@ -25,7 +25,12 @@ function formatBBE(val: string): string {
 /** Pull key fields from a submission's answers */
 function extractFields(answers: Array<{ value: string | null; question: { type: string; label: string } | null }>) {
   let batchCode = "";
-  let totalUnits: number | null = null;
+  // Track the sellable "Total units produced" and the packing jars-used total
+  // separately, then prefer units produced. Doing this independently of answer
+  // order matters: packing log and units-produced can differ (e.g. QC rejects),
+  // and the answers don't arrive in a guaranteed order.
+  let unitsProduced: number | null = null;
+  let jarsUsedFallback: number | null = null;
   let bbe = "";
 
   for (const ans of answers ?? []) {
@@ -34,8 +39,8 @@ function extractFields(answers: Array<{ value: string | null; question: { type: 
     const type  = ans.question?.type ?? "";
 
     // Total units produced — take FIRST match only (avoids doubling if multiple matching fields)
-    if (totalUnits === null && label.includes("total units produced")) {
-      totalUnits = Number(ans.value) || null;
+    if (unitsProduced === null && label.includes("total units produced")) {
+      unitsProduced = Number(ans.value) || null;
     }
 
     // Batch / Julian code
@@ -51,17 +56,19 @@ function extractFields(answers: Array<{ value: string | null; question: { type: 
       bbe = formatBBE(ans.value);
     }
 
-    // Fallback: pull jars_used from packing_runs if total units not yet found
-    if (totalUnits === null && type === "packing_runs") {
+    // Packing-log jars used — only used as a fallback when no units-produced field
+    if (type === "packing_runs") {
       try {
         const rows = JSON.parse(ans.value) as Array<{ jars_used?: string }>;
         let sum = 0;
         for (const r of rows) sum += Number(r.jars_used) || 0;
-        if (sum > 0) totalUnits = sum;
+        if (sum > 0) jarsUsedFallback = sum;
       } catch { /* ignore */ }
     }
   }
 
+  // Prefer the sellable units produced; fall back to packing jars only if absent
+  const totalUnits = unitsProduced ?? jarsUsedFallback;
   return { batchCode, totalUnits, bbe };
 }
 
