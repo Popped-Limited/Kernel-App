@@ -764,7 +764,17 @@ export default function GoodsOutPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Product</label>
-                  <input type="text" className="input w-full" value={editProduct} onChange={e => setEditProduct(e.target.value)} />
+                  <select className="input w-full" value={editProduct} onChange={e => setEditProduct(e.target.value)}>
+                    <option value="">Select product…</option>
+                    {productChecklists.map(cl => {
+                      const name = cl.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
+                      return <option key={cl.id} value={name}>{name}</option>;
+                    })}
+                    {/* Keep a legacy/off-list name selectable so older records aren't silently lost */}
+                    {editProduct && !productChecklists.some(cl => cl.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim() === editProduct) && (
+                      <option value={editProduct}>{editProduct} (not in product list)</option>
+                    )}
+                  </select>
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Customer</label>
