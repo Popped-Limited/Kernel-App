@@ -130,8 +130,11 @@ export default function FinishedGoodsPage() {
         if (label.includes("total units produced")) {
           totalUnits += Number(ans.value) || 0;
         }
-        // Capture the batch code so reconciliations can be tied to a batch
-        if (!batchCode && label.includes("batch code") && ans.value.trim()) {
+        // Capture the batch code so reconciliations can be tied to a batch.
+        // Must be a text field — otherwise the checkbox "Labelling verified —
+        // correct batch code…" matches and stores its "true" value as a batch.
+        if (!batchCode && ans.question?.type === "text" && ans.value.trim() &&
+            (label.includes("batch code") || label.includes("julian") || label.includes("batch ref") || label.includes("lot number"))) {
           batchCode = ans.value.trim();
         }
         // Fallback: sum jars_used from packing_runs
@@ -476,7 +479,7 @@ export default function FinishedGoodsPage() {
                     <option value="">— No specific batch —</option>
                     {batchesForReconProduct.map(b => (
                       <option key={b.code} value={b.code}>
-                        {b.code} · {formatDate(b.date)} · {b.jars} jars
+                        {b.code} · {formatDate(b.date)} · {b.jars} produced
                       </option>
                     ))}
                   </select>
