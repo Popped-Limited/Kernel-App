@@ -161,6 +161,7 @@ export interface FinishedGoodsAdjustment {
   quantity: number;
   reason: string;
   notes: string | null;
+  batch_code: string | null;
   created_by: string;
   created_at: string;
 }

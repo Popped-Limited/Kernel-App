@@ -15,6 +15,7 @@ interface ProductionRecord {
   submitted_by: string;
   product: string;
   jars: number;
+  batchCode: string | null;
 }
 
 type EventType = "produced" | "dispatched" | "adjustment";
@@ -80,6 +81,7 @@ export default function FinishedGoodsPage() {
   const [reconTarget,  setReconTarget]  = useState("");
   const [reconReason,  setReconReason]  = useState("reconciliation");
   const [reconNotes,   setReconNotes]   = useState("");
+  const [reconBatch,   setReconBatch]   = useState("");
   const [reconBy,      setReconBy]      = useState("");
   const [reconSaving,  setReconSaving]  = useState(false);
   const [reconError,   setReconError]   = useState("");
@@ -120,12 +122,17 @@ export default function FinishedGoodsPage() {
       const product = cl.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
       let totalUnits = 0;
       let jarsUsedFallback = 0;
+      let batchCode: string | null = null;
       for (const ans of ((sub.answers ?? []) as any[])) {
         if (!ans.value) continue;
         const label = (ans.question?.label ?? "").toLowerCase();
         // Prefer explicit "total units produced" answer
         if (label.includes("total units produced")) {
           totalUnits += Number(ans.value) || 0;
+        }
+        // Capture the batch code so reconciliations can be tied to a batch
+        if (!batchCode && label.includes("batch code") && ans.value.trim()) {
+          batchCode = ans.value.trim();
         }
         // Fallback: sum jars_used from packing_runs
         if (ans.question?.type === "packing_runs") {
@@ -136,7 +143,7 @@ export default function FinishedGoodsPage() {
         }
       }
       const jars = totalUnits > 0 ? totalUnits : jarsUsedFallback;
-      if (jars > 0) prods.push({ id: sub.id, submitted_at: sub.submitted_at, submitted_by: sub.submitted_by, product, jars });
+      if (jars > 0) prods.push({ id: sub.id, submitted_at: sub.submitted_at, submitted_by: sub.submitted_by, product, jars, batchCode });
     }
 
     // All active product names from checklists
@@ -208,7 +215,7 @@ export default function FinishedGoodsPage() {
   const allHistory: HistoryRow[] = useMemo(() => [
     ...productions.map(p => ({ date: p.submitted_at, product: p.product, event: "produced" as EventType, units: p.jars, by: p.submitted_by, submissionId: p.id })),
     ...dispatches.map(d => ({ date: d.dispatch_date, product: d.product, event: "dispatched" as EventType, units: d.total_units, by: d.dispatched_by })),
-    ...adjustments.map(a => ({ date: a.created_at, product: a.product, event: "adjustment" as EventType, units: a.quantity, by: a.created_by })),
+    ...adjustments.map(a => ({ date: a.created_at, product: a.product, event: "adjustment" as EventType, units: a.quantity, by: a.batch_code ? `${a.created_by} · Batch ${a.batch_code}` : a.created_by })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [productions, dispatches, adjustments]);
 
   const periodStart = !dateFrom ? parsePeriodStart(period) : null;
@@ -229,9 +236,24 @@ export default function FinishedGoodsPage() {
     setReconTarget(String(stockFor(product)));
     setReconReason("reconciliation");
     setReconNotes("");
+    setReconBatch("");
     setReconBy("");
     setReconError("");
   }
+
+  // Batches (production runs) for the product being reconciled — newest first,
+  // de-duplicated by batch code — so the user can tie the adjustment to one.
+  const batchesForReconProduct = useMemo(() => {
+    if (!reconProduct) return [] as { code: string; date: string; jars: number }[];
+    const seen = new Set<string>();
+    const list: { code: string; date: string; jars: number }[] = [];
+    for (const p of productions) {
+      if (p.product !== reconProduct || !p.batchCode || seen.has(p.batchCode)) continue;
+      seen.add(p.batchCode);
+      list.push({ code: p.batchCode, date: p.submitted_at, jars: p.jars });
+    }
+    return list;
+  }, [reconProduct, productions]);
 
   async function saveReconcile() {
     if (!reconProduct) return;
@@ -247,6 +269,7 @@ export default function FinishedGoodsPage() {
       quantity,
       reason: reconReason,
       notes: reconNotes.trim() || null,
+      batch_code: reconBatch || null,
       created_by: reconBy.trim(),
     });
     setReconSaving(false);
@@ -444,6 +467,22 @@ export default function FinishedGoodsPage() {
                   <select className="input w-full" value={reconReason} onChange={e => setReconReason(e.target.value)}>
                     {Object.entries(REASON_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Batch <span className="text-gray-400">(optional)</span>
+                  </label>
+                  <select className="input w-full" value={reconBatch} onChange={e => setReconBatch(e.target.value)}>
+                    <option value="">— No specific batch —</option>
+                    {batchesForReconProduct.map(b => (
+                      <option key={b.code} value={b.code}>
+                        {b.code} · {formatDate(b.date)} · {b.jars} jars
+                      </option>
+                    ))}
+                  </select>
+                  {batchesForReconProduct.length === 0 && (
+                    <p className="mt-1 text-[11px] text-gray-400">No batch codes recorded for this product yet.</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Notes <span className="text-gray-400">(optional)</span></label>
