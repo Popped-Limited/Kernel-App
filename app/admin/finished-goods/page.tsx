@@ -244,19 +244,42 @@ export default function FinishedGoodsPage() {
     setReconError("");
   }
 
-  // Batches (production runs) for the product being reconciled — newest first,
-  // de-duplicated by batch code — so the user can tie the adjustment to one.
+  // Batches for the product being reconciled, with the amount REMAINING for each
+  // (produced − dispatched against that batch), mirroring the Goods Out figure.
+  // Grouped by batch code, newest first.
   const batchesForReconProduct = useMemo(() => {
-    if (!reconProduct) return [] as { code: string; date: string; jars: number }[];
-    const seen = new Set<string>();
-    const list: { code: string; date: string; jars: number }[] = [];
-    for (const p of productions) {
-      if (p.product !== reconProduct || !p.batchCode || seen.has(p.batchCode)) continue;
-      seen.add(p.batchCode);
-      list.push({ code: p.batchCode, date: p.submitted_at, jars: p.jars });
+    if (!reconProduct) return [] as { code: string; date: string; remaining: number }[];
+    const prodList = productions.filter(p => p.product === reconProduct && p.batchCode);
+
+    const subToCode: Record<string, string> = {};
+    const producedByCode: Record<string, number> = {};
+    const dateByCode: Record<string, string> = {};
+    for (const p of prodList) {
+      const code = p.batchCode!;
+      subToCode[p.id] = code;
+      producedByCode[code] = (producedByCode[code] ?? 0) + p.jars;
+      if (!dateByCode[code] || new Date(p.submitted_at) > new Date(dateByCode[code])) {
+        dateByCode[code] = p.submitted_at;
+      }
     }
-    return list;
-  }, [reconProduct, productions]);
+
+    // Dispatches are linked to a production batch via batch_submission_id
+    const dispatchedByCode: Record<string, number> = {};
+    for (const d of dispatches) {
+      if (d.product !== reconProduct || !d.batch_submission_id) continue;
+      const code = subToCode[d.batch_submission_id];
+      if (!code) continue;
+      dispatchedByCode[code] = (dispatchedByCode[code] ?? 0) + d.total_units;
+    }
+
+    return Object.keys(producedByCode)
+      .map(code => ({
+        code,
+        date: dateByCode[code],
+        remaining: Math.max(0, producedByCode[code] - (dispatchedByCode[code] ?? 0)),
+      }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [reconProduct, productions, dispatches]);
 
   async function saveReconcile() {
     if (!reconProduct) return;
@@ -479,7 +502,7 @@ export default function FinishedGoodsPage() {
                     <option value="">— No specific batch —</option>
                     {batchesForReconProduct.map(b => (
                       <option key={b.code} value={b.code}>
-                        {b.code} · {formatDate(b.date)} · {b.jars} produced
+                        {b.code} · {formatDate(b.date)} · {b.remaining} remaining
                       </option>
                     ))}
                   </select>
