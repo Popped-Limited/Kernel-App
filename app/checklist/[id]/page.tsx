@@ -389,7 +389,10 @@ function ChecklistPageInner() {
   async function submitRecord(opts: { failed?: boolean } = {}): Promise<boolean> {
     setSubmitting(true);
 
-    // Upload any base64 photos to Supabase Storage
+    // Upload any base64 photos to Supabase Storage. If an upload fails we must
+    // NOT fall back to sending the raw base64 in the request — a multi-MB image
+    // exceeds the server's request-body limit and the whole submit fails with a
+    // cryptic error. Instead, surface a clear message and stop.
     const processedAnswers: AnswerMap = { ...answers };
     for (const q of questions) {
       if (q.type === "photo" && processedAnswers[q.id]?.startsWith("data:")) {
@@ -400,10 +403,13 @@ function ChecklistPageInner() {
         const { data: uploadData, error: uploadErr } = await supabase.storage
           .from("compliance-photos")
           .upload(path, blob, { contentType: blob.type, upsert: false });
-        if (!uploadErr && uploadData) {
-          const { data: urlData } = supabase.storage.from("compliance-photos").getPublicUrl(path);
-          processedAnswers[q.id] = urlData.publicUrl;
+        if (uploadErr || !uploadData) {
+          setSubmitting(false);
+          alert("Couldn't upload a photo — please check your connection and try again.");
+          return false;
         }
+        const { data: urlData } = supabase.storage.from("compliance-photos").getPublicUrl(path);
+        processedAnswers[q.id] = urlData.publicUrl;
       }
     }
 
