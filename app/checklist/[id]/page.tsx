@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState, useRef, useCallback, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { Checklist, Question, IngredientLot } from "@/lib/types";
 import QuestionField from "@/components/QuestionField";
@@ -94,8 +94,10 @@ function isFieldFilled(q: Question, val: string): boolean {
   return val !== "false" && val !== "[]" && val.trim() !== "";
 }
 
-export default function ChecklistPage() {
+function ChecklistPageInner() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [checklist, setChecklist] = useState<Checklist | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -156,6 +158,16 @@ export default function ChecklistPage() {
       ]);
       if (clRes.data) setChecklist(clRes.data);
       if (qRes.data) setQuestions(qRes.data);
+
+      // Pre-fill the "products / batches affected" field when arriving from a
+      // failed batch (Batch Failed → Corrective Action Report).
+      const affected = searchParams.get("affected");
+      if (affected && qRes.data) {
+        const target = qRes.data.find(
+          q => q.type === "text" && /(products?|batch(es)?)\b.*affect/i.test(q.label)
+        );
+        if (target) setAnswers(prev => ({ ...prev, [target.id]: affected }));
+      }
 
       // For production checklists: fetch ingredient lots + ALL active drafts in parallel.
       // Drafts serve two purposes: (1) resume-prompt detection, (2) lot-reservation display.
@@ -365,14 +377,16 @@ export default function ChecklistPage() {
     return Object.keys(errs).length === 0;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!validate()) {
-      const firstErr = document.querySelector("[data-error]");
-      firstErr?.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
+  // The batch code entered on this record (for linking a failed batch to a report)
+  function getBatchCode(): string {
+    const q = questions.find(q => q.type === "text" && /(batch code|julian|batch ref|lot number)/i.test(q.label));
+    return q ? (answers[q.id] ?? "").trim() : "";
+  }
 
+  // Shared submit path. `failed` flags a failed batch — it still saves the record
+  // and deducts the ingredients used (traceability + live inventory), but prefixes
+  // the batch notes so the record is clearly marked as a failed batch.
+  async function submitRecord(opts: { failed?: boolean } = {}): Promise<boolean> {
     setSubmitting(true);
 
     // Upload any base64 photos to Supabase Storage
@@ -393,6 +407,13 @@ export default function ChecklistPage() {
       }
     }
 
+    const trimmedNotes = batchNotes.trim();
+    const notes = isProduction
+      ? (opts.failed
+          ? `⚠️ BATCH FAILED${trimmedNotes ? ` — ${trimmedNotes}` : ""}`
+          : (trimmedNotes || null))
+      : null;
+
     const res = await fetch("/api/submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -400,7 +421,7 @@ export default function ChecklistPage() {
         checklist_id: id,
         organisation_id: checklist?.organisation_id ?? null,
         submitted_by: getSubmittedBy(questions, processedAnswers),
-        batch_notes: isProduction && batchNotes.trim() ? batchNotes.trim() : null,
+        batch_notes: notes,
         answers: questions.map((q) => ({
           question_id: q.id,
           value: processedAnswers[q.id] ?? null,
@@ -414,15 +435,57 @@ export default function ChecklistPage() {
 
     setSubmitting(false);
 
-    if (res.ok) {
-      setSubmitted(true);
-    } else {
+    if (!res.ok) {
       let msg = "Something went wrong — please try again.";
       try {
         const data = await res.json();
         if (data?.error) msg = `Error: ${data.error}${data.detail ? ` (${data.detail})` : ""}`;
       } catch {}
       alert(msg);
+      return false;
+    }
+    return true;
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!validate()) {
+      const firstErr = document.querySelector("[data-error]");
+      firstErr?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (await submitRecord()) setSubmitted(true);
+  }
+
+  // End a failed batch: save the record + inventory/traceability (no required-field
+  // check), then open a Corrective Action Report with the affected recipe pre-linked.
+  async function handleBatchFailed() {
+    const ok = window.confirm(
+      "Mark this batch as FAILED?\n\nThis ends and saves the batch now — recording the ingredients used and traceability entered so far — then opens a Corrective Action Report for it. This can't be undone."
+    );
+    if (!ok) return;
+
+    if (!(await submitRecord({ failed: true }))) return;
+
+    // Find this org's Corrective Action checklist (RLS scopes to the org)
+    const { data: ca } = await supabase
+      .from("checklists")
+      .select("id")
+      .eq("active", true)
+      .ilike("name", "%corrective action%")
+      .order("name")
+      .limit(1)
+      .maybeSingle();
+
+    const product = (checklist?.name ?? "").replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
+    const code = getBatchCode();
+    const affected = `${product}${code ? ` — Batch ${code}` : ""}`;
+
+    if (ca?.id) {
+      router.push(`/checklist/${ca.id}?affected=${encodeURIComponent(affected)}`);
+    } else {
+      // No corrective action checklist set up — fall back to the normal success screen
+      setSubmitted(true);
     }
   }
 
@@ -668,9 +731,22 @@ export default function ChecklistPage() {
           </button>
 
           {isProduction && (
-            <p className="text-center text-xs text-gray-400">
-              Progress is saved automatically — you can close and reopen this page at any time.
-            </p>
+            <>
+              <button
+                type="button"
+                onClick={handleBatchFailed}
+                disabled={submitting}
+                className="w-full py-2.5 text-sm rounded-xl font-semibold border border-red-200 text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+              >
+                ⚠ Batch failed
+              </button>
+              <p className="text-center text-xs text-gray-400 -mt-1">
+                Ends &amp; saves the batch (keeping ingredients used and traceability), then opens a Corrective Action Report.
+              </p>
+              <p className="text-center text-xs text-gray-400">
+                Progress is saved automatically — you can close and reopen this page at any time.
+              </p>
+            </>
           )}
 
           <p className="text-center text-xs text-gray-400 pb-8">
@@ -679,5 +755,13 @@ export default function ChecklistPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function ChecklistPage() {
+  return (
+    <Suspense>
+      <ChecklistPageInner />
+    </Suspense>
   );
 }
