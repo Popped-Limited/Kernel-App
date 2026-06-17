@@ -60,6 +60,10 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   and set the `sb-dudchdacsrgdnenkqmyo-auth-token` cookie. Use `support@` for writes; only read-only nav as Yep Kitchen logins.
 
 ## Pending / TODO
-- **Two DB migrations not yet confirmed run** (Supabase SQL editor):
-  `scripts/training-documents.sql` and `scripts/add-batch-to-finished-goods-adjustments.sql`.
 - **Vercel Pro + Supabase Pro upgrades** pending (commercial terms; Supabase Free = no daily backups).
+
+## Migrations applied (for reference)
+- `training-documents.sql`, `add-batch-to-finished-goods-adjustments.sql`,
+  `checklist-name-unique-per-org.sql` — all run 17 Jun 2026.
+- Note: `training_sessions` is granted to `authenticated` (app works) but NOT `service_role`,
+  so admin/Node scripts can't read/write it — use an authenticated magic-link session for that table.
