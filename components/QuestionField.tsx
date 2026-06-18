@@ -3,6 +3,7 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import type { Question, IngredientLot } from "@/lib/types";
 import { todayJulianCode } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 /** Local-state input for litres — lets the user type freely, converts to grams only on blur */
 function LitresInput({ weightG, density, onChange }: { weightG: string; density: number; onChange: (g: string) => void }) {
@@ -71,6 +72,7 @@ export default function QuestionField({ question, value, onChange, error, ingred
   // Tracks raw litres/grams text per lot input so users can type freely without the field snapping
   const [litresDisplay, setLitresDisplay] = useState<Record<string, string>>({});
   const [gramsDisplay, setGramsDisplay]   = useState<Record<string, string>>({});
+  const [pdfOpen, setPdfOpen] = useState(false);
 
   // Batches — only used by ingredient_table questions
   // Each batch has its own multiplier; combined target = sum of all multipliers
@@ -827,6 +829,87 @@ export default function QuestionField({ question, value, onChange, error, ingred
           </button>
         </div>
         {errMsg}
+      </div>
+    );
+  }
+
+  if (question.type === "document") {
+    const pdfUrl = question.document_path
+      ? supabase.storage.from("compliance-docs").getPublicUrl(question.document_path).data.publicUrl
+      : null;
+    const fileName = question.document_path?.split("/").pop()?.replace(/^\d+_/, "") ?? "Document";
+    const acknowledged = value === "true";
+
+    return (
+      <div>
+        <div className={`rounded-xl border p-4 space-y-3 ${error ? "border-red-300 bg-red-50" : "border-brand/30 bg-brand/5"}`}>
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/20">
+              <svg className="h-5 w-5 text-brown" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900">{question.label}</p>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">{fileName}</p>
+            </div>
+          </div>
+          {pdfUrl && (
+            <button
+              type="button"
+              onClick={() => setPdfOpen(true)}
+              className="w-full rounded-lg bg-brown text-white text-sm font-medium py-2.5 hover:bg-brown/90 transition"
+            >
+              View Document
+            </button>
+          )}
+          {question.document_required && (
+            <button
+              type="button"
+              onClick={() => onChange(acknowledged ? "false" : "true")}
+              className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition ${
+                acknowledged
+                  ? "border-green-300 bg-green-50"
+                  : error
+                  ? "border-red-300 bg-white"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+              }`}
+            >
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition ${acknowledged ? "border-green-500 bg-green-500 text-white" : "border-gray-300"}`}>
+                {acknowledged && (
+                  <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </span>
+              <span className="text-sm font-medium text-gray-800">
+                I have read this document
+                <span className="ml-1 text-brand text-xs">*</span>
+              </span>
+            </button>
+          )}
+        </div>
+        {errMsg}
+
+        {pdfOpen && pdfUrl && (
+          <div className="fixed inset-0 z-50 flex flex-col bg-black">
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-900">
+              <p className="text-sm font-medium text-white truncate">{fileName}</p>
+              <button
+                type="button"
+                onClick={() => setPdfOpen(false)}
+                className="ml-4 shrink-0 rounded-lg bg-white/10 px-3 py-1.5 text-sm text-white hover:bg-white/20 transition"
+              >
+                Close
+              </button>
+            </div>
+            <iframe
+              src={pdfUrl}
+              className="flex-1 w-full border-0"
+              title={fileName}
+            />
+          </div>
+        )}
       </div>
     );
   }

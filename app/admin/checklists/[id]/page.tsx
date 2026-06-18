@@ -17,6 +17,8 @@ const BLANK_QUESTION: Omit<Question, "id" | "checklist_id" | "created_at"> = {
   options: null,
   hint: null,
   follow_up: null,
+  document_path: null,
+  document_required: false,
 };
 
 export default function EditChecklistPage() {
@@ -116,7 +118,7 @@ export default function EditChecklistPage() {
       checklist_id: id,
       label: editingQ.label!.trim(),
       type: editingQ.type!,
-      required: editingQ.required ?? true,
+      required: editingQ.type === "document" ? (editingQ.document_required ?? false) : (editingQ.required ?? true),
       order_index: editingQ.order_index ?? questions.length,
       // Strip blank lines that were kept during editing for natural textarea behaviour.
       // For ingredient_table ("name|weight"), drop rows with no ingredient name.
@@ -128,6 +130,8 @@ export default function EditChecklistPage() {
       hint: editingQ.hint?.trim() || null,
       follow_up: editingQ.follow_up ?? null,
       organisation_id: orgId,
+      document_path: editingQ.document_path ?? null,
+      document_required: editingQ.document_required ?? false,
     };
 
     if (editingQId) {
@@ -371,6 +375,7 @@ export default function EditChecklistPage() {
           onChange={setEditingQ}
           onSave={saveQuestion}
           onCancel={() => { setEditingQ(null); setEditingQId(null); }}
+          checklistId={id}
         />
       )}
     </>
@@ -434,18 +439,38 @@ function QuestionRow({ question, index, isDragging, isDragOver, onEdit, onDelete
   );
 }
 
-function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel }: {
+function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel, checklistId }: {
   question: Partial<Question>;
   isNew: boolean;
   saving: boolean;
   onChange: (q: Partial<Question>) => void;
   onSave: () => void;
   onCancel: () => void;
+  checklistId: string;
 }) {
   const needsOptions = question.type === "dropdown" || question.type === "multiple_choice";
   const isMultiNumber = question.type === "multi_number";
   const isIngredientTable = question.type === "ingredient_table";
+  const isDocument = question.type === "document";
   const boxCount = Math.min(5, Math.max(1, parseInt(question.options?.[0] ?? "3") || 3));
+
+  const [uploading, setUploading] = useState(false);
+
+  async function handleDocumentFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const path = `checklist-docs/${checklistId}/${Date.now()}_${file.name}`;
+    const { error } = await supabase.storage.from("compliance-docs").upload(path, file, { upsert: true });
+    if (error) {
+      alert("Upload failed: " + error.message);
+    } else {
+      onChange({ ...question, document_path: path });
+    }
+    setUploading(false);
+    // Reset the input so the same file can be re-selected after a replace
+    e.target.value = "";
+  }
 
   // Recipe rows for ingredient_table questions. Each option is stored as
   // "Ingredient name|target weight in grams".
@@ -498,24 +523,26 @@ function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel }:
             ) : (
               <select
                 value={question.type ?? "checkbox"}
-                onChange={e => onChange({ ...question, type: e.target.value as QuestionType, options: null, follow_up: null })}
+                onChange={e => onChange({ ...question, type: e.target.value as QuestionType, options: null, follow_up: null, document_path: null, document_required: false })}
                 className="input"
               >
                 {QUESTION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             )}
           </div>
-          <div className="flex flex-col justify-end pb-0.5">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={question.required ?? true}
-                onChange={e => onChange({ ...question, required: e.target.checked })}
-                className="h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand"
-              />
-              <span className="text-sm font-medium text-gray-700">Required</span>
-            </label>
-          </div>
+          {!isDocument && (
+            <div className="flex flex-col justify-end pb-0.5">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={question.required ?? true}
+                  onChange={e => onChange({ ...question, required: e.target.checked })}
+                  className="h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand"
+                />
+                <span className="text-sm font-medium text-gray-700">Required</span>
+              </label>
+            </div>
+          )}
         </div>
 
         {needsOptions && (
@@ -611,6 +638,46 @@ function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel }:
             >
               + Add ingredient
             </button>
+          </div>
+        )}
+
+        {isDocument && (
+          <div className="space-y-3">
+            <div>
+              <label className="label">PDF document</label>
+              {question.document_path ? (
+                <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5">
+                  <svg className="h-5 w-5 shrink-0 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="text-sm text-green-700 flex-1 truncate">
+                    {question.document_path.split("/").pop()?.replace(/^\d+_/, "")}
+                  </span>
+                  <label className="text-xs text-gray-500 hover:text-brand cursor-pointer underline shrink-0">
+                    Replace
+                    <input type="file" accept="application/pdf" className="hidden" onChange={handleDocumentFile} disabled={uploading} />
+                  </label>
+                </div>
+              ) : (
+                <label className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-sm cursor-pointer transition ${uploading ? "border-brand/40 bg-brand/5 text-brand" : "border-gray-300 text-gray-500 hover:border-brand hover:text-brand"}`}>
+                  <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="font-medium">{uploading ? "Uploading…" : "Upload PDF"}</span>
+                  <span className="text-xs text-gray-400">Tap to choose a file</span>
+                  <input type="file" accept="application/pdf" className="hidden" onChange={handleDocumentFile} disabled={uploading} />
+                </label>
+              )}
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={question.document_required ?? false}
+                onChange={e => onChange({ ...question, document_required: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand"
+              />
+              <span className="text-sm font-medium text-gray-700">Required read before submitting</span>
+            </label>
           </div>
         )}
 

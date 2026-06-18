@@ -10,7 +10,8 @@ export type QuestionType =
   | "signature"
   | "multiple_choice"
   | "ingredient_table"
-  | "packing_runs";
+  | "packing_runs"
+  | "document";
 
 export type ChecklistFrequency =
   | "per_shift_am"
@@ -50,6 +51,8 @@ export interface Question {
   hint: string | null;
   follow_up: { trigger: string; label: string } | null; // conditional follow-up when a specific option is chosen
   created_at: string;
+  document_path: string | null;
+  document_required: boolean;
 }
 
 export interface Submission {
