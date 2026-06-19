@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
                   .from("ingredient_lots")
                   .select("id")
                   .eq("julian_code", lotUse.julian_code.trim())
+                  .eq("organisation_id", organisation_id)
                   .limit(1)
                   .single();
                 if (found) resolvedLotId = found.id;
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest) {
                 .from("ingredient_lots")
                 .select("quantity_remaining_g")
                 .eq("id", resolvedLotId)
+                .eq("organisation_id", organisation_id)
                 .single();
 
               if (lot) {
@@ -101,7 +103,8 @@ export async function POST(req: NextRequest) {
                 await supabaseAdmin
                   .from("ingredient_lots")
                   .update({ quantity_remaining_g: newRemaining })
-                  .eq("id", resolvedLotId);
+                  .eq("id", resolvedLotId)
+                  .eq("organisation_id", organisation_id);
               }
             }
           }
