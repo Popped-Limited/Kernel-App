@@ -79,7 +79,7 @@ export default function RawMaterialsPage() {
   // reconMode controls how the typed number is interpreted:
   //   "remove" → the amount to write off (new remaining = current − typed)
   //   "count"  → the actual amount left after a stocktake (new remaining = typed)
-  const [reconLot, setReconLot]         = useState<{ lot: IngredientLot; ing: IngredientWithLots } | null>(null);
+  const [reconLot, setReconLot]         = useState<{ lot: IngredientLot; ing: IngredientWithLots; reserved: number } | null>(null);
   const [reconMode, setReconMode]       = useState<"remove" | "count">("remove");
   const [reconInput, setReconInput]     = useState("");
   const [reconReason, setReconReason]   = useState("wastage");
@@ -87,14 +87,16 @@ export default function RawMaterialsPage() {
   const [reconSaving, setReconSaving]   = useState(false);
   const [reconError, setReconError]     = useState("");
 
-  // Resolve the typed value + mode into the new remaining quantity (in grams /
-  // units), shared by the live preview and the save handler so they never drift.
-  function reconNewRemainingG(lot: IngredientLot, unit: "g" | "units"): number | null {
+  // Resolve the typed value + mode into the new quantity_remaining_g to store.
+  // "remove" mode: deduct from total remaining (on-shelf write-off).
+  // "count" mode: user typed what's physically on shelf; add back in-production
+  //   so the stored figure = on-shelf + reserved.
+  function reconNewRemainingG(lot: IngredientLot, unit: "g" | "units", reserved: number): number | null {
     if (reconInput === "") return null;
     const typed = parseFloat(reconInput);
     if (isNaN(typed)) return null;
     const typedG = unit === "units" ? Math.round(typed) : Math.round(typed * 1000);
-    return reconMode === "count" ? typedG : lot.quantity_remaining_g - typedG;
+    return reconMode === "count" ? typedG + reserved : lot.quantity_remaining_g - typedG;
   }
 
   // Edit / create panel
@@ -230,9 +232,9 @@ export default function RawMaterialsPage() {
     await load();
   }
 
-  function openReconcile(lot: IngredientLot, ing: IngredientWithLots, e: React.MouseEvent) {
+  function openReconcile(lot: IngredientLot, ing: IngredientWithLots, reserved: number, e: React.MouseEvent) {
     e.stopPropagation();
-    setReconLot({ lot, ing });
+    setReconLot({ lot, ing, reserved });
     setReconMode("remove");
     setReconInput("");
     setReconReason("wastage");
@@ -242,13 +244,19 @@ export default function RawMaterialsPage() {
 
   async function saveReconcile() {
     if (!reconLot) return;
-    const { lot, ing } = reconLot;
+    const { lot, ing, reserved } = reconLot;
     const unit = ing.unit ?? "g";
+    const onShelfG = Math.max(0, lot.quantity_remaining_g - reserved);
 
-    const actualG = reconNewRemainingG(lot, unit);
+    const actualG = reconNewRemainingG(lot, unit, reserved);
 
     if (actualG === null) {
       setReconError("Please enter a valid amount");
+      return;
+    }
+    // New remaining must not dip below reserved — that would remove in-production stock
+    if (actualG < reserved) {
+      setReconError(`That's more than the ${fmtQty(onShelfG, unit)} currently on shelf (${fmtQty(reserved, unit)} is in production)`);
       return;
     }
     if (actualG < 0) {
@@ -546,7 +554,7 @@ export default function RawMaterialsPage() {
                                         <td className="py-1.5">
                                           {lot.quantity_remaining_g > 0 && (
                                             <button
-                                              onClick={e => openReconcile(lot, ing, e)}
+                                              onClick={e => openReconcile(lot, ing, lotReserved, e)}
                                               className="text-xs text-brand-dark font-medium hover:underline whitespace-nowrap"
                                             >
                                               Reconcile
@@ -574,13 +582,16 @@ export default function RawMaterialsPage() {
 
       {/* Reconcile panel */}
       {reconLot && (() => {
-        const { lot, ing } = reconLot;
+        const { lot, ing, reserved } = reconLot;
         const unit = ing.unit ?? "g";
         const unitLabel = unit === "units" ? "units" : "kg";
-        const currentDisplay = fmtQty(lot.quantity_remaining_g, unit);
-        const newRemainingG = reconNewRemainingG(lot, unit);
-        const writtenOff = newRemainingG !== null ? lot.quantity_remaining_g - newRemainingG : null;
-        const overRemove = newRemainingG !== null && newRemainingG < 0;
+        const onShelfG = Math.max(0, lot.quantity_remaining_g - reserved);
+        const onShelfDisplay = fmtQty(onShelfG, unit);
+        const newRemainingG = reconNewRemainingG(lot, unit, reserved);
+        // For display: on-shelf figure after the adjustment
+        const newOnShelfG = newRemainingG !== null ? newRemainingG - reserved : null;
+        const writtenOff = newRemainingG !== null ? onShelfG - (newRemainingG - reserved) : null;
+        const overRemove = newRemainingG !== null && newRemainingG < reserved;
 
         return (
           <div className="fixed inset-0 z-50 flex">
@@ -596,9 +607,14 @@ export default function RawMaterialsPage() {
 
               <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
                 {/* Current stock info */}
-                <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
-                  <p className="text-xs text-amber-700 font-medium">System shows remaining</p>
-                  <p className="text-2xl font-bold text-amber-900 mt-0.5">{currentDisplay}</p>
+                <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 space-y-1">
+                  <p className="text-xs text-amber-700 font-medium">On shelf (available to count)</p>
+                  <p className="text-2xl font-bold text-amber-900">{onShelfDisplay}</p>
+                  {reserved > 0 && (
+                    <p className="text-xs text-amber-600">
+                      + {fmtQty(reserved, unit)} in production — not reconcilable until batch is submitted
+                    </p>
+                  )}
                 </div>
 
                 {/* Mode toggle — write off an amount, or record a counted total */}
@@ -625,7 +641,7 @@ export default function RawMaterialsPage() {
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     {reconMode === "remove"
                       ? `Amount to write off (${unitLabel})`
-                      : `Actual amount counted (${unitLabel})`}
+                      : `Amount counted on shelf (${unitLabel})`}
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -640,9 +656,9 @@ export default function RawMaterialsPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        // "Write off all" → leaves zero remaining, whichever mode
-                        const all = unit === "units" ? String(lot.quantity_remaining_g) : (lot.quantity_remaining_g / 1000).toString();
-                        setReconInput(reconMode === "remove" ? all : "0");
+                        // "Write off all" → writes off all on-shelf stock (in-production is untouched)
+                        const allOnShelf = unit === "units" ? String(onShelfG) : (onShelfG / 1000).toString();
+                        setReconInput(reconMode === "remove" ? allOnShelf : "0");
                       }}
                       className="text-xs px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 whitespace-nowrap"
                     >
@@ -650,15 +666,15 @@ export default function RawMaterialsPage() {
                     </button>
                   </div>
 
-                  {/* Live preview — always shows both numbers so it can't be misread */}
+                  {/* Live preview */}
                   {overRemove ? (
                     <p className="mt-2 text-xs text-red-600">
-                      That&apos;s more than the {currentDisplay} currently in stock.
+                      That&apos;s more than the {onShelfDisplay} currently on shelf.
                     </p>
-                  ) : writtenOff !== null && newRemainingG !== null && (
+                  ) : writtenOff !== null && newOnShelfG !== null && (
                     <p className="mt-2 text-xs text-gray-600">
                       <span className="font-semibold text-gray-800">{fmtQty(writtenOff, unit)}</span> written off ·
-                      {" "}<span className="font-semibold text-gray-800">{fmtQty(newRemainingG, unit)}</span> remaining
+                      {" "}<span className="font-semibold text-gray-800">{fmtQty(newOnShelfG, unit)}</span> on shelf after
                     </p>
                   )}
                 </div>
