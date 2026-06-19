@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-export default function SignUpPage() {
+function SignUpForm() {
+  const searchParams   = useSearchParams();
+  const referralSource = searchParams.get("ref") === "beacon" ? "beacon" : null;
+
   const [orgName, setOrgName]                 = useState("");
   const [fullName, setFullName]               = useState("");
   const [email, setEmail]                     = useState("");
@@ -28,10 +32,11 @@ export default function SignUpPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          org_name:  orgName.trim(),
-          user_name: fullName.trim(),
-          email:     email.trim(),
+          org_name:        orgName.trim(),
+          user_name:       fullName.trim(),
+          email:           email.trim(),
           password,
+          referral_source: referralSource,
         }),
       });
 
@@ -55,7 +60,11 @@ export default function SignUpPage() {
       }
 
       // Step 3: Create Stripe checkout session (session is now in cookies)
-      const checkoutRes = await fetch("/api/create-checkout-session", { method: "POST" });
+      const checkoutRes = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ referral_source: referralSource }),
+      });
       const checkoutData = await checkoutRes.json();
 
       if (checkoutData.url) {
@@ -74,6 +83,10 @@ export default function SignUpPage() {
 
   const ready = orgName.trim() && fullName.trim() && email.trim() && password && confirmPassword;
 
+  const trialLabel = referralSource === "beacon"
+    ? "Your first month is on us — referred by Beacon Compliance"
+    : "7-day free trial · No charge until day 8 · Cancel any time";
+
   return (
     <div className="min-h-screen bg-brand-cream flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-sm">
@@ -82,8 +95,16 @@ export default function SignUpPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/kernel.png" alt="Kernel" className="h-20 w-auto mx-auto mb-3 drop-shadow-lg" />
           <p className="font-serif text-5xl text-brown leading-none tracking-tight">Kernel</p>
-          <p className="text-sm text-brown/60 mt-2">Start your 7-day free trial</p>
+          <p className="text-sm text-brown/60 mt-2">
+            {referralSource === "beacon" ? "1 month free — via Beacon Compliance" : "Start your 7-day free trial"}
+          </p>
         </div>
+
+        {referralSource === "beacon" && (
+          <div className="mb-4 rounded-lg bg-brand/20 border border-brand px-4 py-3 text-sm text-brown text-center">
+            Referred by <span className="font-semibold">Beacon Compliance</span> — your first month is completely free.
+          </div>
+        )}
 
         <div className="card p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -131,13 +152,11 @@ export default function SignUpPage() {
             {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
 
             <button type="submit" disabled={loading || !ready} className="btn-primary w-full py-2.5">
-              {loading ? "Creating your account…" : "Start free trial"}
+              {loading ? "Creating your account…" : referralSource === "beacon" ? "Claim your free month" : "Start free trial"}
             </button>
           </form>
 
-          <p className="mt-4 text-center text-xs text-gray-400">
-            7-day free trial · No charge until day 8 · Cancel any time
-          </p>
+          <p className="mt-4 text-center text-xs text-gray-400">{trialLabel}</p>
         </div>
 
         <p className="mt-4 text-center text-sm text-brown/60">
@@ -151,5 +170,13 @@ export default function SignUpPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense>
+      <SignUpForm />
+    </Suspense>
   );
 }

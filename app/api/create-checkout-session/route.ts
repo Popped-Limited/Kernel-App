@@ -8,6 +8,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: NextRequest) {
   try {
+    const body = await req.json().catch(() => ({}));
+    const referralSource: string | null = body.referral_source === "beacon" ? "beacon" : null;
+
     // Get the authenticated user from their session cookie
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -34,17 +37,25 @@ export async function POST(req: NextRequest) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://kernelapp.co.uk";
 
-    // Create Stripe checkout session with 7-day trial
+    // Beacon referrals get 1 month free (30-day trial); everyone else gets 7 days
+    const trialDays = referralSource === "beacon" ? 30 : 7;
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
       line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
       subscription_data: {
-        trial_period_days: 7,
-        metadata: { organisation_id: member.organisation_id },
+        trial_period_days: trialDays,
+        metadata: {
+          organisation_id: member.organisation_id,
+          ...(referralSource ? { referral_source: referralSource } : {}),
+        },
       },
       customer_email: user.email,
-      metadata: { organisation_id: member.organisation_id },
+      metadata: {
+        organisation_id: member.organisation_id,
+        ...(referralSource ? { referral_source: referralSource } : {}),
+      },
       success_url: `${appUrl}/home?welcome=1`,
       cancel_url:  `${appUrl}/signup?cancelled=1`,
     });

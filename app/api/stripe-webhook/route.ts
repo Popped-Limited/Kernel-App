@@ -25,13 +25,18 @@ export async function POST(req: NextRequest) {
       const orgId = session.metadata?.organisation_id;
       if (!orgId) break;
 
+      const updates: Record<string, string> = {
+        stripe_customer_id:     session.customer as string,
+        stripe_subscription_id: session.subscription as string,
+        subscription_status:    "trialing",
+      };
+      if (session.metadata?.referral_source) {
+        updates.referral_source = session.metadata.referral_source;
+      }
+
       await supabaseAdmin
         .from("organisations")
-        .update({
-          stripe_customer_id: session.customer as string,
-          stripe_subscription_id: session.subscription as string,
-          subscription_status: "trialing",
-        })
+        .update(updates)
         .eq("id", orgId);
       break;
     }

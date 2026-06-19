@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function POST(req: NextRequest) {
   try {
-    const { org_name, user_name, email, password } = await req.json();
+    const { org_name, user_name, email, password, referral_source } = await req.json();
 
     // Validate inputs
     if (!org_name?.trim() || !user_name?.trim() || !email?.trim() || !password) {
@@ -42,7 +42,12 @@ export async function POST(req: NextRequest) {
 
     const { data: org, error: orgError } = await supabaseAdmin
       .from("organisations")
-      .insert({ name: org_name.trim(), slug, plan: "unpopped" })
+      .insert({
+        name:            org_name.trim(),
+        slug,
+        plan:            "unpopped",
+        referral_source: referral_source === "beacon" ? "beacon" : null,
+      })
       .select("id")
       .single();
 
