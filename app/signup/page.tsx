@@ -96,7 +96,7 @@ function SignUpForm() {
           <img src="/kernel.png" alt="Kernel" className="h-20 w-auto mx-auto mb-3 drop-shadow-lg" />
           <p className="font-serif text-5xl text-brown leading-none tracking-tight">Kernel</p>
           <p className="text-sm text-brown/60 mt-2">
-            {referralSource === "beacon" ? "1 month free — via Beacon Compliance" : "Start your 7-day free trial"}
+            {referralSource === "beacon" ? "Create your account" : "Start your 7-day free trial"}
           </p>
         </div>
 
@@ -152,11 +152,13 @@ function SignUpForm() {
             {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
 
             <button type="submit" disabled={loading || !ready} className="btn-primary w-full py-2.5">
-              {loading ? "Creating your account…" : referralSource === "beacon" ? "Claim your free month" : "Start free trial"}
+              {loading ? "Creating your account…" : "Start free trial"}
             </button>
           </form>
 
-          <p className="mt-4 text-center text-xs text-gray-400">{trialLabel}</p>
+          {!referralSource && (
+            <p className="mt-4 text-center text-xs text-gray-400">{trialLabel}</p>
+          )}
         </div>
 
         <p className="mt-4 text-center text-sm text-brown/60">
