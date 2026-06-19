@@ -14,6 +14,7 @@ interface Doc {
 interface Props {
   entityType: "supplier" | "ingredient" | "supply" | "packaging";
   entityId: string;
+  orgId: string | null;
   docType: "spec_sheet" | "coshh" | "accreditation" | "other";
   label: string;
 }
@@ -28,7 +29,7 @@ function PdfIcon() {
   );
 }
 
-export default function DocUploader({ entityType, entityId, docType, label }: Props) {
+export default function DocUploader({ entityType, entityId, orgId, docType, label }: Props) {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -75,12 +76,13 @@ export default function DocUploader({ entityType, entityId, docType, label }: Pr
       return;
     }
 
-    const { error: dbError } = await supabase.rpc("insert_document", {
-      p_entity_type: entityType,
-      p_entity_id: entityId,
-      p_doc_type: docType,
-      p_file_name: file.name,
-      p_file_path: path,
+    const { error: dbError } = await supabase.from("documents").insert({
+      entity_type: entityType,
+      entity_id: entityId,
+      organisation_id: orgId,
+      doc_type: docType,
+      file_name: file.name,
+      file_path: path,
     });
 
     if (dbError) {

@@ -821,6 +821,7 @@ export default function RawMaterialsPage() {
                 <DocUploader
                   entityType={editType === "supplies" ? "supply" : editType === "packaging" ? "packaging" : "ingredient"}
                   entityId={editing.id}
+                  orgId={orgId}
                   docType={editType === "supplies" ? "coshh" : "spec_sheet"}
                   label={editType === "supplies" ? "COSHH Sheet" : "Spec Sheet"}
                 />

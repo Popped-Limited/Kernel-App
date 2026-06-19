@@ -115,10 +115,15 @@ export default function SuppliersPage() {
   const [riskCalcOpen, setRiskCalcOpen] = useState(false);
   const [saqViewerOpen, setSaqViewerOpen] = useState(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (orgId) load(); }, [orgId]);
 
   async function load() {
-    const { data } = await supabase.from("suppliers").select("*").order("type").order("name");
+    const { data } = await supabase
+      .from("suppliers")
+      .select("*")
+      .eq("organisation_id", orgId)
+      .order("type")
+      .order("name");
     if (data) setSuppliers(data as Supplier[]);
     setLoading(false);
   }
@@ -521,6 +526,7 @@ export default function SuppliersPage() {
                 <DocUploader
                   entityType="supplier"
                   entityId={editing.id}
+                  orgId={orgId}
                   docType="accreditation"
                   label="Accreditation & Certificates"
                 />
