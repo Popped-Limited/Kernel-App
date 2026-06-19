@@ -97,7 +97,8 @@ export async function POST(req: NextRequest) {
     for (const answer of allAnswers ?? []) {
       if (!answer.value) continue;
       try {
-        const rows = JSON.parse(answer.value) as Array<{
+        const parsedVal = JSON.parse(answer.value);
+        const rows = (Array.isArray(parsedVal) ? parsedVal : (parsedVal?.rows ?? [])) as Array<{
           lots: Array<{ lot_id?: string; julian_code?: string; weight_g: string }>;
         }>;
 
