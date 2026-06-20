@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
-import type { Checklist, Question, QuestionType, ChecklistFrequency } from "@/lib/types";
+import type { Checklist, ChecklistReminder, Question, QuestionType, ChecklistFrequency } from "@/lib/types";
 import { FREQUENCIES, QUESTION_TYPES } from "@/lib/constants";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
 
@@ -334,6 +334,9 @@ export default function EditChecklistPage() {
           )}
         </div>
 
+        {/* ── Email reminders ── */}
+        <RemindersCard checklistId={id} orgId={orgId} />
+
         {/* ── Questions ── */}
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -383,6 +386,205 @@ export default function EditChecklistPage() {
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function formatHour(h: number) {
+  return `${String(h).padStart(2, "0")}:00`;
+}
+
+function formatDays(days: number[]) {
+  const s = [...days].sort((a, b) => a - b);
+  if (s.length === 0) return "no days";
+  if (s.length === 7) return "Every day";
+  if (s.length === 5 && [1, 2, 3, 4, 5].every((d) => s.includes(d))) return "Weekdays";
+  if (s.length === 2 && s.includes(0) && s.includes(6)) return "Weekends";
+  return s.map((d) => DAY_LABELS[d]).join(", ");
+}
+
+function RemindersCard({ checklistId, orgId }: { checklistId: string; orgId: string | null }) {
+  const [reminders, setReminders] = useState<ChecklistReminder[]>([]);
+  const [members, setMembers] = useState<{ email: string; full_name: string | null }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // New-reminder form state
+  const [recipient, setRecipient] = useState("");
+  const [hour, setHour] = useState(9);
+  const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
+
+  useEffect(() => { load(); }, [checklistId]);
+
+  async function load() {
+    const [rRes, mRes] = await Promise.all([
+      supabase.from("checklist_reminders").select("*").eq("checklist_id", checklistId).order("created_at"),
+      fetch("/api/org-members").then((r) => (r.ok ? r.json() : { members: [] })).catch(() => ({ members: [] })),
+    ]);
+    if (rRes.data) setReminders(rRes.data as ChecklistReminder[]);
+    if (mRes.members) setMembers(mRes.members.map((m: any) => ({ email: m.email, full_name: m.full_name })));
+    setLoading(false);
+  }
+
+  function resetForm() {
+    setRecipient("");
+    setHour(9);
+    setDays([1, 2, 3, 4, 5]);
+    setAdding(false);
+  }
+
+  async function addReminder() {
+    if (!recipient || days.length === 0) return;
+    setSaving(true);
+    const member = members.find((m) => m.email === recipient);
+    const { data, error } = await supabase
+      .from("checklist_reminders")
+      .insert({
+        checklist_id: checklistId,
+        organisation_id: orgId,
+        recipient_email: recipient,
+        recipient_name: member?.full_name ?? null,
+        send_hour: hour,
+        days,
+        active: true,
+      })
+      .select("*")
+      .single();
+    setSaving(false);
+    if (error) { alert("Could not save reminder: " + error.message); return; }
+    if (data) setReminders((prev) => [...prev, data as ChecklistReminder]);
+    resetForm();
+  }
+
+  async function toggleActive(r: ChecklistReminder) {
+    const { data } = await supabase
+      .from("checklist_reminders")
+      .update({ active: !r.active })
+      .eq("id", r.id)
+      .select("*")
+      .single();
+    if (data) setReminders((prev) => prev.map((x) => (x.id === r.id ? (data as ChecklistReminder) : x)));
+  }
+
+  async function removeReminder(id: string) {
+    if (!confirm("Remove this reminder? No more emails will be sent for it.")) return;
+    await supabase.from("checklist_reminders").delete().eq("id", id);
+    setReminders((prev) => prev.filter((x) => x.id !== id));
+  }
+
+  function toggleDay(d: number) {
+    setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort((a, b) => a - b)));
+  }
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-semibold text-gray-900">Email reminders</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Email a team member when it's time to complete this checklist. Reminders only ever go to people in your organisation.
+          </p>
+        </div>
+        {!adding && (
+          <button onClick={() => setAdding(true)} className="btn-primary text-xs shrink-0">
+            Add reminder
+          </button>
+        )}
+      </div>
+
+      {/* Existing reminders */}
+      {!loading && reminders.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {reminders.map((r) => (
+            <div
+              key={r.id}
+              className={`flex items-center gap-3 rounded-lg border px-4 py-3 ${r.active ? "border-gray-200 bg-white" : "border-gray-200 bg-gray-50 opacity-60"}`}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {r.recipient_name ? `${r.recipient_name} · ` : ""}{r.recipient_email}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {formatHour(r.send_hour)} (UK) · {formatDays(r.days)}
+                </p>
+              </div>
+              <button onClick={() => toggleActive(r)} className="btn-ghost text-xs px-2 shrink-0">
+                {r.active ? "Pause" : "Resume"}
+              </button>
+              <button onClick={() => removeReminder(r.id)} className="btn-ghost text-xs px-2 text-red-400 hover:text-red-600 shrink-0">
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && reminders.length === 0 && !adding && (
+        <p className="mt-4 text-xs text-gray-400">No reminders set for this checklist yet.</p>
+      )}
+
+      {/* Add-reminder form */}
+      {adding && (
+        <div className="mt-4 rounded-lg bg-brand/5 border border-brand/20 p-4 space-y-4">
+          <div>
+            <label className="label">Send to</label>
+            <select value={recipient} onChange={(e) => setRecipient(e.target.value)} className="input">
+              <option value="">— choose a team member —</option>
+              {members.map((m) => (
+                <option key={m.email} value={m.email}>
+                  {m.full_name ? `${m.full_name} (${m.email})` : m.email}
+                </option>
+              ))}
+            </select>
+            {members.length === 0 && (
+              <p className="text-xs text-gray-400 mt-1">No team members found. Invite people in Team settings first.</p>
+            )}
+          </div>
+
+          <div>
+            <label className="label">Send time <span className="text-gray-400 font-normal text-xs">— UK time</span></label>
+            <select value={hour} onChange={(e) => setHour(parseInt(e.target.value, 10))} className="input">
+              {Array.from({ length: 24 }, (_, h) => (
+                <option key={h} value={h}>{formatHour(h)}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="label">Days</label>
+            <div className="flex gap-1.5 mt-0.5">
+              {DAY_LABELS.map((label, d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => toggleDay(d)}
+                  className={`flex-1 rounded-lg border px-1 py-2 text-xs font-semibold transition-colors ${
+                    days.includes(d)
+                      ? "bg-brand text-white border-brand"
+                      : "bg-white text-gray-700 border-gray-300 hover:border-brand/50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-3 mt-2">
+              <button type="button" onClick={() => setDays([1, 2, 3, 4, 5])} className="text-xs text-gray-500 hover:text-brand underline">Weekdays</button>
+              <button type="button" onClick={() => setDays([0, 1, 2, 3, 4, 5, 6])} className="text-xs text-gray-500 hover:text-brand underline">Every day</button>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={addReminder} disabled={saving || !recipient || days.length === 0} className="btn-primary text-sm">
+              {saving ? "Saving…" : "Save reminder"}
+            </button>
+            <button onClick={resetForm} className="btn-secondary text-sm">Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function QuestionRow({ question, index, isDragging, isDragOver, onEdit, onDelete, onDragStart, onDragOver, onDrop, onDragEnd }: {
   question: Question;

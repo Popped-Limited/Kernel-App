@@ -9,6 +9,7 @@ const PUBLIC_PREFIXES = [
   "/api/submit",
   "/api/signup",
   "/api/stripe-webhook",
+  "/api/reminders",
   "/_next",
   "/favicon.ico",
   "/logo.png",

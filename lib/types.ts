@@ -40,6 +40,19 @@ export interface Checklist {
   color: string | null;
 }
 
+export interface ChecklistReminder {
+  id: string;
+  checklist_id: string;
+  organisation_id: string;
+  recipient_email: string;
+  recipient_name: string | null;
+  send_hour: number;        // 0-23, UK local time
+  days: number[];           // 0=Sun .. 6=Sat
+  active: boolean;
+  last_sent_on: string | null;
+  created_at: string;
+}
+
 export interface Question {
   id: string;
   checklist_id: string;
