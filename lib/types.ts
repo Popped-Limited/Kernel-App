@@ -40,14 +40,18 @@ export interface Checklist {
   color: string | null;
 }
 
+export type ReminderFrequency = "daily" | "weekly" | "monthly" | "quarterly";
+
 export interface ChecklistReminder {
   id: string;
   checklist_id: string;
   organisation_id: string;
   recipient_email: string;
   recipient_name: string | null;
-  send_hour: number;        // 0-23, UK local time
-  days: number[];           // 0=Sun .. 6=Sat
+  frequency: ReminderFrequency;
+  send_hour: number;             // 0-23, UK local time
+  days: number[];                // 0=Sun .. 6=Sat — used when frequency = "weekly"
+  day_of_month: number | null;   // 1-28 — used when frequency = "monthly" | "quarterly"
   active: boolean;
   last_sent_on: string | null;
   created_at: string;

@@ -34,8 +34,7 @@ export async function POST(req: NextRequest) {
     .from("checklist_reminders")
     .select("*, checklists(name, description, public_token, active)")
     .eq("active", true)
-    .eq("send_hour", uk.hour)
-    .contains("days", [uk.weekday]);
+    .eq("send_hour", uk.hour);
 
   if (error) {
     console.error("Reminders query failed:", error);
@@ -45,7 +44,7 @@ export async function POST(req: NextRequest) {
   const due = (reminders ?? []).filter((r: any) => {
     if (r.last_sent_on === uk.date) return false;       // already sent today
     if (!r.checklists || r.checklists.active === false) return false; // checklist gone/inactive
-    return true;
+    return isDue(r, uk);
   });
 
   if (due.length === 0) {
@@ -79,7 +78,7 @@ export async function POST(req: NextRequest) {
           link,
           baseUrl,
           recipientName: r.recipient_name,
-          when: `${formatHour(r.send_hour)}, ${formatDays(r.days)}`,
+          when: `${formatHour(r.send_hour)}, ${formatSchedule(r)}`,
         }),
       });
 
@@ -114,9 +113,11 @@ export async function POST(req: NextRequest) {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+type UkNow = { hour: number; weekday: number; month: number; dayOfMonth: number; date: string };
+
 // Current wall-clock time in UK (Europe/London) — handles BST/GMT automatically,
 // independent of the server's timezone.
-function getUkNow(now: Date): { hour: number; weekday: number; date: string } {
+function getUkNow(now: Date): UkNow {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/London",
     year: "numeric", month: "2-digit", day: "2-digit",
@@ -126,19 +127,56 @@ function getUkNow(now: Date): { hour: number; weekday: number; date: string } {
   const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
   let hour = parseInt(get("hour"), 10);
   if (hour === 24) hour = 0; // some runtimes emit "24" for midnight
-  return { hour, weekday: weekdayMap[get("weekday")] ?? 0, date: `${get("year")}-${get("month")}-${get("day")}` };
+  return {
+    hour,
+    weekday: weekdayMap[get("weekday")] ?? 0,
+    month: parseInt(get("month"), 10) - 1, // 0-11
+    dayOfMonth: parseInt(get("day"), 10),  // 1-31
+    date: `${get("year")}-${get("month")}-${get("day")}`,
+  };
+}
+
+// First month of each calendar quarter: Jan, Apr, Jul, Oct.
+const QUARTER_MONTHS = [0, 3, 6, 9];
+
+// send_hour is already matched in the query; this checks the day rule per frequency.
+function isDue(r: any, uk: UkNow): boolean {
+  switch (r.frequency) {
+    case "daily":     return true;
+    case "weekly":    return Array.isArray(r.days) && r.days.includes(uk.weekday);
+    case "monthly":   return r.day_of_month === uk.dayOfMonth;
+    case "quarterly": return QUARTER_MONTHS.includes(uk.month) && r.day_of_month === uk.dayOfMonth;
+    default:          return false;
+  }
 }
 
 function formatHour(h: number) {
   return `${String(h).padStart(2, "0")}:00`;
 }
 
-function formatDays(days: number[]) {
-  const s = [...days].sort((a, b) => a - b);
-  if (s.length === 7) return "every day";
-  if (s.length === 5 && [1, 2, 3, 4, 5].every((d) => s.includes(d))) return "weekdays";
-  if (s.length === 2 && s.includes(0) && s.includes(6)) return "weekends";
-  return s.map((d) => DAY_LABELS[d]).join(", ");
+function ordinal(n: number) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function formatSchedule(r: any): string {
+  switch (r.frequency) {
+    case "daily":
+      return "every day";
+    case "monthly":
+      return `${ordinal(r.day_of_month)} of each month`;
+    case "quarterly":
+      return `${ordinal(r.day_of_month)} of Jan, Apr, Jul & Oct`;
+    case "weekly":
+    default: {
+      const s = [...(r.days ?? [])].sort((a: number, b: number) => a - b);
+      if (s.length === 7) return "every day";
+      if (s.length === 5 && [1, 2, 3, 4, 5].every((d) => s.includes(d))) return "weekdays";
+      if (s.length === 2 && s.includes(0) && s.includes(6)) return "weekends";
+      return s.map((d: number) => DAY_LABELS[d]).join(", ");
+    }
+  }
 }
 
 function reminderHtml(opts: {

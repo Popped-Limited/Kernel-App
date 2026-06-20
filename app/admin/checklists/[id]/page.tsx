@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
-import type { Checklist, ChecklistReminder, Question, QuestionType, ChecklistFrequency } from "@/lib/types";
+import type { Checklist, ChecklistReminder, ReminderFrequency, Question, QuestionType, ChecklistFrequency } from "@/lib/types";
 import { FREQUENCIES, QUESTION_TYPES } from "@/lib/constants";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
 
@@ -305,7 +305,7 @@ export default function EditChecklistPage() {
               <button
                 onClick={enableGuestAccess}
                 disabled={togglingGuest}
-                className="btn-primary text-xs shrink-0"
+                className="btn-secondary text-xs shrink-0"
               >
                 {togglingGuest ? "Enabling…" : "Enable"}
               </button>
@@ -389,17 +389,41 @@ export default function EditChecklistPage() {
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+const REMINDER_FREQUENCIES: { value: ReminderFrequency; label: string }[] = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+];
+
 function formatHour(h: number) {
   return `${String(h).padStart(2, "0")}:00`;
 }
 
-function formatDays(days: number[]) {
-  const s = [...days].sort((a, b) => a - b);
-  if (s.length === 0) return "no days";
-  if (s.length === 7) return "Every day";
-  if (s.length === 5 && [1, 2, 3, 4, 5].every((d) => s.includes(d))) return "Weekdays";
-  if (s.length === 2 && s.includes(0) && s.includes(6)) return "Weekends";
-  return s.map((d) => DAY_LABELS[d]).join(", ");
+function ordinal(n: number) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function formatSchedule(r: ChecklistReminder): string {
+  switch (r.frequency) {
+    case "daily":
+      return "Every day";
+    case "monthly":
+      return `${ordinal(r.day_of_month ?? 1)} of each month`;
+    case "quarterly":
+      return `${ordinal(r.day_of_month ?? 1)} of Jan, Apr, Jul & Oct`;
+    case "weekly":
+    default: {
+      const s = [...(r.days ?? [])].sort((a, b) => a - b);
+      if (s.length === 0) return "no days";
+      if (s.length === 7) return "Every day";
+      if (s.length === 5 && [1, 2, 3, 4, 5].every((d) => s.includes(d))) return "Weekdays";
+      if (s.length === 2 && s.includes(0) && s.includes(6)) return "Weekends";
+      return s.map((d) => DAY_LABELS[d]).join(", ");
+    }
+  }
 }
 
 function RemindersCard({ checklistId, orgId }: { checklistId: string; orgId: string | null }) {
@@ -411,8 +435,10 @@ function RemindersCard({ checklistId, orgId }: { checklistId: string; orgId: str
 
   // New-reminder form state
   const [recipient, setRecipient] = useState("");
+  const [frequency, setFrequency] = useState<ReminderFrequency>("daily");
   const [hour, setHour] = useState(9);
   const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [dayOfMonth, setDayOfMonth] = useState(1);
 
   useEffect(() => { load(); }, [checklistId]);
 
@@ -428,13 +454,19 @@ function RemindersCard({ checklistId, orgId }: { checklistId: string; orgId: str
 
   function resetForm() {
     setRecipient("");
+    setFrequency("daily");
     setHour(9);
     setDays([1, 2, 3, 4, 5]);
+    setDayOfMonth(1);
     setAdding(false);
   }
 
+  // The day rule is only required for the frequencies that use it.
+  const dayRuleValid = frequency !== "weekly" || days.length > 0;
+  const canSave = !!recipient && dayRuleValid;
+
   async function addReminder() {
-    if (!recipient || days.length === 0) return;
+    if (!canSave) return;
     setSaving(true);
     const member = members.find((m) => m.email === recipient);
     const { data, error } = await supabase
@@ -444,8 +476,10 @@ function RemindersCard({ checklistId, orgId }: { checklistId: string; orgId: str
         organisation_id: orgId,
         recipient_email: recipient,
         recipient_name: member?.full_name ?? null,
+        frequency,
         send_hour: hour,
-        days,
+        days: frequency === "weekly" ? days : [],
+        day_of_month: frequency === "monthly" || frequency === "quarterly" ? dayOfMonth : null,
         active: true,
       })
       .select("*")
@@ -482,11 +516,11 @@ function RemindersCard({ checklistId, orgId }: { checklistId: string; orgId: str
         <div>
           <h2 className="font-semibold text-gray-900">Email reminders</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Email a team member when it's time to complete this checklist. Reminders only ever go to people in your organisation.
+            Email a team member when it's time to complete this checklist.
           </p>
         </div>
         {!adding && (
-          <button onClick={() => setAdding(true)} className="btn-primary text-xs shrink-0">
+          <button onClick={() => setAdding(true)} className="btn-secondary text-xs shrink-0">
             Add reminder
           </button>
         )}
@@ -505,7 +539,7 @@ function RemindersCard({ checklistId, orgId }: { checklistId: string; orgId: str
                   {r.recipient_name ? `${r.recipient_name} · ` : ""}{r.recipient_email}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {formatHour(r.send_hour)} (UK) · {formatDays(r.days)}
+                  {formatHour(r.send_hour)} (UK) · {formatSchedule(r)}
                 </p>
               </div>
               <button onClick={() => toggleActive(r)} className="btn-ghost text-xs px-2 shrink-0">
@@ -541,41 +575,67 @@ function RemindersCard({ checklistId, orgId }: { checklistId: string; orgId: str
             )}
           </div>
 
-          <div>
-            <label className="label">Send time <span className="text-gray-400 font-normal text-xs">— UK time</span></label>
-            <select value={hour} onChange={(e) => setHour(parseInt(e.target.value, 10))} className="input">
-              {Array.from({ length: 24 }, (_, h) => (
-                <option key={h} value={h}>{formatHour(h)}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Frequency</label>
+              <select value={frequency} onChange={(e) => setFrequency(e.target.value as ReminderFrequency)} className="input">
+                {REMINDER_FREQUENCIES.map((f) => (
+                  <option key={f.value} value={f.value}>{f.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Send time <span className="text-gray-400 font-normal text-xs">— UK</span></label>
+              <select value={hour} onChange={(e) => setHour(parseInt(e.target.value, 10))} className="input">
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h}>{formatHour(h)}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div>
-            <label className="label">Days</label>
-            <div className="flex gap-1.5 mt-0.5">
-              {DAY_LABELS.map((label, d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => toggleDay(d)}
-                  className={`flex-1 rounded-lg border px-1 py-2 text-xs font-semibold transition-colors ${
-                    days.includes(d)
-                      ? "bg-brand text-white border-brand"
-                      : "bg-white text-gray-700 border-gray-300 hover:border-brand/50"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+          {/* Weekly → choose weekdays */}
+          {frequency === "weekly" && (
+            <div>
+              <label className="label">On these days</label>
+              <div className="flex gap-1.5 mt-0.5">
+                {DAY_LABELS.map((label, d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => toggleDay(d)}
+                    className={`flex-1 rounded-lg border px-1 py-2 text-xs font-semibold transition-colors ${
+                      days.includes(d)
+                        ? "bg-brand text-white border-brand"
+                        : "bg-white text-gray-700 border-gray-300 hover:border-brand/50"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex gap-3 mt-2">
-              <button type="button" onClick={() => setDays([1, 2, 3, 4, 5])} className="text-xs text-gray-500 hover:text-brand underline">Weekdays</button>
-              <button type="button" onClick={() => setDays([0, 1, 2, 3, 4, 5, 6])} className="text-xs text-gray-500 hover:text-brand underline">Every day</button>
+          )}
+
+          {/* Monthly / Quarterly → choose day of month */}
+          {(frequency === "monthly" || frequency === "quarterly") && (
+            <div>
+              <label className="label">Day of month</label>
+              <select value={dayOfMonth} onChange={(e) => setDayOfMonth(parseInt(e.target.value, 10))} className="input">
+                {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                  <option key={d} value={d}>{ordinal(d)}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">
+                {frequency === "quarterly"
+                  ? "Sends on this day in January, April, July and October."
+                  : "Sends on this day every month. Capped at the 28th so it always exists."}
+              </p>
             </div>
-          </div>
+          )}
 
           <div className="flex gap-2 pt-1">
-            <button onClick={addReminder} disabled={saving || !recipient || days.length === 0} className="btn-primary text-sm">
+            <button onClick={addReminder} disabled={saving || !canSave} className="btn-primary text-sm">
               {saving ? "Saving…" : "Save reminder"}
             </button>
             <button onClick={resetForm} className="btn-secondary text-sm">Cancel</button>
