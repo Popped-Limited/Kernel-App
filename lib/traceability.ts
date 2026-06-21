@@ -180,12 +180,30 @@ async function fetchLots(lotIds: string[]): Promise<LotInfo[]> {
   return (data ?? []) as LotInfo[];
 }
 
+/**
+ * Every ingredient_table answer for the caller's org, paginating past the
+ * 1000-row PostgREST cap. Without this, orgs with >1000 answers silently miss
+ * production usage recorded in the later rows — corrupting both the trace and
+ * the mass balance.
+ */
+async function fetchIngredientTableAnswers(): Promise<Array<{ submission_id: string; value: string | null }>> {
+  const all: Array<{ submission_id: string; value: string | null }> = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await supabase
+      .from("answers")
+      .select("submission_id, value, question:questions(type)")
+      .eq("questions.type", "ingredient_table")
+      .range(from, from + PAGE - 1);
+    all.push(...((data ?? []) as Array<{ submission_id: string; value: string | null }>));
+    if (!data || data.length < PAGE) break;
+  }
+  return all;
+}
+
 /** Find which production submissions consumed a given set of lot IDs. */
 async function submissionsUsingLots(lotIds: string[]): Promise<string[]> {
-  const { data: answers } = await supabase
-    .from("answers")
-    .select("submission_id, value, question:questions(type)")
-    .eq("questions.type", "ingredient_table");
+  const answers = await fetchIngredientTableAnswers();
 
   const matched = new Set<string>();
   for (const ans of answers ?? []) {
@@ -211,10 +229,7 @@ async function fetchLotUsage(lotIds: string[]): Promise<Record<string, number>> 
   if (lotIds.length === 0) return usage;
   const wanted = new Set(lotIds);
 
-  const { data: answers } = await supabase
-    .from("answers")
-    .select("value, question:questions(type)")
-    .eq("questions.type", "ingredient_table");
+  const answers = await fetchIngredientTableAnswers();
 
   for (const ans of answers ?? []) {
     if (!ans.value) continue;
