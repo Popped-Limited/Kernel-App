@@ -448,20 +448,9 @@ function validate() {
                       {errors[`batch_${idx}`] && <p className="mt-0.5 text-xs text-red-500">{errors[`batch_${idx}`]}</p>}
                     </div>
 
-                    {/* BBE */}
-                    <div className="min-w-0 overflow-hidden">
-                      <label className="text-xs text-gray-500 block mb-0.5">BBE date</label>
-                      <input
-                        type="date"
-                        value={row.bestBefore}
-                        onChange={e => updateRow(idx, "bestBefore", e.target.value)}
-                        className="input text-sm py-1.5 max-w-full"
-                      />
-                    </div>
-
-                    {/* Quantity */}
+                    {/* Quantity — sits to the right of Julian code */}
                     {unitById[row.ingredientId] === "units" ? (
-                      <div className="col-span-2">
+                      <div>
                         <label className="text-xs text-gray-500 block mb-0.5">Quantity (units) *</label>
                         <input
                           type="number"
@@ -490,7 +479,7 @@ function validate() {
                           />
                           {errors[`qty_${idx}`] && <p className="mt-0.5 text-xs text-red-500">{errors[`qty_${idx}`]}</p>}
                         </div>
-                        <div>
+                        <div className="col-span-2">
                           <label className="text-xs text-gray-500 block mb-0.5">Weight (g)</label>
                           <input
                             type="number"
@@ -516,6 +505,17 @@ function validate() {
                         {errors[`qty_${idx}`] && <p className="mt-0.5 text-xs text-red-500">{errors[`qty_${idx}`]}</p>}
                       </div>
                     )}
+
+                    {/* BBE — full width below Julian/Quantity row */}
+                    <div className="col-span-2">
+                      <label className="text-xs text-gray-500 block mb-0.5">BBE date</label>
+                      <input
+                        type="date"
+                        value={row.bestBefore}
+                        onChange={e => updateRow(idx, "bestBefore", e.target.value)}
+                        className="input text-sm py-1.5"
+                      />
+                    </div>
                   </div>
                 </div>
               ))}

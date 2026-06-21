@@ -528,9 +528,9 @@ export default function RawMaterialsPage() {
                                       <th className="text-right py-1 font-medium">Remaining</th>
                                       <th className="text-right py-1 font-medium" title="Allocated to in-progress batch records — deducted when the batch is submitted">In production</th>
                                       <th className="text-right py-1 font-medium" title="Remaining minus in production — what should physically be on the shelf">On shelf</th>
-                                      <th className="text-left py-1 font-medium pl-4">Date in</th>
-                                      <th className="text-left py-1 font-medium">Supplier</th>
-                                      <th className="text-left py-1 font-medium">Best before</th>
+                                      <th className="text-left py-1 font-medium pl-4 hidden sm:table-cell">Date in</th>
+                                      <th className="text-left py-1 font-medium hidden sm:table-cell">Supplier</th>
+                                      <th className="text-left py-1 font-medium hidden sm:table-cell">Best before</th>
                                       <th className="w-20" />
                                     </tr>
                                   </thead>
@@ -548,9 +548,9 @@ export default function RawMaterialsPage() {
                                         <td className="py-1.5 text-right tabular-nums font-semibold text-gray-700">
                                           {fmtQty(Math.max(0, lot.quantity_remaining_g - lotReserved), unit)}
                                         </td>
-                                        <td className="py-1.5 pl-4 text-gray-500">{formatDate(lot.received_date)}</td>
-                                        <td className="py-1.5 text-gray-500">{lot.supplier ?? "—"}</td>
-                                        <td className="py-1.5 text-gray-500">{lot.best_before_date ? formatDate(lot.best_before_date) : "—"}</td>
+                                        <td className="py-1.5 pl-4 text-gray-500 hidden sm:table-cell">{formatDate(lot.received_date)}</td>
+                                        <td className="py-1.5 text-gray-500 hidden sm:table-cell">{lot.supplier ?? "—"}</td>
+                                        <td className="py-1.5 text-gray-500 hidden sm:table-cell">{lot.best_before_date ? formatDate(lot.best_before_date) : "—"}</td>
                                         <td className="py-1.5">
                                           {lot.quantity_remaining_g > 0 && (
                                             <button
