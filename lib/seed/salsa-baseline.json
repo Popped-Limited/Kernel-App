@@ -1,0 +1,3467 @@
+{
+  "generated_at": "2026-06-21T18:26:54.259Z",
+  "source": "Yep Kitchen (SALSA-approved)",
+  "note": "Frozen SALSA baseline. Rebuild with: node scripts/build-salsa-baseline.mjs",
+  "checklists": [
+    {
+      "name": "Closing Checks",
+      "frequency": "per_shift_pm",
+      "description": "PM shift closing checks — complete at end of production.",
+      "active": true,
+      "category": "Daily Operations",
+      "color": null,
+      "questions": [
+        {
+          "label": "Date",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Completed by",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": "Your name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "All records completed and signed off",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": "All batch records, cleaning logs and checklists filled in for today",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Stock rotation completed",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": "First In, First Out — oldest stock to the front",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Worktops clean and clear",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 4,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "All knives and sharps present and intact",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 5,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Bin bags changed and bins cleaned",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 6,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Has raw material reconciliation been completed?",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 7,
+          "options": null,
+          "hint": "Check quantity remaining",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Fridge temperature (°C)",
+          "type": "number",
+          "required": true,
+          "order_index": 8,
+          "options": null,
+          "hint": "Must be 1–8°C. If outside range, do not store product and contact manager.",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Equipment faults or maintenance issues",
+          "type": "text",
+          "required": false,
+          "order_index": 9,
+          "options": null,
+          "hint": "Leave blank if none — raise a Maintenance Report if needed",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Notes and handover",
+          "type": "text",
+          "required": false,
+          "order_index": 10,
+          "options": null,
+          "hint": "Anything the next shift or manager needs to know",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Checked and signed off by",
+          "type": "text",
+          "required": true,
+          "order_index": 11,
+          "options": null,
+          "hint": "Manager or supervisor name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Complaint Form",
+      "frequency": "per_complaint",
+      "description": "Customer or internal complaint record — one form per complaint.",
+      "active": true,
+      "category": "Incidents & Reports",
+      "color": null,
+      "questions": [
+        {
+          "label": "Date complaint received",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Recorded by",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": "Your name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Complainant name",
+          "type": "text",
+          "required": false,
+          "order_index": 2,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Complainant contact details",
+          "type": "text",
+          "required": false,
+          "order_index": 3,
+          "options": null,
+          "hint": "Phone and/or email",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Nature of complaint",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 4,
+          "options": [
+            "Foreign body",
+            "Packaging fault",
+            "Quality / taste / appearance",
+            "Labelling error",
+            "Allergen concern",
+            "Illness / food safety",
+            "Short fill / weight",
+            "Other"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Product name and batch number",
+          "type": "text",
+          "required": true,
+          "order_index": 5,
+          "options": null,
+          "hint": "Include Julian code / lot number if known",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Full description of complaint",
+          "type": "text",
+          "required": true,
+          "order_index": 6,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Date product purchased / received",
+          "type": "date",
+          "required": false,
+          "order_index": 7,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Product returned?",
+          "type": "checkbox",
+          "required": false,
+          "order_index": 8,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Immediate action taken",
+          "type": "text",
+          "required": true,
+          "order_index": 9,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Root cause identified",
+          "type": "text",
+          "required": false,
+          "order_index": 10,
+          "options": null,
+          "hint": "Investigate and document — a corrective action may be required",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Corrective action raised",
+          "type": "checkbox",
+          "required": false,
+          "order_index": 11,
+          "options": null,
+          "hint": "Tick if a corrective action report has been raised",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Response sent to customer",
+          "type": "checkbox",
+          "required": false,
+          "order_index": 12,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Closed out — date",
+          "type": "date",
+          "required": false,
+          "order_index": 13,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Checked and signed off by",
+          "type": "signature",
+          "required": true,
+          "order_index": 14,
+          "options": null,
+          "hint": "Manager name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Corrective Action Report",
+      "frequency": "per_corrective_action",
+      "description": "Non-conformance and corrective action record.",
+      "active": true,
+      "category": "Incidents & Reports",
+      "color": null,
+      "questions": [
+        {
+          "label": "Date raised",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Raised by",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Reference number (e.g. CAR-001)",
+          "type": "text",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": "Use sequential numbering e.g. CAR-001",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Non-conformance category",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 3,
+          "options": [
+            "Product quality",
+            "Food safety",
+            "Process deviation",
+            "Supplier issue",
+            "Equipment failure",
+            "Allergen risk",
+            "Labelling error",
+            "Pest activity",
+            "Personnel / hygiene",
+            "Other"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Description of non-conformance",
+          "type": "text",
+          "required": true,
+          "order_index": 4,
+          "options": null,
+          "hint": "What happened? Include product, process, date and location.",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Products / batches affected",
+          "type": "text",
+          "required": false,
+          "order_index": 5,
+          "options": null,
+          "hint": "Include batch/lot numbers and quantities",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Immediate containment action",
+          "type": "text",
+          "required": true,
+          "order_index": 6,
+          "options": null,
+          "hint": "What was done straight away to prevent further risk?",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Root cause analysis",
+          "type": "text",
+          "required": true,
+          "order_index": 7,
+          "options": null,
+          "hint": "Why did this happen? Use 5-Whys or similar approach.",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Corrective action to prevent recurrence",
+          "type": "text",
+          "required": true,
+          "order_index": 8,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Responsible person",
+          "type": "text",
+          "required": true,
+          "order_index": 9,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Target completion date",
+          "type": "date",
+          "required": true,
+          "order_index": 10,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Photo evidence",
+          "type": "photo",
+          "required": false,
+          "order_index": 11,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Effectiveness review date",
+          "type": "date",
+          "required": false,
+          "order_index": 12,
+          "options": null,
+          "hint": "Date to verify the corrective action has been effective",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Closed out",
+          "type": "checkbox",
+          "required": false,
+          "order_index": 13,
+          "options": null,
+          "hint": "Tick when corrective action is verified as effective",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Checked and signed off by",
+          "type": "signature",
+          "required": true,
+          "order_index": 14,
+          "options": null,
+          "hint": "Manager name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Daily Cleaning",
+      "frequency": "per_shift_eod",
+      "description": "End-of-day cleaning record — complete after each production day.",
+      "active": true,
+      "category": "Cleaning",
+      "color": null,
+      "questions": [
+        {
+          "label": "Date",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Completed by",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": "Your name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Worktops cleaned and sanitised",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": "Jantex MSSC · 1/10 dilution · 30s contact · wipe dry with blue paper towel",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Scales cleaned and sanitised",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": "Jantex MSSC · 1/10 dilution · 30s contact · wipe dry with blue paper towel",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Utensils cleaned and sanitised",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 4,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Handwash basins cleaned and sanitised",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 5,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Equipment sinks cleaned and sanitised",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 6,
+          "options": null,
+          "hint": "Wash with Jantex Washing Up Liquid and hot water · rinse · spray Jantex MSSC at 1/10 · 30s contact · wipe dry",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Dishwasher and baskets cleaned and sanitised",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 7,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Hand contact points cleaned and sanitised",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 8,
+          "options": null,
+          "hint": "Door handles, light switches, push plates · Jantex MSSC at 1/10 · 30s contact",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Bins cleaned and sanitised",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 9,
+          "options": null,
+          "hint": "Remove debris · spray Jantex MSSC at 1/10 · 30s contact · wipe dry with blue paper towel",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Production floor swept and mopped",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 10,
+          "options": null,
+          "hint": "Sweep first to remove debris · mop with Jantex Floor Maintainer at 1/20 in hot water · allow to air dry",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Any areas not completed — state reason",
+          "type": "text",
+          "required": false,
+          "order_index": 11,
+          "options": null,
+          "hint": "Leave blank if everything was done. Write N/A if an item is not in use today.",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Checked and signed off by",
+          "type": "text",
+          "required": true,
+          "order_index": 12,
+          "options": null,
+          "hint": "Manager or supervisor name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Employee Induction Checklist",
+      "frequency": "per_new_start",
+      "description": "Complete for every new employee on their first day.",
+      "active": true,
+      "category": "HR",
+      "color": null,
+      "questions": [
+        {
+          "label": "Employee name",
+          "type": "text",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Start date",
+          "type": "date",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Job title / role",
+          "type": "text",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Induction completed by",
+          "type": "text",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": "Trainer or manager name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Completed Food Safety booklet questionnaire",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 4,
+          "options": null,
+          "hint": "Must achieve >80% to pass, can reattempt if required",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Visitor Sign In Log — explained and understood",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 5,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Pre-Employment Medical Questionnaire — completed",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 6,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Personal Hygiene Rules — explained and understood",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 7,
+          "options": null,
+          "hint": "Including handwashing, PPE, jewellery policy, illness reporting",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "PPE requirements — explained and issued",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 8,
+          "options": null,
+          "hint": "Hairnet, apron, gloves — correct donning and doffing demonstrated",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Visitor and Contractors Policy — explained",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 9,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Quality Policy — read and understood",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 10,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Food Safety Booklet — received and read",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 11,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Level 2 Food Safety & Hygiene Training completed?",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 12,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "HACCP and food safety basics — explained",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 13,
+          "options": null,
+          "hint": "SALSA standard, HACCP principles, CCPs, temperature control",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Cleaning procedures — explained",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 14,
+          "options": null,
+          "hint": "Daily, weekly and monthly schedules. Chemicals and correct dilutions.",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Return to Work procedure — explained",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 15,
+          "options": null,
+          "hint": "48-hour rule, self-assessment form, manager approval required",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Premises orientation and safety briefing — completed",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 16,
+          "options": null,
+          "hint": "Site tour, storage areas, welfare facilities, restricted areas",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Fire safety — explained",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 17,
+          "options": null,
+          "hint": "Fire exits, assembly point, extinguisher locations, evacuation procedure",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Additional comments",
+          "type": "text",
+          "required": false,
+          "order_index": 18,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "I confirm the above has been received and fully understood",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 19,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Employee signature",
+          "type": "signature",
+          "required": true,
+          "order_index": 20,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Trainer / manager signature",
+          "type": "signature",
+          "required": true,
+          "order_index": 21,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Food Safety Booklet Questionnaire",
+      "frequency": "per_new_start",
+      "description": "Knowledge check to confirm new starters understand food safety basics.",
+      "active": true,
+      "category": "HR",
+      "color": null,
+      "questions": [
+        {
+          "label": "Employee name",
+          "type": "text",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Date",
+          "type": "date",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Job title",
+          "type": "text",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Q1. What food safety standard does Yep Kitchen work towards?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 3,
+          "options": [
+            "SALSA",
+            "BRCGS",
+            "ISO 22000",
+            "Red Tractor"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Q2. What does HACCP stand for?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 4,
+          "options": [
+            "Hazard Analysis Critical Control Points",
+            "Hard Analysis Complete Control Procedures",
+            "Hygiene And Cleaning Control Plan",
+            "Hazardous Activity Compliance Check Protocol"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Q3. What is the bacterial danger zone?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 5,
+          "options": [
+            "8°C to 60°C",
+            "0°C to 8°C",
+            "0°C to 60°C",
+            "5°C to 100°C"
+          ],
+          "hint": "The temperature range where bacteria multiply rapidly",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Q4. How long must you be free from diarrhoea or vomiting before returning to food handling duties?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 6,
+          "options": [
+            "48 hours",
+            "24 hours",
+            "12 hours",
+            "72 hours"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Q5. Where must you wash your hands?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 7,
+          "options": [
+            "At the handwash sink only",
+            "At any sink available",
+            "In the dishwasher area",
+            "At the equipment wash sink"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Q6. Which PPE must you wear in the production area?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 8,
+          "options": [
+            "Hairnet or cap, protective coat and gloves",
+            "Hard hat and safety boots",
+            "Gloves only",
+            "Cap and gloves only"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Q7. What should you do if there is a glass or brittle plastic breakage?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 9,
+          "options": [
+            "Stop work, isolate the area, inform your manager immediately",
+            "Clear it up yourself and carry on",
+            "Ignore it and finish the task",
+            "Wait until end of shift to report it"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Q8. What does cross-contamination mean?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 10,
+          "options": [
+            "The transfer of harmful substances or allergens from one surface, food or person to another",
+            "Mixing two food products intentionally",
+            "Cleaning equipment between uses",
+            "Using the wrong cleaning chemical"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Q9. What is the definition of malicious contamination?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 11,
+          "options": [
+            "Deliberate contamination of a product or raw material with intent to cause harm",
+            "Accidental contamination during production",
+            "A pest infestation on site",
+            "A failed cleaning verification swab"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Q10. How can you reduce the risk of pest infestation?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 12,
+          "options": [
+            "Clean spills immediately, keep waste in bins, report any damage to building fabric",
+            "Move pest control bait boxes to a better location",
+            "Ignore signs of pest activity unless very obvious",
+            "Keep doors open for ventilation"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Score (out of 10)",
+          "type": "number",
+          "required": true,
+          "order_index": 13,
+          "options": null,
+          "hint": "For manager use — total number of correct answers",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Result",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 14,
+          "options": [
+            "Pass (≥80%)",
+            "Fail — further training required"
+          ],
+          "hint": "Pass = 8 or more correct (80%). Fail = further training required before commencing duties.",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Employee signature",
+          "type": "signature",
+          "required": true,
+          "order_index": 15,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Assessed by",
+          "type": "text",
+          "required": true,
+          "order_index": 16,
+          "options": null,
+          "hint": "Manager or trainer name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Goods In Record",
+      "frequency": "per_delivery",
+      "description": "Record every delivery received — one form per delivery.",
+      "active": true,
+      "category": "Traceability",
+      "color": null,
+      "questions": [
+        {
+          "label": "Delivery temperature (°C) — chilled/frozen goods only",
+          "type": "number",
+          "required": false,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Packaging integrity — undamaged?",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Product within date?",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Delivery vehicle in good condition and free from PCM contamination?",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Goods accepted?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 4,
+          "options": [
+            "Yes — accepted",
+            "Partially accepted",
+            "Rejected"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Reason if rejected or partially accepted",
+          "type": "text",
+          "required": false,
+          "order_index": 5,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Goods Out Record",
+      "frequency": "per_dispatch",
+      "description": "Record every dispatch — one form per dispatch.",
+      "active": true,
+      "category": "Traceability",
+      "color": null,
+      "questions": [
+        {
+          "label": "Which courier was used?",
+          "type": "text",
+          "required": false,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Collection vehicle in good condition and free from PCM contamination?",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Vehicle temperature (°C) — chilled / frozen only",
+          "type": "number",
+          "required": false,
+          "order_index": 2,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "All products correctly labelled?",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Hygiene Swab",
+      "frequency": "weekly",
+      "description": "Environmental hygiene swab results record.",
+      "active": true,
+      "category": "Cleaning",
+      "color": null,
+      "questions": [
+        {
+          "label": "Date swabbed",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Completed by",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Swab kit / brand used",
+          "type": "text",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": "e.g. Hygiena SystemSURE Plus",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Surface or area swabbed — 1",
+          "type": "text",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": "e.g. Cooking kettle inner surface",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Result 1",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 4,
+          "options": [
+            "Pass",
+            "Fail",
+            "Borderline"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Any fails — corrective action taken",
+          "type": "text",
+          "required": false,
+          "order_index": 5,
+          "options": null,
+          "hint": "Describe action taken and re-swab date",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Photo of swab results",
+          "type": "photo",
+          "required": true,
+          "order_index": 6,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Checked and signed off by",
+          "type": "signature",
+          "required": true,
+          "order_index": 7,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Laundry Checklist",
+      "frequency": "weekly",
+      "description": "Weekly laundry and PPE condition record.",
+      "active": true,
+      "category": "Cleaning",
+      "color": null,
+      "questions": [
+        {
+          "label": "Date",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Completed by",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": "Your name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Number of items washed",
+          "type": "number",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": "Aprons, cloths, towels etc.",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Detergent used",
+          "type": "text",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Temperature washed at (°C)",
+          "type": "number",
+          "required": true,
+          "order_index": 4,
+          "options": null,
+          "hint": "Minimum 60°C for effective sanitisation",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Drying time (minutes)",
+          "type": "number",
+          "required": false,
+          "order_index": 5,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Lint and fluff filters cleaned",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 6,
+          "options": null,
+          "hint": "Clean before or after each wash cycle",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "All PPE in good condition",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 7,
+          "options": null,
+          "hint": "Check for wear, tears or damage — replace any items as needed",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Laundry indicator strip used (quarterly only)",
+          "type": "checkbox",
+          "required": false,
+          "order_index": 8,
+          "options": null,
+          "hint": "Required once per quarter to verify wash temperature is being reached",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Indicator strip confirmed temperature >60°C (quarterly only)",
+          "type": "checkbox",
+          "required": false,
+          "order_index": 9,
+          "options": null,
+          "hint": "Fail: do not use laundry — contact manager",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Water filter and soap dispenser cleaned (quarterly only)",
+          "type": "checkbox",
+          "required": false,
+          "order_index": 10,
+          "options": null,
+          "hint": "Required once per quarter",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Notes",
+          "type": "text",
+          "required": false,
+          "order_index": 11,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Checked and signed off by",
+          "type": "text",
+          "required": true,
+          "order_index": 12,
+          "options": null,
+          "hint": "Manager or supervisor name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Maintenance Report",
+      "frequency": "adhoc",
+      "description": "Log any equipment faults, building issues, or repairs needed.",
+      "active": true,
+      "category": "Equipment",
+      "color": null,
+      "questions": [
+        {
+          "label": "Date",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Reported by",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": "Your name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Equipment or area",
+          "type": "text",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": "e.g. Cooking kettle, hot filling line, production floor drain",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Type of maintenance",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 3,
+          "options": [
+            "Scheduled",
+            "Unscheduled",
+            "Temporary repair"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Maintenance start time",
+          "type": "text",
+          "required": false,
+          "order_index": 4,
+          "options": null,
+          "hint": "24hr format e.g. 08:30",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Maintenance end time",
+          "type": "text",
+          "required": false,
+          "order_index": 5,
+          "options": null,
+          "hint": "24hr format",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Description of problem",
+          "type": "text",
+          "required": true,
+          "order_index": 6,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Action taken",
+          "type": "text",
+          "required": true,
+          "order_index": 7,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Temporary repair details",
+          "type": "text",
+          "required": false,
+          "order_index": 8,
+          "options": null,
+          "hint": "If a permanent fix is still required, describe the interim measure used",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Parts required",
+          "type": "text",
+          "required": false,
+          "order_index": 9,
+          "options": null,
+          "hint": "Description, quantity and part number if known",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Food safety risk?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 10,
+          "options": [
+            "No",
+            "Yes — equipment taken out of service"
+          ],
+          "hint": "If Yes — take equipment out of service immediately",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Equipment taken out of service during maintenance",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 11,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Photo of fault or repair",
+          "type": "photo",
+          "required": false,
+          "order_index": 12,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Contractor or engineer required?",
+          "type": "dropdown",
+          "required": false,
+          "order_index": 13,
+          "options": [
+            "No — in-house repair",
+            "Yes — booked",
+            "Yes — pending"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Contractor name",
+          "type": "text",
+          "required": false,
+          "order_index": 14,
+          "options": null,
+          "hint": "Leave blank if in-house repair",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Estimated completion date",
+          "type": "date",
+          "required": false,
+          "order_index": 15,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Repair completed date",
+          "type": "date",
+          "required": false,
+          "order_index": 16,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "HYGIENE CLEARANCE: All machine parts accounted for",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 17,
+          "options": null,
+          "hint": "Confirm no parts left inside or near the equipment",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "HYGIENE CLEARANCE: Equipment cleared of all maintenance debris",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 18,
+          "options": null,
+          "hint": "Tools, swarf, packaging, rags etc. all removed",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "HYGIENE CLEARANCE: Equipment cleaned and sanitised prior to use",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 19,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Equipment accepted back into production use",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 20,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Checked and signed off by",
+          "type": "text",
+          "required": true,
+          "order_index": 21,
+          "options": null,
+          "hint": "Production manager name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Monthly Cleaning",
+      "frequency": "monthly",
+      "description": "Monthly deep clean and maintenance check.",
+      "active": true,
+      "category": "Cleaning",
+      "color": null,
+      "questions": [
+        {
+          "label": "Month / year",
+          "type": "text",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": "e.g. May 2026",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Completed by",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": "Your name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Inaccessible floor areas cleaned",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": "Behind and under large equipment, corners, drains",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Shelves cleaned and sanitised",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": "Jantex MSSC at 1/10 · 30s contact · rinse · dry with blue paper towel",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Walls cleaned",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 4,
+          "options": null,
+          "hint": "Jantex MSSC at 1/10 · 30s contact · dry with blue paper towel or air dry",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Strip curtains cleaned",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 5,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Doors cleaned",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 6,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Plug sockets cleaned",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 7,
+          "options": null,
+          "hint": "Ensure power is isolated before cleaning",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Notes",
+          "type": "text",
+          "required": false,
+          "order_index": 8,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Checked and signed off by",
+          "type": "text",
+          "required": true,
+          "order_index": 9,
+          "options": null,
+          "hint": "Manager or supervisor name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Opening Checks",
+      "frequency": "per_shift_am",
+      "description": "AM shift opening checks — complete before production begins.",
+      "active": true,
+      "category": "Daily Operations",
+      "color": null,
+      "questions": [
+        {
+          "label": "Date",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Completed by",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": "Your name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Handwash basins stocked with soap and paper towels",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Hot water available",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Worktops clean from previous shift",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 4,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "No signs of pest activity",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 5,
+          "options": null,
+          "hint": "Check bait stations, look for droppings or gnaw marks",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Fridge temperature (°C)",
+          "type": "number",
+          "required": true,
+          "order_index": 6,
+          "options": null,
+          "hint": "Must be 1–8°C. If outside range, do not use and contact manager immediately.",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Glass and brittle plastic register checked — all items present and intact",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 7,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Key equipment in working order",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 8,
+          "options": null,
+          "hint": "Any faults — raise a Maintenance Report",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "All knives and sharps present and intact",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 9,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "All staff fit for work and PPE worn correctly",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 10,
+          "options": null,
+          "hint": "No illness, cuts, or infections · hair covered · apron and gloves on",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Any issues to report",
+          "type": "text",
+          "required": false,
+          "order_index": 11,
+          "options": null,
+          "hint": "Leave blank if none",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Checked and signed off by",
+          "type": "text",
+          "required": true,
+          "order_index": 12,
+          "options": null,
+          "hint": "Manager or supervisor name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Pre-employment medical questionnaire",
+      "frequency": "adhoc",
+      "description": "Checklist must be completed on a new employees first day",
+      "active": true,
+      "category": "HR",
+      "color": null,
+      "questions": [
+        {
+          "label": "Are you currently suffering from any of the following symptoms?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 0,
+          "options": [
+            "High Temperature",
+            "Persistent Cough",
+            "Loss of taste or smell",
+            "None of the Above"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Do you have or have you suffered from Typhoid / Paratyphoid Fever?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 1,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Do you have or have you suffered from Dysentery?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 2,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Do you have or have you suffered from Salmonella?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 3,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Do you have or have you suffered from running ear or perforated ear?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 4,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Do you have or have you suffered from eye infections?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 5,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Do you have or have you suffered from recurring cold sores?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 6,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Do you have or have you suffered from a frequent sore throat?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 7,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Do you have or have you suffered from persistent colds / flu Like symptoms?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 8,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Do you have or have you suffered from cczema or other skin disorders?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 9,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Have you suffered from diarrhoea or vomiting in the last 7 days?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 10,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Has anyone in your household suffered from diarrhoea or vomiting in the last 7 days?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 11,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Have you returned from overseas in the past 3 months?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 12,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Have you been in contact with anyone who has Typhoid, Parathyphoid, Enteric fever, or Cholera?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 13,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Do you need to have any medicines with you on site?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 14,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": "For example, inhalers for asthma",
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Do you wear contact lenses or glasses?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 15,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Do you suffer from any food allergies?",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 16,
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "hint": null,
+          "follow_up": {
+            "label": "Please provide more details",
+            "trigger": "Yes"
+          },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Please sign to confirm the information you have provided is accurate.",
+          "type": "signature",
+          "required": true,
+          "order_index": 17,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Probe Calibration",
+      "frequency": "weekly",
+      "description": "Temperature probe calibration check.",
+      "active": true,
+      "category": "Equipment",
+      "color": null,
+      "questions": [
+        {
+          "label": "Date",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Completed by",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": "Your name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Reference probe ID",
+          "type": "text",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": "The calibrated reference probe used for comparison",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Production probe ID",
+          "type": "text",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": "The probe being checked",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Iced water — reference probe reading (°C)",
+          "type": "number",
+          "required": true,
+          "order_index": 4,
+          "options": null,
+          "hint": "Should read approximately 0°C",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Iced water — production probe reading (°C)",
+          "type": "number",
+          "required": true,
+          "order_index": 5,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Iced water — production probe within ±1°C of reference",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 6,
+          "options": null,
+          "hint": "Fail: withdraw probe, label \"Do Not Use\", inform manager",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Freshly boiled water — reference probe reading (°C)",
+          "type": "number",
+          "required": true,
+          "order_index": 7,
+          "options": null,
+          "hint": "Should read approximately 100°C",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Freshly boiled water — production probe reading (°C)",
+          "type": "number",
+          "required": true,
+          "order_index": 8,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Freshly boiled water — production probe within ±1°C of reference",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 9,
+          "options": null,
+          "hint": "Fail: withdraw probe, label \"Do Not Use\", inform manager",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Comments or corrective action",
+          "type": "text",
+          "required": false,
+          "order_index": 10,
+          "options": null,
+          "hint": "Leave blank if both checks passed",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Checked and signed off by",
+          "type": "text",
+          "required": true,
+          "order_index": 11,
+          "options": null,
+          "hint": "Manager or supervisor name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Return to Work Approval",
+      "frequency": "adhoc",
+      "description": "Manager approval before a staff member returns after illness.",
+      "active": true,
+      "category": "HR",
+      "color": null,
+      "questions": [
+        {
+          "label": "Date",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Employee name",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Date absent from",
+          "type": "date",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Date returning",
+          "type": "date",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Nature of illness or absence",
+          "type": "text",
+          "required": true,
+          "order_index": 4,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Did employee have diarrhoea or vomiting during absence?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 5,
+          "options": [
+            "No",
+            "Yes",
+            "Unsure"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "If yes — employee must be symptom-free for 48 hours before return — confirmed?",
+          "type": "checkbox",
+          "required": false,
+          "order_index": 6,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Employee completed self-assessment form?",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 7,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Cleared to return to full duties?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 8,
+          "options": [
+            "Yes — cleared for full duties",
+            "Yes — light duties only (no direct food contact)",
+            "No — not cleared to return"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Medical advice sought?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 9,
+          "options": [
+            "No — not required",
+            "Yes — GP consulted",
+            "Yes — FSA guidance consulted"
+          ],
+          "hint": "Required if symptoms suggest a notifiable illness",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Total sickness absences this year (including this one)",
+          "type": "number",
+          "required": true,
+          "order_index": 10,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Notes",
+          "type": "text",
+          "required": false,
+          "order_index": 11,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Checked and signed off by",
+          "type": "signature",
+          "required": true,
+          "order_index": 12,
+          "options": null,
+          "hint": "Manager or supervisor name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Return to Work Self Assessment",
+      "frequency": "adhoc",
+      "description": "Employee self-assessment to complete before returning after illness.",
+      "active": true,
+      "category": "HR",
+      "color": null,
+      "questions": [
+        {
+          "label": "Date",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Employee name",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "I have been absent since (date)",
+          "type": "date",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Nature of illness or reason for absence",
+          "type": "text",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": "Be specific — e.g. \"vomiting and diarrhoea\" not just \"illness\"",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Have you travelled abroad in the last 2 weeks?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 4,
+          "options": [
+            "No",
+            "Yes"
+          ],
+          "hint": "If Yes and you were ill during the trip, you must be symptom-free for 48 hours before returning to food handling duties",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "I have been symptom-free for at least 48 hours",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 5,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "I do not have any open cuts or sores on my hands (or they are fully covered with a blue plaster)",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 6,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "I confirm the above statements are true",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 7,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Checked and signed off by",
+          "type": "signature",
+          "required": true,
+          "order_index": 8,
+          "options": null,
+          "hint": "Manager or supervisor name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Scale Calibration",
+      "frequency": "weekly",
+      "description": "Weighing scale accuracy check.",
+      "active": true,
+      "category": "Equipment",
+      "color": null,
+      "questions": [
+        {
+          "label": "Date",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Completed by",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Scale ID / location",
+          "type": "text",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Calibration weight used (g)",
+          "type": "number",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": "Use the certified calibration weight for this scale",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Scale reading (g)",
+          "type": "number",
+          "required": true,
+          "order_index": 4,
+          "options": null,
+          "hint": "Check 5 positions: TLH, TRH, BLH, BRH, Centre — record the highest reading",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Within ±1g tolerance?",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 5,
+          "options": null,
+          "hint": "Pass: deviation ≤1g. Fail: take scale out of use and contact manager.",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Scale 2 ID / location",
+          "type": "text",
+          "required": false,
+          "order_index": 6,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Scale 2 calibration weight (g)",
+          "type": "number",
+          "required": false,
+          "order_index": 7,
+          "options": null,
+          "hint": "Use the certified calibration weight for this scale",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Scale 2 reading (g)",
+          "type": "number",
+          "required": false,
+          "order_index": 8,
+          "options": null,
+          "hint": "Check 5 positions: TLH, TRH, BLH, BRH, Centre — record the highest reading",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Scale 2 within ±1g tolerance?",
+          "type": "checkbox",
+          "required": false,
+          "order_index": 9,
+          "options": null,
+          "hint": "Pass: deviation ≤1g. Fail: take scale out of use and contact manager.",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Out of tolerance — corrective action taken",
+          "type": "text",
+          "required": false,
+          "order_index": 10,
+          "options": null,
+          "hint": "Leave blank if all scales passed",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Checked and signed off by",
+          "type": "signature",
+          "required": true,
+          "order_index": 11,
+          "options": null,
+          "hint": "Manager or supervisor name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Visitor Sign In & Health Questionnaire",
+      "frequency": "adhoc",
+      "description": "All visitors to the production area must complete this form.",
+      "active": true,
+      "category": "HR",
+      "color": null,
+      "questions": [
+        {
+          "label": "Date of visit",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Visitor full name",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Company or organisation",
+          "type": "text",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Purpose of visit",
+          "type": "text",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Time in",
+          "type": "text",
+          "required": true,
+          "order_index": 4,
+          "options": null,
+          "hint": "24hr format e.g. 09:30",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "I have read and understood the personal hygiene rules.",
+          "type": "document",
+          "required": true,
+          "order_index": 5,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": "checklist-docs/6b1d9a57-d51c-4af3-a918-54c34af1483d/1781769433016_PROC1.2 - Personal Hygiene Rules.pdf",
+          "document_required": true
+        },
+        {
+          "label": "Do you currently have a high temperature, persistent cough, or loss of taste or smell?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 6,
+          "options": [
+            "No",
+            "Yes"
+          ],
+          "hint": "If Yes, you are not permitted on site",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "In the past 7 days have you had food poisoning, diarrhoea or vomiting?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 7,
+          "options": [
+            "No",
+            "Yes"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Do you have any skin infections, boils, or discharge from eyes, ears or nose?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 8,
+          "options": [
+            "No",
+            "Yes"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Have you travelled abroad in the last 2 weeks?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 9,
+          "options": [
+            "No",
+            "Yes"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "If you answered Yes to any health question — are you symptom-free for at least 48 hours?",
+          "type": "dropdown",
+          "required": false,
+          "order_index": 10,
+          "options": [
+            "N/A — answered No to all health questions",
+            "Yes — symptom-free for 48+ hours",
+            "No — not permitted on site"
+          ],
+          "hint": "If No, you are not permitted on site",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Have you read and understood the site hygiene and visitor rules?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 11,
+          "options": [
+            "No",
+            "Yes"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Are you aware we handle allergens on site — do you have any relevant allergies?",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 12,
+          "options": [
+            "No allergies",
+            "Yes — host has been informed"
+          ],
+          "hint": "If Yes, inform your host before entering production areas",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Visitor briefed on emergency procedures",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 13,
+          "options": null,
+          "hint": "Fire exits, assembly point, nearest first aider",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Visitor signature",
+          "type": "signature",
+          "required": true,
+          "order_index": 14,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Approved by (host signature)",
+          "type": "signature",
+          "required": true,
+          "order_index": 15,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    },
+    {
+      "name": "Weekly Cleaning",
+      "frequency": "weekly",
+      "description": "Weekly deep clean record.",
+      "active": true,
+      "category": "Cleaning",
+      "color": null,
+      "questions": [
+        {
+          "label": "Week commencing",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Completed by",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": "Your name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Changing area cleaned",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 2,
+          "options": null,
+          "hint": "Including lockers and coat hooks",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Offices and staff area cleaned",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Toilets cleaned",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 4,
+          "options": null,
+          "hint": "Toilet cleaner as per pack instructions · sweep floor · red mop bucket only · Jantex Floor Maintainer at 1/20",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Chiller, fridge and blast chiller cleaned and sanitised",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 5,
+          "options": null,
+          "hint": "Move stock to one side · remove debris · spray Jantex MSSC at 1/10 · 30s contact · rinse · wipe dry",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Warehouse and storage area cleaned",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 6,
+          "options": null,
+          "hint": "Surfaces: Jantex MSSC at 1/10 · Floors: Jantex Floor Maintainer at 1/20",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Production shoes cleaned",
+          "type": "checkbox",
+          "required": true,
+          "order_index": 7,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Notes",
+          "type": "text",
+          "required": false,
+          "order_index": 8,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Checked and signed off by",
+          "type": "text",
+          "required": true,
+          "order_index": 9,
+          "options": null,
+          "hint": "Manager or supervisor name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    }
+  ],
+  "training_items": [
+    {
+      "name": "Food Safety Plan",
+      "sort_order": 1,
+      "active": true,
+      "document_path": "training/15a33d45-60a8-453e-a5e2-b3ccb3860ead/177a066f-b5f4-4f36-9198-97e308deb539-1781277960272.pdf"
+    },
+    {
+      "name": "Training Procedure",
+      "sort_order": 2,
+      "active": true,
+      "document_path": "training/15a33d45-60a8-453e-a5e2-b3ccb3860ead/ba150ad1-6d60-401c-8e3c-22bc9395782a-1781277968680.pdf"
+    },
+    {
+      "name": "Personal Hygiene Rules",
+      "sort_order": 3,
+      "active": true,
+      "document_path": "training/15a33d45-60a8-453e-a5e2-b3ccb3860ead/df07546f-898d-4320-9ef0-9fb3f7ffc9aa-1781278006720.pdf"
+    },
+    {
+      "name": "Putting on PPE",
+      "sort_order": 4,
+      "active": true,
+      "document_path": "training/15a33d45-60a8-453e-a5e2-b3ccb3860ead/2a859c8e-9ca2-4b0d-99b4-1905e98f4478-1781278559444.pdf"
+    },
+    {
+      "name": "Removing PPE",
+      "sort_order": 5,
+      "active": true,
+      "document_path": "training/15a33d45-60a8-453e-a5e2-b3ccb3860ead/4614bc92-09fa-405c-9d30-3f1b201972c0-1781278564424.pdf"
+    },
+    {
+      "name": "Cleaning Procedure",
+      "sort_order": 6,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Chemical Control Procedure",
+      "sort_order": 7,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Allergen Management",
+      "sort_order": 8,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Temperature Monitoring",
+      "sort_order": 9,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Equipment Failure List",
+      "sort_order": 10,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Control of Monitoring & Measuring Devices",
+      "sort_order": 11,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Metal Control",
+      "sort_order": 12,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Product Weight",
+      "sort_order": 13,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Goods In",
+      "sort_order": 14,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Supplier Approval",
+      "sort_order": 15,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Storage & Handling",
+      "sort_order": 16,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Maintenance",
+      "sort_order": 17,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Product Distribution",
+      "sort_order": 18,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Non-Conforming Product",
+      "sort_order": 19,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Corrective Action",
+      "sort_order": 20,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Complaint Handling",
+      "sort_order": 21,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Product Identification & Traceability",
+      "sort_order": 22,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Managing Incidents",
+      "sort_order": 23,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Product Labelling & Legality",
+      "sort_order": 24,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Product & Environmental Testing",
+      "sort_order": 25,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Food Security and Defense",
+      "sort_order": 26,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Glass & Breakables",
+      "sort_order": 27,
+      "active": true,
+      "document_path": null
+    },
+    {
+      "name": "Physical Contamination",
+      "sort_order": 28,
+      "active": true,
+      "document_path": null
+    }
+  ]
+}
