@@ -81,6 +81,7 @@ export interface Submission {
   signed_off_by: string | null;
   signed_off_at: string | null;
   notes: string | null;
+  batch_notes: string | null;
   checklist?: Checklist;
   answers?: Answer[];
 }
