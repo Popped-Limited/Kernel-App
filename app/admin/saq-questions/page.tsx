@@ -4,6 +4,7 @@ import BackButton from "@/components/BackButton";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useOrganisation } from "@/contexts/OrganisationContext";
 
 interface SAQQuestion {
   id: string;
@@ -102,6 +103,7 @@ const EMPTY_FORM: Omit<SAQQuestion, "id"> = {
 };
 
 export default function SAQQuestionsPage() {
+  const { orgId } = useOrganisation();
   const [questions, setQuestions] = useState<SAQQuestion[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -114,17 +116,20 @@ export default function SAQQuestionsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   async function loadQuestions() {
+    if (!orgId) return;
     const { data } = await supabase
       .from("saq_questions")
       .select("*")
+      .eq("organisation_id", orgId)
       .order("sort_order");
     if (data) setQuestions(data as SAQQuestion[]);
     setLoading(false);
   }
 
   useEffect(() => {
-    loadQuestions();
-  }, []);
+    if (orgId) loadQuestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId]);
 
   // Group into sections sorted numerically
   const sections: SectionGroup[] = (() => {
@@ -184,9 +189,9 @@ export default function SAQQuestionsPage() {
     setSaving(true);
     const payload = { ...form };
     if (isNew) {
-      await supabase.from("saq_questions").insert(payload);
+      await supabase.from("saq_questions").insert({ ...payload, organisation_id: orgId });
     } else {
-      await supabase.from("saq_questions").upsert({ id: editingId, ...payload });
+      await supabase.from("saq_questions").upsert({ id: editingId, ...payload, organisation_id: orgId });
     }
     await loadQuestions();
     setSaving(false);
