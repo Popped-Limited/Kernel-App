@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { seedSalsaBaseline } from "@/lib/seed/salsa-baseline";
 import { Resend } from "resend";
 
 export async function POST(req: NextRequest) {
@@ -70,7 +71,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to set up account" }, { status: 500 });
     }
 
-    // 4. Notify the team of the new signup (best-effort — never block signup).
+    // 4. Seed the SALSA baseline (checklists + questions + training items).
+    //    Best-effort — a seeding failure must never block account creation.
+    try {
+      const seeded = await seedSalsaBaseline(org.id);
+      if (seeded.errors.length) {
+        console.error(`SALSA baseline seeding had errors for org ${org.id}:`, seeded.errors);
+      } else {
+        console.log(`Seeded SALSA baseline for org ${org.id}: ${seeded.checklists} checklists, ${seeded.questions} questions, ${seeded.trainingItems} training items`);
+      }
+    } catch (seedErr) {
+      console.error(`SALSA baseline seeding threw for org ${org.id} (signup still succeeded):`, seedErr);
+    }
+
+    // 5. Notify the team of the new signup (best-effort — never block signup).
     try {
       const notifyTo = process.env.SIGNUP_NOTIFY_EMAIL ?? "support@kernelapp.co.uk";
       const fromEmail = process.env.FROM_EMAIL ?? "support@kernelapp.co.uk";
