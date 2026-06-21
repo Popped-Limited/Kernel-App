@@ -482,13 +482,13 @@ export default function GoodsInPage() {
                     </div>
 
                     {/* BBE */}
-                    <div>
+                    <div className="min-w-0">
                       <label className="text-xs text-gray-500 block mb-0.5">BBE date</label>
                       <input
                         type="date"
                         value={row.bestBefore}
                         onChange={e => updateRow(idx, "bestBefore", e.target.value)}
-                        className="input text-sm py-1.5"
+                        className="input text-sm py-1.5 max-w-full"
                       />
                     </div>
 
