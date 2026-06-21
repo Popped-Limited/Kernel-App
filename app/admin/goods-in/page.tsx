@@ -383,13 +383,13 @@ export default function GoodsInPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Shared delivery details */}
             <div className="grid gap-4 sm:grid-cols-3">
-              <div>
+              <div className="min-w-0">
                 <label className="label">Date &amp; time received *</label>
                 <input
                   type="datetime-local"
                   value={receivedDateTime}
                   onChange={e => setReceivedDateTime(e.target.value)}
-                  className="input"
+                  className="input w-full max-w-full"
                 />
               </div>
               <div>
