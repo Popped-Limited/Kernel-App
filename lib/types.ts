@@ -50,8 +50,9 @@ export interface ChecklistReminder {
   recipient_name: string | null;
   frequency: ReminderFrequency;
   send_hour: number;             // 0-23, UK local time
-  days: number[];                // 0=Sun .. 6=Sat — used when frequency = "weekly"
+  days: number[];                // 0=Sun .. 6=Sat — used when frequency = "daily" | "weekly"
   day_of_month: number | null;   // 1-28 — used when frequency = "monthly" | "quarterly"
+  start_month: number | null;    // 0=Jan .. 11=Dec — quarterly anchor month
   active: boolean;
   last_sent_on: string | null;
   created_at: string;

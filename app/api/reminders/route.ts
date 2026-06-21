@@ -149,17 +149,21 @@ function getUkNow(now: Date): UkNow {
   };
 }
 
-// First month of each calendar quarter: Jan, Apr, Jul, Oct.
-const QUARTER_MONTHS = [0, 3, 6, 9];
-
 // send_hour is already matched in the query; this checks the day rule per frequency.
 function isDue(r: any, uk: UkNow): boolean {
   switch (r.frequency) {
-    case "daily":     return true;
-    case "weekly":    return Array.isArray(r.days) && r.days.includes(uk.weekday);
-    case "monthly":   return r.day_of_month === uk.dayOfMonth;
-    case "quarterly": return QUARTER_MONTHS.includes(uk.month) && r.day_of_month === uk.dayOfMonth;
-    default:          return false;
+    // Daily fires on the chosen weekdays; no selection means literally every day.
+    case "daily":   return !r.days?.length || r.days.includes(uk.weekday);
+    // Weekly fires on its single chosen weekday.
+    case "weekly":  return Array.isArray(r.days) && r.days.includes(uk.weekday);
+    case "monthly": return r.day_of_month === uk.dayOfMonth;
+    // Quarterly fires on day_of_month in start_month and every 3rd month after.
+    case "quarterly": {
+      if (r.day_of_month !== uk.dayOfMonth) return false;
+      const start = r.start_month ?? 0;
+      return (((uk.month - start) % 3) + 3) % 3 === 0;
+    }
+    default: return false;
   }
 }
 
