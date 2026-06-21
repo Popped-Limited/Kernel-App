@@ -24,6 +24,22 @@
       font-size: 16px !important;
     }
   }
+  /*
+   * iOS Safari renders date/datetime-local inputs with native chrome that
+   * ignores width:100% and max-width, causing them to overflow their grid
+   * cells. -webkit-appearance:none strips the native sizing (the tap-to-open
+   * picker still works) so the input obeys the same box model as any other
+   * input.
+   */
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
 }
 
 @layer components {
