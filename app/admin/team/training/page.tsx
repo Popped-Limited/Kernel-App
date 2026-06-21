@@ -306,10 +306,7 @@ export default function TrainingPage() {
               {inductionId && (
                 <tr className="bg-white">
                   <td className="sticky left-0 z-10 px-4 py-2.5 text-xs font-medium text-gray-700 border-r border-gray-200 bg-inherit">
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-gray-800">Employee Induction Record</span>
-                      <span className="text-[10px] font-normal text-gray-400">First step · completed per employee</span>
-                    </div>
+                    <span className="font-semibold text-gray-800">Employee Induction Record</span>
                   </td>
                   {members.map(member => {
                     const ind = inductionByMember[member.id]?.status ?? "begin";
