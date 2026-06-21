@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { Resend } from "resend";
 
-// Called hourly by Vercel Cron — see vercel.json.
-// Also callable manually: POST /api/reminders with { secret: process.env.CRON_SECRET }.
+// Called hourly by Vercel Cron — see vercel.json. Vercel Cron issues a GET
+// request (with an Authorization: Bearer <CRON_SECRET> header), so the cron
+// entry point is GET. POST is also supported for manual invocation with
+// { secret: process.env.CRON_SECRET } in the body.
 //
 // Reads per-checklist reminder config from `checklist_reminders` (one row per
 // recipient). Each row carries its own organisation_id + recipient_email, so an
@@ -13,11 +15,16 @@ import { Resend } from "resend";
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const FROM_EMAIL  = process.env.FROM_EMAIL ?? "compliance@kernelapp.co.uk";
 
-export async function POST(req: NextRequest) {
-  // Verify cron secret (if configured). Vercel Cron sends it as a Bearer token.
+// Vercel Cron uses GET; POST stays available for manual triggering.
+export async function GET(req: NextRequest)  { return runReminders(req); }
+export async function POST(req: NextRequest) { return runReminders(req); }
+
+async function runReminders(req: NextRequest) {
+  // Verify cron secret (if configured). Vercel Cron sends it as a Bearer token;
+  // a manual POST may instead pass it in the JSON body.
   if (CRON_SECRET) {
     const auth = req.headers.get("authorization");
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({} as any));
     if (auth !== `Bearer ${CRON_SECRET}` && body.secret !== CRON_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
