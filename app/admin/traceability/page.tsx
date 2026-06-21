@@ -530,7 +530,8 @@ export default function TraceabilityPage() {
               {result.lots.length === 0 ? (
                 <p className="text-sm text-gray-400 py-2">No ingredient lots found.</p>
               ) : (
-                <table className="w-full text-xs">
+                <div className="overflow-x-auto">
+                <table className="w-full text-xs min-w-[560px]">
                   <thead>
                     <tr className="text-gray-500">
                       <th className="text-left py-1 font-medium">Ingredient</th>
@@ -556,6 +557,7 @@ export default function TraceabilityPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </Section>
 
@@ -564,7 +566,8 @@ export default function TraceabilityPage() {
               {result.dispatches.length === 0 ? (
                 <p className="text-sm text-gray-400 py-2">No dispatches linked to these batch records yet.</p>
               ) : (
-                <table className="w-full text-xs">
+                <div className="overflow-x-auto">
+                <table className="w-full text-xs min-w-[640px]">
                   <thead>
                     <tr className="text-gray-500">
                       <th className="text-left py-1 font-medium">Date</th>
@@ -602,6 +605,7 @@ export default function TraceabilityPage() {
                     })}
                   </tbody>
                 </table>
+                </div>
               )}
             </Section>
 

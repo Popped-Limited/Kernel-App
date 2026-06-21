@@ -246,7 +246,7 @@ export default function SuppliersPage() {
           <button onClick={openNew} className="btn-primary text-sm">+ Add Supplier</button>
         </div>
         {/* Summary */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {(["raw_material", "packaging", "service"] as SupplierType[]).map(t => (
             <div key={t} className="card p-4">
               <p className="text-xs text-gray-500">{TYPE_LABELS[t]} Suppliers</p>

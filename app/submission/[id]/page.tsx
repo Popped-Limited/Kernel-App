@@ -111,14 +111,14 @@ export default function SubmissionPage() {
     <PortalShell>
       <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-3xl w-full mx-auto space-y-6">
         {/* Page header */}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 min-w-0">
             <BackButton />
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold text-gray-900 truncate">
               {submission.checklist?.name ?? <span className="text-gray-400 italic font-normal">Deleted checklist</span>}
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {isSigned ? (
               <span className="badge bg-brand/30 text-brown px-3 py-1">Signed off ✓</span>
             ) : (

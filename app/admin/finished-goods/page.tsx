@@ -412,7 +412,7 @@ export default function FinishedGoodsPage() {
           </div>
           <input
             type="text"
-            className="input w-full text-xs mb-2"
+            className="input w-full text-sm mb-2"
             placeholder="Search product…"
             value={search}
             onChange={e => setSearch(e.target.value)}

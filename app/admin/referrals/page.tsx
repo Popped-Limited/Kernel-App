@@ -62,8 +62,8 @@ export default async function BeaconReferralsPage() {
       ) : (
         <>
           <p className="text-sm text-gray-500 mb-4">{referred.length} customer{referred.length !== 1 ? "s" : ""} referred</p>
-          <div className="card overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="card overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm min-w-[560px]">
               <thead className="bg-brand-light text-brown text-left">
                 <tr>
                   <th className="px-4 py-3 font-medium">Business</th>
