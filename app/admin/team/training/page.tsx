@@ -274,7 +274,7 @@ export default function TrainingPage() {
         <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-amber-100 border border-amber-200" />Review due soon (&lt;30 days)</span>
         <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-red-100 border border-red-200" />Review overdue</span>
         <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-gray-100 border border-gray-200" />Not completed</span>
-        <span className="flex items-center gap-1.5 ml-1 pl-3 border-l border-gray-200"><span className="h-3 w-3 rounded-sm bg-brand/15 border border-brand/30" />Induction: Begin → Continue → Completed</span>
+        <span className="flex items-center gap-1.5 ml-1 pl-3 border-l border-gray-200">Induction: Begin → Continue → Completed</span>
       </div>
 
       {loading ? (
@@ -304,10 +304,10 @@ export default function TrainingPage() {
             <tbody className="divide-y divide-gray-100">
               {/* Employee Induction Record — always the first row, filled per employee */}
               {inductionId && (
-                <tr className="bg-brand-light/40">
-                  <td className="sticky left-0 z-10 px-4 py-2.5 text-xs font-medium text-gray-700 border-r border-gray-200 bg-brand-light/40">
+                <tr className="bg-white">
+                  <td className="sticky left-0 z-10 px-4 py-2.5 text-xs font-medium text-gray-700 border-r border-gray-200 bg-inherit">
                     <div className="flex flex-col">
-                      <span className="font-semibold text-brown">Employee Induction Record</span>
+                      <span className="font-semibold text-gray-800">Employee Induction Record</span>
                       <span className="text-[10px] font-normal text-gray-400">First step · completed per employee</span>
                     </div>
                   </td>
@@ -321,7 +321,7 @@ export default function TrainingPage() {
                           className={`w-full rounded-md px-2 py-2 text-xs font-medium transition ${
                             ind === "completed" ? "bg-green-50 hover:bg-green-100 text-green-700"
                             : ind === "continue" ? "bg-amber-50 hover:bg-amber-100 text-amber-700"
-                            : "bg-brand/15 hover:bg-brand/30 text-brown"
+                            : "bg-gray-50 hover:bg-gray-100 text-gray-500"
                           }`}
                           title={
                             ind === "completed" ? `Induction completed${completedAt ? ` ${completedAt.slice(0, 10)}` : ""}`
