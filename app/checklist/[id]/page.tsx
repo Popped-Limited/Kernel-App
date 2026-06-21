@@ -115,19 +115,31 @@ function ChecklistPageInner() {
   // The logged-in user's display name — used when the checklist has no
   // name question (or it was left blank), instead of a generic "Staff"
   const [userName, setUserName] = useState("");
+  // Ref mirrors state so getSubmittedBy always reads the latest value even
+  // before a re-render (avoids stale-closure "Staff" on fast submissions)
+  const userNameRef = useRef("");
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
       const metaName = (user.user_metadata?.full_name as string | undefined)?.trim();
-      setUserName(metaName || (user.email?.split("@")[0] ?? ""));
+      const name = metaName || (user.email?.split("@")[0] ?? "");
+      userNameRef.current = name;
+      setUserName(name);
     });
   }, []);
 
-  // Derive submitted_by from a name-like answer in the checklist
+  // Derive submitted_by from a name-like answer in the checklist.
+  // Matches common "who filled this in" labels: "Reported by", "Checked by",
+  // "Your name", "Operator", etc. Falls back to the logged-in user's name.
   function getSubmittedBy(qs: Question[], ans: AnswerMap): string {
-    const nameQ = qs.find(q => /\b(your name|full name|visitor name|operator|packed by|completed by|submitted by|logged by|packer name|staff name|team member)\b/i.test(q.label) && q.type === "text");
+    const nameQ = qs.find(q =>
+      q.type === "text" && (
+        /\b(your name|full name|visitor name|staff name|employee name|operator|packer name|team member)\b/i.test(q.label) ||
+        /\b(reported|inspected|checked|logged|completed|submitted|packed|carried out|filled in|prepared|signed)\s+by\b/i.test(q.label)
+      )
+    );
     if (nameQ && ans[nameQ.id]?.trim()) return ans[nameQ.id].trim();
-    return userName || "Staff";
+    return userNameRef.current || userName || "Staff";
   }
 
   // Ingredient lots for production checklists (ingredient name → lots)
