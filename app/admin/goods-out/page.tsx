@@ -780,7 +780,7 @@ export default function GoodsOutPage() {
                   <label className="block text-xs font-medium text-gray-700 mb-1">Customer</label>
                   <input type="text" className="input w-full" value={editCustomer} onChange={e => setEditCustomer(e.target.value)} />
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 overflow-hidden">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Dispatch date</label>
                   <input type="date" className="input w-full max-w-full" value={editDate} onChange={e => setEditDate(e.target.value)} />
                 </div>

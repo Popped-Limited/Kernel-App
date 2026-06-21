@@ -31,12 +31,19 @@
    * picker still works) so the input obeys the same box model as any other
    * input.
    */
-  input[type="date"],
   input[type="datetime-local"],
   input[type="time"] {
     -webkit-appearance: none;
     appearance: none;
     min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  /* date inputs keep native rendering (needed for iOS picker to show value
+     correctly) — overflow is handled by wrapping the input in overflow-hidden */
+  input[type="date"] {
+    min-width: 0;
+    width: 100%;
     max-width: 100%;
     box-sizing: border-box;
   }

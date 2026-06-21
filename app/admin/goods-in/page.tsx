@@ -449,7 +449,7 @@ function validate() {
                     </div>
 
                     {/* BBE */}
-                    <div className="min-w-0">
+                    <div className="min-w-0 overflow-hidden">
                       <label className="text-xs text-gray-500 block mb-0.5">BBE date</label>
                       <input
                         type="date"
