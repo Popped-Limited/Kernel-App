@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-// Public, unauthenticated endpoint for the supplier SAQ form. Resolves the
-// supplier by its token, then returns that supplier's ORGANISATION's active SAQ
-// questions. Using the service role here lets saq_questions stay fully
-// org-scoped under RLS (no anon read) — the token is the authorisation.
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+// Public, unauthenticated endpoint for the supplier SAQ form.
+// All DB access uses service-role so suppliers table needs no anon RLS.
+// The token is the sole authorisation for both read and submit.
+
+type Params = { params: Promise<{ token: string }> };
+
+export async function GET(_req: NextRequest, { params }: Params) {
   const { token } = await params;
   if (!token) return NextResponse.json({ error: "Missing token" }, { status: 400 });
 
   const { data: supplier, error: supErr } = await supabaseAdmin
     .from("suppliers")
-    .select("organisation_id")
+    .select("id, name, type, saq_completed, saq_date, organisation_id")
     .eq("saq_token", token)
     .maybeSingle();
 
   if (supErr) return NextResponse.json({ error: "Lookup failed" }, { status: 500 });
-  if (!supplier?.organisation_id) return NextResponse.json({ questions: [] });
+  if (!supplier) return NextResponse.json({ supplier: null, questions: [] });
 
   const { data: questions, error: qErr } = await supabaseAdmin
     .from("saq_questions")
@@ -27,5 +29,45 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 
   if (qErr) return NextResponse.json({ error: "Questions unavailable" }, { status: 500 });
 
-  return NextResponse.json({ questions: questions ?? [] });
+  return NextResponse.json({ supplier, questions: questions ?? [] });
+}
+
+export async function POST(req: NextRequest, { params }: Params) {
+  const { token } = await params;
+  if (!token) return NextResponse.json({ error: "Missing token" }, { status: 400 });
+
+  const { answers } = await req.json();
+  if (!answers || typeof answers !== "object") {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+
+  // Re-resolve supplier from token — never trust the client's supplier id.
+  const { data: supplier, error: supErr } = await supabaseAdmin
+    .from("suppliers")
+    .select("id, organisation_id, saq_completed")
+    .eq("saq_token", token)
+    .maybeSingle();
+
+  if (supErr || !supplier) return NextResponse.json({ error: "Supplier not found" }, { status: 404 });
+  if (supplier.saq_completed) return NextResponse.json({ error: "Already submitted" }, { status: 409 });
+
+  const now = new Date().toISOString();
+  const nextYear = new Date();
+  nextYear.setFullYear(nextYear.getFullYear() + 1);
+
+  const { error: responseErr } = await supabaseAdmin.from("saq_responses").insert({
+    supplier_id: supplier.id,
+    organisation_id: supplier.organisation_id,
+    responses: answers,
+    submitted_at: now,
+  });
+  if (responseErr) return NextResponse.json({ error: "Failed to save responses" }, { status: 500 });
+
+  await supabaseAdmin.from("suppliers").update({
+    saq_completed: true,
+    saq_date: now,
+    next_review_due: nextYear.toISOString().split("T")[0],
+  }).eq("id", supplier.id);
+
+  return NextResponse.json({ success: true });
 }
