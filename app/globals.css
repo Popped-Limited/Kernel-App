@@ -40,12 +40,16 @@
     box-sizing: border-box;
   }
   /* date inputs keep native rendering (needed for iOS picker to show value
-     correctly) — overflow is handled by wrapping the input in overflow-hidden */
+     correctly) — overflow is handled by wrapping the input in overflow-hidden.
+     min-height forces the same height as a text input (py-1.5 + text-sm at
+     16px + 2px borders = ~38px) because iOS native date controls render
+     shorter than CSS padding alone would give. */
   input[type="date"] {
     min-width: 0;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
+    min-height: 2.5rem !important;
   }
 }
 

@@ -47,7 +47,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex min-h-screen bg-brand-cream">
         <AppSidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-        <div className="flex-1 lg:ml-56 flex flex-col min-h-screen">
+        <div className="flex-1 lg:ml-56 flex flex-col min-h-screen overflow-x-hidden">
           {/* Mobile top bar */}
           <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-gray-200 flex items-center justify-between px-5 py-4">
             <p className="font-serif text-3xl text-brown leading-none">Kernel</p>

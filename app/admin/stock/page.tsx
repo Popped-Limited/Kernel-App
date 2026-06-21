@@ -369,7 +369,7 @@ export default function RawMaterialsPage() {
           </div>
 
           {/* Tab bar */}
-          <div className="flex gap-1 border-b border-gray-200">
+          <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
             {TABS.map(tab => (
               <button
                 key={tab.key}
