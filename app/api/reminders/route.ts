@@ -13,8 +13,6 @@ import { Resend } from "resend";
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const FROM_EMAIL  = process.env.FROM_EMAIL ?? "compliance@kernelapp.co.uk";
 
-const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 export async function POST(req: NextRequest) {
   // Verify cron secret (if configured). Vercel Cron sends it as a Bearer token.
   if (CRON_SECRET) {
@@ -54,61 +52,76 @@ export async function POST(req: NextRequest) {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://kernelapp.co.uk";
 
-  let sent = 0;
-  const failures: { id: string; error: string }[] = [];
-
+  // Group the due reminders by recipient so each person gets a single email
+  // listing every checklist due for them this hour.
+  const byRecipient = new Map<string, any[]>();
   for (const r of due as any[]) {
-    const checklist = r.checklists;
-    // Prefer the direct (login-required) checklist link for team members; fall
-    // back to the public guest link only if guest access is enabled.
-    const link = checklist.public_token
-      ? `${baseUrl}/c/${checklist.public_token}`
-      : `${baseUrl}/checklist/${r.checklist_id}`;
+    const list = byRecipient.get(r.recipient_email) ?? [];
+    list.push(r);
+    byRecipient.set(r.recipient_email, list);
+  }
+
+  let emailsSent = 0;
+  let remindersSent = 0;
+  const failures: { recipient: string; error: string }[] = [];
+
+  for (const [recipient, group] of byRecipient) {
+    const items = group.map((r) => {
+      const checklist = r.checklists;
+      // Prefer the direct (login-required) link; fall back to the public guest
+      // link only if guest access is enabled on the checklist.
+      const link = checklist.public_token
+        ? `${baseUrl}/c/${checklist.public_token}`
+        : `${baseUrl}/checklist/${r.checklist_id}`;
+      return { name: checklist.name, description: checklist.description, link };
+    });
+
+    const subject = items.length === 1
+      ? `Reminder: ${items[0].name}`
+      : `Reminder: ${items.length} checklists to complete`;
 
     try {
       // Resend returns { data, error } — it does NOT throw on API-level errors,
       // so we must inspect `error` explicitly or failed sends look successful.
       const { error: sendError } = await resend.emails.send({
         from: `Kernel <${FROM_EMAIL}>`,
-        to: r.recipient_email,
-        subject: `Reminder: ${checklist.name}`,
+        to: recipient,
+        subject,
         html: reminderHtml({
-          name: checklist.name,
-          description: checklist.description,
-          link,
+          recipientName: group[0].recipient_name,
+          items,
           baseUrl,
-          recipientName: r.recipient_name,
-          when: `${formatHour(r.send_hour)}, ${formatSchedule(r)}`,
         }),
       });
 
       if (sendError) {
-        // Don't mark last_sent_on — let the next hourly run retry.
-        console.error(`Reminder ${r.id} send failed:`, sendError);
-        failures.push({ id: r.id, error: sendError.message ?? String(sendError) });
+        // Don't mark last_sent_on — let the next hourly run retry the whole group.
+        console.error(`Reminder email to ${recipient} failed:`, sendError);
+        failures.push({ recipient, error: sendError.message ?? String(sendError) });
         continue;
       }
 
-      await supabase
-        .from("checklist_reminders")
-        .update({ last_sent_on: uk.date })
-        .eq("id", r.id);
+      // Mark every reminder in this group as sent today and log each one.
+      const ids = group.map((r) => r.id);
+      await supabase.from("checklist_reminders").update({ last_sent_on: uk.date }).in("id", ids);
+      await supabase.from("alert_log").insert(
+        group.map((r) => ({
+          checklist_id:    r.checklist_id,
+          organisation_id: r.organisation_id,
+          recipient,
+          message:         `Reminder sent: ${r.checklists.name}`,
+        }))
+      );
 
-      await supabase.from("alert_log").insert({
-        checklist_id:    r.checklist_id,
-        organisation_id: r.organisation_id,
-        recipient:       r.recipient_email,
-        message:         `Reminder sent: ${checklist.name}`,
-      });
-
-      sent++;
+      emailsSent++;
+      remindersSent += group.length;
     } catch (err: any) {
-      console.error(`Reminder ${r.id} failed:`, err);
-      failures.push({ id: r.id, error: err?.message ?? String(err) });
+      console.error(`Reminder email to ${recipient} failed:`, err);
+      failures.push({ recipient, error: err?.message ?? String(err) });
     }
   }
 
-  return NextResponse.json({ ok: true, sent, failed: failures.length, failures });
+  return NextResponse.json({ ok: true, emailsSent, remindersSent, failed: failures.length, failures });
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -150,44 +163,26 @@ function isDue(r: any, uk: UkNow): boolean {
   }
 }
 
-function formatHour(h: number) {
-  return `${String(h).padStart(2, "0")}:00`;
-}
-
-function ordinal(n: number) {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
-
-function formatSchedule(r: any): string {
-  switch (r.frequency) {
-    case "daily":
-      return "every day";
-    case "monthly":
-      return `${ordinal(r.day_of_month)} of each month`;
-    case "quarterly":
-      return `${ordinal(r.day_of_month)} of Jan, Apr, Jul & Oct`;
-    case "weekly":
-    default: {
-      const s = [...(r.days ?? [])].sort((a: number, b: number) => a - b);
-      if (s.length === 7) return "every day";
-      if (s.length === 5 && [1, 2, 3, 4, 5].every((d) => s.includes(d))) return "weekdays";
-      if (s.length === 2 && s.includes(0) && s.includes(6)) return "weekends";
-      return s.map((d: number) => DAY_LABELS[d]).join(", ");
-    }
-  }
-}
-
 function reminderHtml(opts: {
-  name: string;
-  description: string | null;
-  link: string;
-  baseUrl: string;
   recipientName: string | null;
-  when: string;
+  items: { name: string; description: string | null; link: string }[];
+  baseUrl: string;
 }) {
   const greeting = opts.recipientName ? `Hi ${escapeHtml(opts.recipientName)},` : "Hi,";
+  const intro = opts.items.length === 1
+    ? "This is your scheduled reminder to complete:"
+    : "This is your scheduled reminder to complete the following checklists:";
+
+  const blocks = opts.items.map((it) => `
+    <div style="background:#F7F2E8;border-radius:8px;padding:16px 18px;margin:16px 0">
+      <p style="margin:0;font-size:16px;font-weight:600;color:#3A3520">${escapeHtml(it.name)}</p>
+      ${it.description ? `<p style="margin:6px 0 10px;color:#7A7050;font-size:14px">${escapeHtml(it.description)}</p>` : `<div style="height:10px"></div>`}
+      <a href="${it.link}" style="display:inline-block;background:#F5C65A;color:#3A3520;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600">
+        Complete now →
+      </a>
+    </div>
+  `).join("");
+
   return `
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
       <div style="background:#F5C65A;padding:20px 24px;border-radius:8px 8px 0 0">
@@ -195,16 +190,10 @@ function reminderHtml(opts: {
       </div>
       <div style="background:#fff;border:1px solid #EDE5D0;border-top:none;padding:24px;border-radius:0 0 8px 8px">
         <p style="margin-top:0;color:#3A3520">${greeting}</p>
-        <p style="color:#3A3520">This is your scheduled reminder to complete:</p>
-        <div style="background:#F7F2E8;border-radius:8px;padding:16px 18px;margin:16px 0">
-          <p style="margin:0;font-size:16px;font-weight:600;color:#3A3520">${escapeHtml(opts.name)}</p>
-          ${opts.description ? `<p style="margin:6px 0 0;color:#7A7050;font-size:14px">${escapeHtml(opts.description)}</p>` : ""}
-        </div>
-        <a href="${opts.link}" style="display:inline-block;background:#F5C65A;color:#3A3520;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:4px">
-          Complete now →
-        </a>
+        <p style="color:#3A3520">${intro}</p>
+        ${blocks}
         <p style="margin-bottom:0;color:#9ca3af;font-size:12px;margin-top:28px">
-          You're receiving this because a reminder (${escapeHtml(opts.when)}) was set on this checklist.<br/>
+          You're receiving this because email reminders were set up for ${opts.items.length === 1 ? "this checklist" : "these checklists"} in Kernel.<br/>
           Kernel App · <a href="${opts.baseUrl}" style="color:#9ca3af">kernelapp.co.uk</a>
         </p>
       </div>

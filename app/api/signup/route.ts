@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { Resend } from "resend";
 
 export async function POST(req: NextRequest) {
   try {
@@ -69,10 +70,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to set up account" }, { status: 500 });
     }
 
+    // 4. Notify the team of the new signup (best-effort — never block signup).
+    try {
+      const notifyTo = process.env.SIGNUP_NOTIFY_EMAIL ?? "support@kernelapp.co.uk";
+      const fromEmail = process.env.FROM_EMAIL ?? "support@kernelapp.co.uk";
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const when = new Date().toLocaleString("en-GB", { timeZone: "Europe/London", dateStyle: "full", timeStyle: "short" });
+      const { error: notifyError } = await resend.emails.send({
+        from: `Kernel <${fromEmail}>`,
+        to: notifyTo,
+        subject: `🎉 New Kernel signup: ${org_name.trim()}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+            <div style="background:#F5C65A;padding:20px 24px;border-radius:8px 8px 0 0">
+              <h1 style="color:#3A3520;margin:0;font-size:18px">New signup</h1>
+            </div>
+            <div style="background:#fff;border:1px solid #EDE5D0;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+              <table style="width:100%;border-collapse:collapse;color:#3A3520">
+                <tr><td style="padding:6px 0;color:#7A7050;width:120px">Business</td><td><strong>${escapeHtml(org_name.trim())}</strong></td></tr>
+                <tr><td style="padding:6px 0;color:#7A7050">Name</td><td>${escapeHtml(user_name.trim())}</td></tr>
+                <tr><td style="padding:6px 0;color:#7A7050">Email</td><td>${escapeHtml(normalisedEmail)}</td></tr>
+                <tr><td style="padding:6px 0;color:#7A7050">Source</td><td>${referral_source === "beacon" ? "Beacon" : "Direct"}</td></tr>
+                <tr><td style="padding:6px 0;color:#7A7050">When</td><td>${escapeHtml(when)}</td></tr>
+              </table>
+            </div>
+          </div>
+        `,
+      });
+      if (notifyError) console.error("Signup notification email failed (signup still succeeded):", notifyError);
+    } catch (notifyErr) {
+      console.error("Signup notification email failed (signup still succeeded):", notifyErr);
+    }
+
     return NextResponse.json({ success: true }, { status: 201 });
 
   } catch (err) {
     console.error("Signup error:", err);
     return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 });
   }
+}
+
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
