@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { checklist_id, organisation_id, submitted_by, answers, batch_notes } = body;
+  const { checklist_id, organisation_id, submitted_by, answers, batch_notes, team_member_id } = body;
 
   if (!checklist_id || !submitted_by || !Array.isArray(answers)) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
@@ -35,6 +35,15 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin
       .from("submissions")
       .update({ batch_notes })
+      .eq("id", submissionId);
+  }
+
+  // Link the submission to a team member (Employee Induction Record in the
+  // training portal) so the matrix can show it as Completed for that person.
+  if (team_member_id) {
+    await supabaseAdmin
+      .from("submissions")
+      .update({ team_member_id })
       .eq("id", submissionId);
   }
 

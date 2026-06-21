@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import TrainingSessionFlow from "@/components/TrainingSessionFlow";
@@ -16,6 +17,14 @@ interface TrainingRecord {
 }
 
 type CellStatus = "none" | "ok" | "due_soon" | "overdue";
+
+// The Employee Induction Record is the first row of the matrix. Unlike normal
+// training items it is filled per employee as a multi-step checklist with a
+// begin → continue (draft) → completed lifecycle, and once completed it stays
+// completed permanently (induction is a one-time event — no annual review).
+type InductionStatus = "begin" | "continue" | "completed";
+
+interface InductionSubmission { team_member_id: string; submitted_at: string; }
 
 function cellStatus(record: TrainingRecord | undefined): CellStatus {
   if (!record?.completed_at) return "none";
@@ -39,10 +48,16 @@ const STATUS_STYLES: Record<CellStatus, string> = {
 
 export default function TrainingPage() {
   const { orgId } = useOrganisation();
+  const router = useRouter();
   const [members, setMembers]     = useState<TeamMember[]>([]);
   const [items, setItems]         = useState<TrainingItem[]>([]);
   const [records, setRecords]     = useState<TrainingRecord[]>([]);
   const [loading, setLoading]     = useState(true);
+
+  // Employee Induction Record (first matrix row) — looked up per org.
+  const [inductionId, setInductionId] = useState<string | null>(null);
+  const [inductionSubs, setInductionSubs] = useState<InductionSubmission[]>([]);
+  const [inductionDraftMembers, setInductionDraftMembers] = useState<string[]>([]);
 
   // Modal state for marking complete
   const [modal, setModal] = useState<{ memberId: string; itemId: string; record?: TrainingRecord } | null>(null);
@@ -71,6 +86,33 @@ export default function TrainingPage() {
     setMembers((mRes.data ?? []) as TeamMember[]);
     setItems((iRes.data ?? []) as TrainingItem[]);
     setRecords((rRes.data ?? []) as TrainingRecord[]);
+
+    // Find this org's Employee Induction Record (RLS scopes to the org — never
+    // hardcode an id). It's the per_new_start checklist named "…induction…".
+    const { data: induction } = await supabase
+      .from("checklists")
+      .select("id")
+      .ilike("name", "%induction%")
+      .order("name")
+      .limit(1)
+      .maybeSingle();
+
+    if (induction?.id) {
+      setInductionId(induction.id);
+      const [subRes, draftRes] = await Promise.all([
+        supabase.from("submissions").select("team_member_id, submitted_at")
+          .eq("checklist_id", induction.id).not("team_member_id", "is", null),
+        supabase.from("batch_drafts").select("team_member_id")
+          .eq("checklist_id", induction.id).not("team_member_id", "is", null),
+      ]);
+      setInductionSubs((subRes.data ?? []) as InductionSubmission[]);
+      setInductionDraftMembers(((draftRes.data ?? []) as { team_member_id: string }[]).map(d => d.team_member_id));
+    } else {
+      setInductionId(null);
+      setInductionSubs([]);
+      setInductionDraftMembers([]);
+    }
+
     setLoading(false);
   }
 
@@ -125,6 +167,28 @@ export default function TrainingPage() {
     }
     return map;
   }, [records]);
+
+  // Per-member induction status: a submission → completed (latest date),
+  // else an in-progress draft → continue, else begin.
+  const inductionByMember = useMemo(() => {
+    const map: Record<string, { status: InductionStatus; completedAt?: string }> = {};
+    const drafts = new Set(inductionDraftMembers);
+    for (const s of inductionSubs) {
+      const existing = map[s.team_member_id];
+      if (!existing || (existing.completedAt && s.submitted_at > existing.completedAt)) {
+        map[s.team_member_id] = { status: "completed", completedAt: s.submitted_at };
+      }
+    }
+    for (const memberId of drafts) {
+      if (!map[memberId]) map[memberId] = { status: "continue" };
+    }
+    return map;
+  }, [inductionSubs, inductionDraftMembers]);
+
+  function openInduction(memberId: string) {
+    if (!inductionId) return;
+    router.push(`/checklist/${inductionId}?member=${memberId}`);
+  }
 
   function openCell(memberId: string, itemId: string) {
     const record = recordMap[memberId]?.[itemId];
@@ -210,13 +274,14 @@ export default function TrainingPage() {
         <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-amber-100 border border-amber-200" />Review due soon (&lt;30 days)</span>
         <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-red-100 border border-red-200" />Review overdue</span>
         <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-gray-100 border border-gray-200" />Not completed</span>
+        <span className="flex items-center gap-1.5 ml-1 pl-3 border-l border-gray-200"><span className="h-3 w-3 rounded-sm bg-brand/15 border border-brand/30" />Induction: Begin → Continue → Completed</span>
       </div>
 
       {loading ? (
         <div className="text-center py-12 text-sm text-gray-400">Loading…</div>
       ) : members.length === 0 ? (
         <div className="card p-8 text-center text-sm text-gray-400">Add staff members first to see the training matrix.</div>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && !inductionId ? (
         <div className="card p-8 text-center text-sm text-gray-400">No active training items. Enable some in <a href="/admin/training-setup" className="underline text-brown">Manage Training</a>.</div>
       ) : (
         /* Scrollable matrix */
@@ -237,6 +302,51 @@ export default function TrainingPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
+              {/* Employee Induction Record — always the first row, filled per employee */}
+              {inductionId && (
+                <tr className="bg-brand-light/40">
+                  <td className="sticky left-0 z-10 px-4 py-2.5 text-xs font-medium text-gray-700 border-r border-gray-200 bg-brand-light/40">
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-brown">Employee Induction Record</span>
+                      <span className="text-[10px] font-normal text-gray-400">First step · completed per employee</span>
+                    </div>
+                  </td>
+                  {members.map(member => {
+                    const ind = inductionByMember[member.id]?.status ?? "begin";
+                    const completedAt = inductionByMember[member.id]?.completedAt;
+                    return (
+                      <td key={member.id} className="px-2 py-1.5 text-center">
+                        <button
+                          onClick={() => openInduction(member.id)}
+                          className={`w-full rounded-md px-2 py-2 text-xs font-medium transition ${
+                            ind === "completed" ? "bg-green-50 hover:bg-green-100 text-green-700"
+                            : ind === "continue" ? "bg-amber-50 hover:bg-amber-100 text-amber-700"
+                            : "bg-brand/15 hover:bg-brand/30 text-brown"
+                          }`}
+                          title={
+                            ind === "completed" ? `Induction completed${completedAt ? ` ${completedAt.slice(0, 10)}` : ""}`
+                            : ind === "continue" ? "Induction in progress — click to continue"
+                            : "Click to begin this employee's induction"
+                          }
+                        >
+                          {ind === "completed" ? (
+                            <div>
+                              <div className="text-base leading-none mb-0.5">✓</div>
+                              <div className="text-[10px] leading-tight">{completedAt?.slice(0, 10)}</div>
+                            </div>
+                          ) : ind === "continue" ? (
+                            <span className="flex items-center justify-center gap-1">
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />Continue
+                            </span>
+                          ) : (
+                            <span>Begin</span>
+                          )}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              )}
               {items.map((item, ri) => (
                 <tr key={item.id} className={ri % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
                   {/* Sticky item name — click to attach a policy document */}

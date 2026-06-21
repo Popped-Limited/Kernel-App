@@ -65,6 +65,7 @@ interface BatchDraft {
   started_at?: string | null;
   last_saved_at: string;
   answers: AnswerMap;
+  team_member_id?: string | null;
 }
 
 function isFieldFilled(q: Question, val: string): boolean {
@@ -98,6 +99,11 @@ function ChecklistPageInner() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Employee Induction Record, opened from the training portal for a specific
+  // person. Drafts + submission are scoped to this team member.
+  const memberId = searchParams.get("member");
+  const isInduction = !!memberId;
 
   const [checklist, setChecklist] = useState<Checklist | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -149,6 +155,9 @@ function ChecklistPageInner() {
   const dirtyFieldsRef = useRef<Set<string>>(new Set());
 
   const isProduction = checklist?.category === "Production";
+  // Both production records and inductions auto-save as a draft and submit a
+  // record; only production has the ingredient/lot + batch-failed machinery.
+  const isDraftable = isProduction || isInduction;
 
   useEffect(() => {
     async function load() {
@@ -201,6 +210,43 @@ function ChecklistPageInner() {
         if (thisChecklistDrafts.length > 0) {
           setExistingDrafts(thisChecklistDrafts as BatchDraft[]);
           setShowResumePrompt(true);
+        }
+      }
+
+      // Employee Induction Record: exactly one draft per (checklist, member).
+      // Resume it silently if present (no resume prompt) — otherwise pre-fill the
+      // employee's name + role from their staff record. The matrix already
+      // decided begin vs continue, so we never block with a chooser here.
+      if (memberId) {
+        const { data: memberDraft } = await supabase
+          .from("batch_drafts")
+          .select("id, checklist_id, started_by, started_at, last_saved_at, answers, team_member_id")
+          .eq("checklist_id", id)
+          .eq("team_member_id", memberId)
+          .order("last_saved_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (memberDraft) {
+          setDraftId(memberDraft.id);
+          draftIdRef.current = memberDraft.id;
+          const questionAnswers = { ...(memberDraft.answers ?? {}) } as AnswerMap;
+          delete questionAnswers.__batch_notes__;
+          setAnswers(questionAnswers);
+        } else if (qRes.data) {
+          const { data: member } = await supabase
+            .from("team_members")
+            .select("name, position")
+            .eq("id", memberId)
+            .maybeSingle();
+          if (member) {
+            const prefill: AnswerMap = {};
+            const nameQ = qRes.data.find(q => q.type === "text" && /\b(employee name|full name|staff name|your name)\b/i.test(q.label));
+            const roleQ = qRes.data.find(q => q.type === "text" && /\b(job title|role|position)\b/i.test(q.label));
+            if (nameQ && member.name) prefill[nameQ.id] = member.name;
+            if (roleQ && member.position) prefill[roleQ.id] = member.position;
+            if (Object.keys(prefill).length > 0) setAnswers(prev => ({ ...prefill, ...prev }));
+          }
         }
       }
 
@@ -288,6 +334,9 @@ function ChecklistPageInner() {
         id: currentId,
         checklist_id: id,
         organisation_id: checklist?.organisation_id ?? null,
+        // Only inductions carry a team member — omit the column entirely for
+        // production so those drafts never depend on the column existing.
+        ...(memberId ? { team_member_id: memberId } : {}),
         started_by: by || "Unknown",
         last_saved_at: new Date().toISOString(),
         answers: newAnswers,
@@ -295,13 +344,13 @@ function ChecklistPageInner() {
       dirtyFieldsRef.current.clear(); // local edits are now persisted — safe to accept remote updates
       setDraftStatus("saved");
     }, 2000);
-  }, [id]);
+  }, [id, memberId, checklist?.organisation_id]);
 
   function handleAnswerChange(questionId: string, val: string) {
     dirtyFieldsRef.current.add(questionId);
     setAnswers((prev) => {
       const next = { ...prev, [questionId]: val };
-      if (isProduction && !showResumePrompt) {
+      if (isDraftable && !showResumePrompt) {
         // Persist batch notes alongside question answers so the whole form survives draft save/resume
         const draftAnswers = batchNotes.trim() ? { ...next, __batch_notes__: batchNotes } : next;
         scheduleDraftSave(draftAnswers, getSubmittedBy(questions, next));
@@ -428,6 +477,7 @@ function ChecklistPageInner() {
         organisation_id: checklist?.organisation_id ?? null,
         submitted_by: getSubmittedBy(questions, processedAnswers),
         batch_notes: notes,
+        team_member_id: memberId,
         answers: questions.map((q) => ({
           question_id: q.id,
           value: processedAnswers[q.id] ?? null,
@@ -435,7 +485,7 @@ function ChecklistPageInner() {
       }),
     });
 
-    if (res.ok && isProduction && draftIdRef.current) {
+    if (res.ok && isDraftable && draftIdRef.current) {
       await supabase.from("batch_drafts").delete().eq("id", draftIdRef.current);
     }
 
@@ -600,13 +650,13 @@ function ChecklistPageInner() {
             </svg>
           </div>
           <h2 className="text-xl font-bold text-gray-900">
-            {isProduction ? "Batch record submitted!" : "Submitted!"}
+            {isProduction ? "Batch record submitted!" : isInduction ? "Induction completed!" : "Submitted!"}
           </h2>
           <p className="mt-2 text-sm text-gray-600">
             {checklist.name} has been recorded.
           </p>
-          <a href="/home" className="btn-primary mt-6 w-full">
-            Return to dashboard
+          <a href={isInduction ? "/admin/team/training" : "/home"} className="btn-primary mt-6 w-full">
+            {isInduction ? "Return to training portal" : "Return to dashboard"}
           </a>
         </div>
       </div>
@@ -633,7 +683,7 @@ function ChecklistPageInner() {
               </div>
             </div>
             {/* Draft save indicator */}
-            {isProduction && draftId && (
+            {isDraftable && draftId && (
               <div className="shrink-0">
                 {draftStatus === "saving" && (
                   <span className="text-xs text-gray-400">Saving…</span>

@@ -237,7 +237,7 @@ export default function Dashboard() {
           <section>
             <h2 className="text-sm font-semibold text-gray-700 mb-3">Checklists</h2>
             <div className="space-y-3">
-              {FREQ_GROUPS.map(group => {
+              {FREQ_GROUPS.filter(group => group.key !== "production" && group.key !== "people").map(group => {
                 const items = checklists.filter(cl => (group.freqs as readonly string[]).includes(cl.frequency));
                 if (items.length === 0) return null;
                 const styles = GROUP_STYLE;
