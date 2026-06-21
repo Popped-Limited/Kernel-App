@@ -208,8 +208,8 @@ function SubmissionsPageInner() {
         </div>
 
         {/* Filters */}
-        <div className="card p-4 flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[180px]">
+        <div className="card p-4 space-y-3">
+          <div>
             <label className="label mb-1">Checklist</label>
             <select
               value={filterChecklist}
@@ -223,27 +223,28 @@ function SubmissionsPageInner() {
             </select>
           </div>
 
-          <div className="w-36">
-            <label className="label mb-1">From</label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="input w-full"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label mb-1">From</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="input w-full"
+              />
+            </div>
+            <div>
+              <label className="label mb-1">To</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="input w-full"
+              />
+            </div>
           </div>
 
-          <div className="w-36">
-            <label className="label mb-1">To</label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="input w-full"
-            />
-          </div>
-
-          <div className="flex gap-2 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap">
             {(["all", "pending", "signed"] as const).map((v) => (
               <button
                 key={v}
@@ -255,16 +256,15 @@ function SubmissionsPageInner() {
                 {v === "all" ? "All" : v === "pending" ? "Pending" : "Signed off"}
               </button>
             ))}
+            {(dateFrom || dateTo || filterChecklist || filterSigned !== "all") && (
+              <button
+                onClick={() => { setDateFrom(""); setDateTo(""); setFilterChecklist(""); setFilterSigned("all"); setRangePreset("this_week"); }}
+                className="text-xs text-gray-400 hover:text-gray-600 ml-auto"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
-
-          {(dateFrom || dateTo || filterChecklist || filterSigned !== "all") && (
-            <button
-              onClick={() => { setDateFrom(""); setDateTo(""); setFilterChecklist(""); setFilterSigned("all"); setRangePreset("this_week"); }}
-              className="text-xs text-gray-400 hover:text-gray-600"
-            >
-              Clear filters
-            </button>
-          )}
         </div>
 
         {/* Table */}
