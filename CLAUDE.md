@@ -65,5 +65,11 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
 ## Migrations applied (for reference)
 - `training-documents.sql`, `add-batch-to-finished-goods-adjustments.sql`,
   `checklist-name-unique-per-org.sql` — all run 17 Jun 2026.
+- `create-mock-recalls.sql` (mock recall tool), `fix-ingredient-name-per-org.sql`
+  (ingredient names now unique PER org, not globally — fixed a multi-tenancy bug;
+  also grants `finished_goods_adjustments` to `service_role`) — run 21 Jun 2026.
+- `scripts/clone-yep-to-demo.mjs` clones Yep Kitchen's operational data into the
+  Popped demo org (dry-run by default; `--commit` to apply). Skips logins/billing
+  and the tables the admin key can't write (SOPs, calendar, wastage, training_sessions).
 - Note: `training_sessions` is granted to `authenticated` (app works) but NOT `service_role`,
   so admin/Node scripts can't read/write it — use an authenticated magic-link session for that table.
