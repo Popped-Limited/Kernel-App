@@ -26,30 +26,21 @@
   }
   /*
    * iOS Safari renders date/datetime-local inputs with native chrome that
-   * ignores width:100% and max-width, causing them to overflow their grid
-   * cells. -webkit-appearance:none strips the native sizing (the tap-to-open
-   * picker still works) so the input obeys the same box model as any other
-   * input.
+   * ignores width:100% and max-width. -webkit-appearance:none strips the
+   * native sizing so CSS controls size instead. The tap-to-open picker sheet
+   * still fires on iOS. BBE date previously looked tiny with this rule because
+   * it was clipped by an overflow-hidden wrapper — now it's full-width so CSS
+   * padding drives the height correctly.
    */
+  input[type="date"],
   input[type="datetime-local"],
   input[type="time"] {
     -webkit-appearance: none;
     appearance: none;
     min-width: 0;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-  /* date inputs keep native rendering (needed for iOS picker to show value
-     correctly) — overflow is handled by wrapping the input in overflow-hidden.
-     min-height forces the same height as a text input (py-1.5 + text-sm at
-     16px + 2px borders = ~38px) because iOS native date controls render
-     shorter than CSS padding alone would give. */
-  input[type="date"] {
-    min-width: 0;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    min-height: 2.5rem !important;
   }
 }
 
