@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 
 type SupplierType = "raw_material" | "packaging" | "service";
 
@@ -73,43 +72,20 @@ export default function SAQPage() {
   useEffect(() => {
     if (!token) { setStatus("not_found"); return; }
     (async () => {
-      const { data } = await supabase
-        .from("suppliers")
-        .select("*")
-        .eq("saq_token", token)
-        .maybeSingle();
+      const res = await fetch(`/api/saq/${encodeURIComponent(token)}`);
+      if (!res.ok) { setStatus("not_found"); return; }
+      const { supplier: sup, questions: qData } = await res.json();
 
-      if (!data) { setStatus("not_found"); return; }
-      setSupplier(data as SupplierRow);
+      if (!sup) { setStatus("not_found"); return; }
+      setSupplier(sup as SupplierRow);
 
-      interface SAQRow {
-        section_number: string;
-        section_title: string;
-        question_id: string;
-        question_text: string;
-        answer_type: QuestionDef["type"];
-        placeholder: string | null;
-        required: boolean | null;
-        for_types: string[] | null;
-      }
-      const qRes = await fetch(`/api/saq/${encodeURIComponent(token)}`);
-      const qData: SAQRow[] | null = qRes.ok ? (await qRes.json()).questions : null;
-
-      if (qData) {
-        // Group into sections
+      if (qData?.length) {
         const sectionMap = new Map<string, SectionDef>();
         for (const q of qData) {
-          const key = q.section_number;
-          if (!sectionMap.has(key)) {
-            sectionMap.set(key, {
-              number: q.section_number,
-              title: q.section_title,
-              forTypes: undefined,
-              questions: [],
-            });
+          if (!sectionMap.has(q.section_number)) {
+            sectionMap.set(q.section_number, { number: q.section_number, title: q.section_title, forTypes: undefined, questions: [] });
           }
-          const section = sectionMap.get(key)!;
-          section.questions.push({
+          sectionMap.get(q.section_number)!.questions.push({
             id: q.question_id,
             text: q.question_text,
             type: q.answer_type,
@@ -121,11 +97,7 @@ export default function SAQPage() {
         setSections(Array.from(sectionMap.values()));
       }
 
-      if ((data as SupplierRow).saq_completed) {
-        setStatus("already_done");
-      } else {
-        setStatus("form");
-      }
+      setStatus((sup as SupplierRow).saq_completed ? "already_done" : "form");
     })();
   }, [token]);
 
@@ -138,22 +110,11 @@ export default function SAQPage() {
     if (!supplier) return;
     setSubmitting(true);
 
-    const now = new Date().toISOString();
-    const nextYear = new Date();
-    nextYear.setFullYear(nextYear.getFullYear() + 1);
-
-    await supabase.from("saq_responses").insert({
-      supplier_id: supplier.id,
-      responses: answers,
-      submitted_at: now,
-      organisation_id: supplier.organisation_id,
+    await fetch(`/api/saq/${encodeURIComponent(token)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answers }),
     });
-
-    await supabase.from("suppliers").update({
-      saq_completed: true,
-      saq_date: now,
-      next_review_due: nextYear.toISOString().split("T")[0],
-    }).eq("id", supplier.id);
 
     setSubmitting(false);
     setStatus("submitted");
