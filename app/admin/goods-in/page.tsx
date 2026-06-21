@@ -464,7 +464,7 @@ export default function GoodsInPage() {
                     </div>
 
                     {/* Julian code */}
-                    <div className="col-span-2 sm:col-span-1">
+                    <div>
                       <label className="text-xs text-gray-500 block mb-0.5">
                         Julian code *
                         {row.julianCode === todayJulianCode() && (
@@ -482,7 +482,7 @@ export default function GoodsInPage() {
                     </div>
 
                     {/* BBE */}
-                    <div className="col-span-2 sm:col-span-1">
+                    <div>
                       <label className="text-xs text-gray-500 block mb-0.5">BBE date</label>
                       <input
                         type="date"
