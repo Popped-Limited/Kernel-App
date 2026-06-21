@@ -524,7 +524,7 @@ export default function RawMaterialsPage() {
                                   <thead>
                                     <tr className="text-gray-500">
                                       <th className="text-left py-1 font-medium">Batch / ref</th>
-                                      <th className="text-right py-1 font-medium">Received</th>
+                                      <th className="text-right py-1 font-medium hidden sm:table-cell">Received</th>
                                       <th className="text-right py-1 font-medium">Remaining</th>
                                       <th className="text-right py-1 font-medium" title="Allocated to in-progress batch records — deducted when the batch is submitted">In production</th>
                                       <th className="text-right py-1 font-medium" title="Remaining minus in production — what should physically be on the shelf">On shelf</th>
@@ -540,7 +540,7 @@ export default function RawMaterialsPage() {
                                       return (
                                       <tr key={lot.id} className={lot.quantity_remaining_g === 0 ? "opacity-40" : ""}>
                                         <td className="py-1.5 font-mono font-semibold text-gray-900">{lot.julian_code}</td>
-                                        <td className="py-1.5 text-right tabular-nums text-gray-600">{fmtQty(lot.quantity_received_g, unit)}</td>
+                                        <td className="py-1.5 text-right tabular-nums text-gray-600 hidden sm:table-cell">{fmtQty(lot.quantity_received_g, unit)}</td>
                                         <td className="py-1.5 text-right tabular-nums font-semibold text-gray-900">{fmtQty(lot.quantity_remaining_g, unit)}</td>
                                         <td className={`py-1.5 text-right tabular-nums ${lotReserved > 0 ? "text-amber-600 font-medium" : "text-gray-300"}`}>
                                           {lotReserved > 0 ? fmtQty(lotReserved, unit) : "—"}
