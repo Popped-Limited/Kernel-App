@@ -125,17 +125,40 @@ const training_items = trainingItems
   .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
   .map((t) => ({ name: t.name, sort_order: t.sort_order, active: t.active, document_path: t.document_path }));
 
+// SAQ question bank (the standard SALSA supplier self-assessment). Deduped by
+// question_id so this is robust whether saq_questions is still global or already
+// scoped per org. Each new account gets its own copy (see the seeder).
+const { data: saqRows, error: saqErr } = await db
+  .from("saq_questions").select("*").eq("active", true);
+if (saqErr) { console.error(saqErr); process.exit(1); }
+const saqSeen = new Set();
+const saq_questions = saqRows
+  .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+  .filter((q) => (saqSeen.has(q.question_id) ? false : saqSeen.add(q.question_id)))
+  .map((q) => ({
+    section_number: q.section_number,
+    section_title: q.section_title,
+    question_id: q.question_id,
+    question_text: q.question_text,
+    answer_type: q.answer_type,
+    placeholder: q.placeholder,
+    required: q.required,
+    for_types: q.for_types,
+    sort_order: q.sort_order,
+  }));
+
 const template = {
   generated_at: new Date().toISOString(),
   source: "Yep Kitchen (SALSA-approved)",
   note: "Frozen SALSA baseline. Rebuild with: node scripts/build-salsa-baseline.mjs",
   checklists,
   training_items,
+  saq_questions,
 };
 
 mkdirSync(new URL("../lib/seed/", import.meta.url), { recursive: true });
 writeFileSync(new URL("../lib/seed/salsa-baseline.json", import.meta.url), JSON.stringify(template, null, 2) + "\n");
 
 console.log(`Wrote lib/seed/salsa-baseline.json`);
-console.log(`  ${checklists.length} checklists, ${checklists.reduce((n, c) => n + c.questions.length, 0)} questions, ${training_items.length} training items`);
+console.log(`  ${checklists.length} checklists, ${checklists.reduce((n, c) => n + c.questions.length, 0)} questions, ${training_items.length} training items, ${saq_questions.length} SAQ questions`);
 for (const c of checklists) console.log(`   • ${c.name.padEnd(40)} ${c.questions.length} q`);

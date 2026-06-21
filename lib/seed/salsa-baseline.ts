@@ -14,6 +14,7 @@ export async function seedSalsaBaseline(orgId: string): Promise<{
   checklists: number;
   questions: number;
   trainingItems: number;
+  saqQuestions: number;
   errors: string[];
 }> {
   const errors: string[] = [];
@@ -60,6 +61,22 @@ export async function seedSalsaBaseline(orgId: string): Promise<{
     document_path: t.document_path,
   }));
 
+  // Each org gets its own copy of the SAQ question bank (org-scoped, no longer global).
+  const saqRows = baseline.saq_questions.map((q) => ({
+    id: randomUUID(),
+    organisation_id: orgId,
+    section_number: q.section_number,
+    section_title: q.section_title,
+    question_id: q.question_id,
+    question_text: q.question_text,
+    answer_type: q.answer_type,
+    placeholder: q.placeholder,
+    required: q.required,
+    for_types: q.for_types,
+    sort_order: q.sort_order,
+    active: true,
+  }));
+
   // Parent before child so the FK from questions → checklists holds.
   const { error: clErr } = await supabaseAdmin.from("checklists").insert(checklistRows);
   if (clErr) errors.push(`checklists: ${clErr.message}`);
@@ -72,10 +89,14 @@ export async function seedSalsaBaseline(orgId: string): Promise<{
   const { error: tiErr } = await supabaseAdmin.from("training_items").insert(trainingRows);
   if (tiErr) errors.push(`training_items: ${tiErr.message}`);
 
+  const { error: saqErr } = await supabaseAdmin.from("saq_questions").insert(saqRows);
+  if (saqErr) errors.push(`saq_questions: ${saqErr.message}`);
+
   return {
     checklists: clErr ? 0 : checklistRows.length,
     questions: clErr ? 0 : questionRows.length,
     trainingItems: tiErr ? 0 : trainingRows.length,
+    saqQuestions: saqErr ? 0 : saqRows.length,
     errors,
   };
 }

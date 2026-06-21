@@ -82,11 +82,18 @@ export default function SAQPage() {
       if (!data) { setStatus("not_found"); return; }
       setSupplier(data as SupplierRow);
 
-      const { data: qData } = await supabase
-        .from("saq_questions")
-        .select("*")
-        .eq("active", true)
-        .order("sort_order");
+      interface SAQRow {
+        section_number: string;
+        section_title: string;
+        question_id: string;
+        question_text: string;
+        answer_type: QuestionDef["type"];
+        placeholder: string | null;
+        required: boolean | null;
+        for_types: string[] | null;
+      }
+      const qRes = await fetch(`/api/saq/${encodeURIComponent(token)}`);
+      const qData: SAQRow[] | null = qRes.ok ? (await qRes.json()).questions : null;
 
       if (qData) {
         // Group into sections

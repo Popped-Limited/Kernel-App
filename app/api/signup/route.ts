@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       if (seeded.errors.length) {
         console.error(`SALSA baseline seeding had errors for org ${org.id}:`, seeded.errors);
       } else {
-        console.log(`Seeded SALSA baseline for org ${org.id}: ${seeded.checklists} checklists, ${seeded.questions} questions, ${seeded.trainingItems} training items`);
+        console.log(`Seeded SALSA baseline for org ${org.id}: ${seeded.checklists} checklists, ${seeded.questions} questions, ${seeded.trainingItems} training items, ${seeded.saqQuestions} SAQ questions`);
       }
     } catch (seedErr) {
       console.error(`SALSA baseline seeding threw for org ${org.id} (signup still succeeded):`, seedErr);
