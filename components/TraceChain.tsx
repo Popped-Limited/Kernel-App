@@ -2,7 +2,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { getBatchCode, type TraceResult } from "@/lib/traceability";
+import AnswerRow from "@/components/AnswerRow";
+import { getBatchCode, type BatchInfo, type LotReconciliation, type TraceResult } from "@/lib/traceability";
+
+const g = (n: number) => `${Math.round(n).toLocaleString()} g`;
 
 /**
  * Renders a full traceability chain (production batches → raw-material lots →
@@ -30,15 +33,7 @@ export default function TraceChain({
         ) : (
           <div className="space-y-3">
             {result.batches.map((b) => (
-              <div key={b.id} className="rounded border border-gray-200 bg-white p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{b.checklist?.name}</p>
-                    <p className="text-xs text-gray-500">{formatDateTime(b.submitted_at)} · by {b.submitted_by}</p>
-                  </div>
-                  <Link href={`/submission/${b.id}?back=${linkBack}`} className="btn-ghost text-xs shrink-0 print:hidden">View →</Link>
-                </div>
-              </div>
+              <BatchCard key={b.id} batch={b} linkBack={linkBack} defaultOpen={defaultOpen} />
             ))}
           </div>
         )}
@@ -79,6 +74,13 @@ export default function TraceChain({
           </div>
         )}
       </Section>
+
+      {/* Ingredient reconciliation */}
+      {result.reconciliation && result.reconciliation.length > 0 && (
+        <Section title="Ingredient reconciliation" count={result.reconciliation.length} defaultOpen={defaultOpen}>
+          <IngredientReconciliation rows={result.reconciliation} />
+        </Section>
+      )}
 
       {/* Dispatches */}
       <Section title="Dispatches" count={result.dispatches.length} defaultOpen={defaultOpen}>
@@ -146,6 +148,109 @@ export default function TraceChain({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** A production batch record that expands inline to show its full answers. */
+function BatchCard({ batch, linkBack, defaultOpen }: { batch: BatchInfo; linkBack: string; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const answers = [...(batch.answers ?? [])].sort(
+    (a, b) => (a.question?.order_index ?? 0) - (b.question?.order_index ?? 0)
+  );
+  return (
+    <div className="rounded border border-gray-200 bg-white">
+      <div className="flex items-start justify-between gap-2 p-3">
+        <button type="button" onClick={() => setOpen((o) => !o)} className="text-left min-w-0 flex items-start gap-2">
+          <svg className={`h-4 w-4 mt-0.5 opacity-50 transition-transform shrink-0 print:hidden ${open ? "rotate-90" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 4l4 4-4 4" /></svg>
+          <span>
+            <span className="block text-sm font-semibold text-gray-900">{batch.checklist?.name}</span>
+            <span className="block text-xs text-gray-500">{formatDateTime(batch.submitted_at)} · by {batch.submitted_by}</span>
+          </span>
+        </button>
+        <Link href={`/submission/${batch.id}?back=${linkBack}`} className="btn-ghost text-xs shrink-0 print:hidden">Open ↗</Link>
+      </div>
+      {open && (
+        <div className="border-t border-gray-100">
+          {answers.length === 0 ? (
+            <p className="px-5 py-3 text-xs text-gray-400">No answers recorded.</p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {answers.map((a) => <AnswerRow key={a.id} answer={a} />)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Per-lot mass balance: where every gram went, with reasons + an unaccounted flag. */
+function IngredientReconciliation({ rows }: { rows: LotReconciliation[] }) {
+  const TOLERANCE = 1; // grams — ignore rounding dust
+  return (
+    <div className="space-y-3">
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs min-w-[640px]">
+          <thead>
+            <tr className="text-gray-500">
+              <th className="text-left py-1 font-medium">Ingredient</th>
+              <th className="text-left py-1 font-medium">Julian code</th>
+              <th className="text-right py-1 font-medium">Received</th>
+              <th className="text-right py-1 font-medium">Used</th>
+              <th className="text-right py-1 font-medium">Written off</th>
+              <th className="text-right py-1 font-medium">Remaining</th>
+              <th className="text-right py-1 font-medium">Unaccounted</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((r) => {
+              const flagged = Math.abs(r.unaccounted_g) > TOLERANCE;
+              return (
+                <tr key={r.lot_id}>
+                  <td className="py-1.5 font-medium text-gray-900">{r.ingredient_name}</td>
+                  <td className="py-1.5 font-mono font-semibold text-gray-900">{r.julian_code}</td>
+                  <td className="py-1.5 text-right tabular-nums text-gray-600">{g(r.received_g)}</td>
+                  <td className="py-1.5 text-right tabular-nums text-gray-600">{g(r.used_g)}</td>
+                  <td className="py-1.5 text-right tabular-nums text-gray-600">{r.written_off_g ? g(r.written_off_g) : "—"}</td>
+                  <td className="py-1.5 text-right tabular-nums text-gray-600">{g(r.remaining_g)}</td>
+                  <td className={`py-1.5 text-right tabular-nums font-semibold ${flagged ? "text-red-600" : "text-green-700"}`}>
+                    {flagged ? g(r.unaccounted_g) : "✓ 0 g"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Write-off reasons */}
+      {rows.some((r) => r.reasons.length > 0) && (
+        <div className="space-y-1.5">
+          {rows.filter((r) => r.reasons.length > 0).map((r) => (
+            <div key={r.lot_id} className="text-xs text-gray-600">
+              <span className="font-medium text-gray-800">{r.ingredient_name} ({r.julian_code}):</span>{" "}
+              {r.reasons.map((reason, i) => (
+                <span key={i}>
+                  {i > 0 && " · "}
+                  {g(reason.grams)} {reason.reason}{reason.notes ? ` — ${reason.notes}` : ""}
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Unaccounted banner */}
+      {rows.some((r) => Math.abs(r.unaccounted_g) > TOLERANCE) ? (
+        <p className="text-xs text-red-700 bg-red-50 rounded px-3 py-2">
+          ⚠ Some ingredient quantities are unaccounted for — received does not equal used + written off + remaining. Record the missing usage or a wastage write-off (with a reason) to close the gap.
+        </p>
+      ) : (
+        <p className="text-xs text-green-700 bg-green-50 rounded px-3 py-2">
+          ✓ All ingredient lots reconcile — every gram received is accounted for as used, written off, or remaining in stock.
+        </p>
+      )}
     </div>
   );
 }

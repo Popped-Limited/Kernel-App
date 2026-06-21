@@ -23,12 +23,37 @@ export interface LotInfo {
   ingredient: { name: string };
 }
 
+export interface BatchAnswer {
+  id: string;
+  value: string | null;
+  question: { id: string; type: string; label: string; order_index: number };
+}
+
 export interface BatchInfo {
   id: string;
   submitted_by: string;
   submitted_at: string;
-  checklist: { name: string };
-  answers: Array<{ value: string | null; question: { type: string; label: string } }>;
+  checklist: { name: string; category?: string | null };
+  answers: BatchAnswer[];
+}
+
+export interface WastageReason {
+  reason: string;     // wastage | damaged | expired | other
+  grams: number;
+  notes: string | null;
+}
+
+/** Per-lot mass balance: received = used in production + written off + remaining + unaccounted. */
+export interface LotReconciliation {
+  lot_id: string;
+  ingredient_name: string;
+  julian_code: string;
+  received_g: number;
+  used_g: number;        // consumed across ALL production batches
+  written_off_g: number; // wastage / damaged / expired / other
+  remaining_g: number;
+  unaccounted_g: number; // received − used − written_off − remaining
+  reasons: WastageReason[];
 }
 
 export interface DispatchInfo {
@@ -52,13 +77,14 @@ export interface TraceResult {
   lots: LotInfo[];
   batches: BatchInfo[];
   dispatches: DispatchInfo[];
+  reconciliation?: LotReconciliation[]; // per-lot ingredient mass balance
 }
 
 /** Functions return either a payload or a human-readable error string. */
 type TraceOutcome = { result: TraceResult } | { error: string };
 
 const SUBMISSION_SELECT =
-  "id, submitted_by, submitted_at, checklist:checklists(name), answers(value, question:questions(type, label))";
+  "id, submitted_by, submitted_at, checklist:checklists(name, category), answers(id, value, question:questions(id, type, label, order_index))";
 
 /** Extract the batch/Julian code from a batch submission's answers (text questions only). */
 export function getBatchCode(batch: BatchInfo): string {
@@ -179,6 +205,84 @@ async function submissionsUsingLots(lotIds: string[]): Promise<string[]> {
   return Array.from(matched);
 }
 
+/** Total grams of each lot consumed across ALL production batches (not just traced ones). */
+async function fetchLotUsage(lotIds: string[]): Promise<Record<string, number>> {
+  const usage: Record<string, number> = {};
+  if (lotIds.length === 0) return usage;
+  const wanted = new Set(lotIds);
+
+  const { data: answers } = await supabase
+    .from("answers")
+    .select("value, question:questions(type)")
+    .eq("questions.type", "ingredient_table");
+
+  for (const ans of answers ?? []) {
+    if (!ans.value) continue;
+    try {
+      const parsed = JSON.parse(ans.value);
+      const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
+      for (const row of rows) {
+        for (const rl of (row.lots ?? [])) {
+          if (rl.lot_id && wanted.has(rl.lot_id)) {
+            const g = Number(rl.weight_g);
+            if (!Number.isNaN(g)) usage[rl.lot_id] = (usage[rl.lot_id] ?? 0) + g;
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return usage;
+}
+
+/** Wastage / write-offs per lot, grouped with their reasons. */
+async function fetchWastage(lotIds: string[]): Promise<Record<string, WastageReason[]>> {
+  const byLot: Record<string, WastageReason[]> = {};
+  if (lotIds.length === 0) return byLot;
+
+  const { data } = await supabase
+    .from("wastage_log")
+    .select("lot_id, quantity_written_off_g, reason, notes")
+    .in("lot_id", lotIds);
+
+  for (const w of (data ?? []) as Array<{ lot_id: string; quantity_written_off_g: number; reason: string; notes: string | null }>) {
+    if (!w.lot_id) continue;
+    (byLot[w.lot_id] ??= []).push({ reason: w.reason, grams: Number(w.quantity_written_off_g) || 0, notes: w.notes });
+  }
+  return byLot;
+}
+
+/**
+ * Attach a per-lot ingredient mass balance to a trace result so an auditor can
+ * see exactly where every gram of each raw-material lot went, with reasons for
+ * any write-offs and a flag for anything unaccounted for.
+ */
+async function withReconciliation(result: TraceResult): Promise<TraceResult> {
+  const lotIds = result.lots.map((l) => l.id);
+  const [usage, wastage] = await Promise.all([fetchLotUsage(lotIds), fetchWastage(lotIds)]);
+
+  result.reconciliation = result.lots.map((lot) => {
+    const used = usage[lot.id] ?? 0;
+    const reasons = wastage[lot.id] ?? [];
+    const writtenOff = reasons.reduce((s, r) => s + r.grams, 0);
+    const received = lot.quantity_received_g ?? 0;
+    const remaining = lot.quantity_remaining_g ?? 0;
+    return {
+      lot_id: lot.id,
+      ingredient_name: lot.ingredient?.name ?? "",
+      julian_code: lot.julian_code,
+      received_g: received,
+      used_g: used,
+      written_off_g: writtenOff,
+      remaining_g: remaining,
+      unaccounted_g: received - used - writtenOff - remaining,
+      reasons,
+    };
+  });
+  return result;
+}
+
 // ── Search by raw-material Julian code ──────────────────────────────────────
 export async function searchByLot(julianCode: string): Promise<TraceOutcome> {
   const { data: lots } = await supabase
@@ -194,7 +298,7 @@ export async function searchByLot(julianCode: string): Promise<TraceOutcome> {
   const batches = await fetchBatches(submissionIds);
   const dispatches = await fetchDispatchesForBatches(submissionIds);
 
-  return { result: { searchType: "lot", query: julianCode, lots: lots as LotInfo[], batches, dispatches } };
+  return { result: await withReconciliation({ searchType: "lot", query: julianCode, lots: lots as LotInfo[], batches, dispatches }) };
 }
 
 // ── Search by finished-product Julian / batch code ──────────────────────────
@@ -227,7 +331,7 @@ export async function searchByBatch(julianCode: string): Promise<TraceOutcome> {
   const lots = await fetchLots(Array.from(lotIdsFromBatches(batches)));
   const dispatches = await fetchDispatchesForBatches(submissionIds);
 
-  return { result: { searchType: "batch", query: julianCode, lots, batches, dispatches } };
+  return { result: await withReconciliation({ searchType: "batch", query: julianCode, lots, batches, dispatches }) };
 }
 
 // ── Search by ingredient name — step 1: list candidate lots ─────────────────
@@ -258,13 +362,13 @@ export async function traceFromLot(lot: LotInfo): Promise<TraceOutcome> {
   const dispatches = await fetchDispatchesForBatches(submissionIds);
 
   return {
-    result: {
+    result: await withReconciliation({
       searchType: "ingredient",
       query: lot.ingredient?.name ?? lot.julian_code,
       lots: [lot],
       batches,
       dispatches,
-    },
+    }),
   };
 }
 
@@ -307,5 +411,5 @@ export async function searchByProduct(name: string): Promise<TraceOutcome> {
 
   const lots = await fetchLots(Array.from(lotIdsFromBatches(batches)));
 
-  return { result: { searchType: "product", query: name, lots, batches, dispatches } };
+  return { result: await withReconciliation({ searchType: "product", query: name, lots, batches, dispatches }) };
 }
