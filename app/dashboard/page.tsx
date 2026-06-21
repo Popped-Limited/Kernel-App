@@ -169,6 +169,19 @@ function SubmissionsPageInner() {
     }
   }
 
+  function getRowSecondary(s: SubmissionWithChecklist): string {
+    const clName = s.checklist?.name?.toLowerCase() ?? "";
+    if (clName.includes("goods in") && s.batch_notes) {
+      const line = s.batch_notes.split("\n").find(l => l.startsWith("Supplier:"));
+      if (line) return line.slice("Supplier:".length).trim();
+    }
+    if (clName.includes("goods out") && s.batch_notes) {
+      const line = s.batch_notes.split("\n").find(l => l.startsWith("Customer:"));
+      if (line) return line.slice("Customer:".length).trim();
+    }
+    return s.submitted_by;
+  }
+
   return (
     <PortalShell>
       <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-6xl w-full mx-auto space-y-6">
@@ -279,7 +292,7 @@ function SubmissionsPageInner() {
                 <thead className="border-b border-gray-200 bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Checklist</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Submitted by</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Submitted by / Supplier</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Date / Time</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700"></th>
@@ -293,7 +306,7 @@ function SubmissionsPageInner() {
                           {s.checklist?.name ?? <span className="text-gray-400 italic">Deleted checklist</span>}
                         </p>
                       </td>
-                      <td className="px-4 py-3 text-gray-700">{s.submitted_by}</td>
+                      <td className="px-4 py-3 text-gray-700">{getRowSecondary(s)}</td>
                       <td className="px-4 py-3 text-gray-600">{formatDateTime(s.submitted_at)}</td>
                       <td className="px-4 py-3">
                         {s.signed_off_at ? (
