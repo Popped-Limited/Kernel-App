@@ -170,7 +170,7 @@ export default function Dashboard() {
         </div>
 
         <div className="flex flex-1 min-h-0 min-w-0">
-        <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 space-y-6 xl:mr-80">
 
           {/* ── Header ─────────────────────────────────────────────────── */}
           <div className="flex items-center justify-between">
@@ -265,7 +265,7 @@ export default function Dashboard() {
         </main>
 
         {/* ── Activity log — right panel ──────────────────────────────── */}
-        <aside className="hidden xl:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-l border-gray-200 bg-white overflow-hidden">
+        <aside className="hidden xl:flex flex-col w-80 fixed top-0 right-0 z-30 h-screen border-l border-gray-200 bg-white overflow-hidden">
           <div className="px-4 pt-4 pb-3 border-b border-gray-200 shrink-0 space-y-2">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900">Activity log</h2>
@@ -304,7 +304,8 @@ export default function Dashboard() {
                 }
                 if (activitySearch) {
                   const q = activitySearch.toLowerCase();
-                  return s.checklist?.name?.toLowerCase().includes(q) || s.submitted_by?.toLowerCase().includes(q);
+                  const supplierMatch = s.batch_notes?.match(/^Supplier:\s*(.+)$/m)?.[1]?.toLowerCase() ?? "";
+                  return s.checklist?.name?.toLowerCase().includes(q) || s.submitted_by?.toLowerCase().includes(q) || supplierMatch.includes(q);
                 }
                 return true;
               });
@@ -315,13 +316,20 @@ export default function Dashboard() {
                 const timeStr = isToday
                   ? dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
                   : dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+                const previewInfo = (() => {
+                  if (s.batch_notes) {
+                    const supplierMatch = s.batch_notes.match(/^Supplier:\s*(.+)$/m);
+                    if (supplierMatch) return supplierMatch[1].trim();
+                  }
+                  return s.submitted_by;
+                })();
                 return (
                   <Link key={s.id} href={`/submission/${s.id}`} className="block px-4 py-3 hover:bg-gray-50 transition">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-brown/60 mb-0.5">{s.checklist?.category ?? "General"}</p>
                         <p className="text-sm font-medium text-gray-900 truncate leading-tight">{s.checklist?.name}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{s.submitted_by}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{previewInfo}</p>
                       </div>
                       <div className="shrink-0 text-right">
                         <p className="text-xs text-gray-400">{timeStr}</p>

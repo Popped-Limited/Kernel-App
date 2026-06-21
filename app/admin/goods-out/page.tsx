@@ -411,7 +411,7 @@ export default function GoodsOutPage() {
   return (
     <>
       <div className="flex flex-1 min-h-0">
-      <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+      <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 lg:mr-80">
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-3">
@@ -689,7 +689,7 @@ export default function GoodsOutPage() {
       </main>
 
       {/* Right panel — recent dispatches */}
-      <aside className="hidden lg:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-l border-gray-200 bg-white overflow-hidden">
+      <aside className="hidden lg:flex flex-col w-80 fixed top-0 right-0 z-30 h-screen border-l border-gray-200 bg-white overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-200 shrink-0 space-y-2">
           <h2 className="text-sm font-semibold text-gray-900">Recent dispatches</h2>
           <input
