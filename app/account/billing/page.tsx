@@ -9,6 +9,7 @@ function StatusBadge({ status }: { status: string | null }) {
     trial:     { label: "Setting up",     cls: "bg-gray-100 text-gray-600" },
     trialing:  { label: "Free trial",     cls: "bg-blue-100 text-blue-700" },
     active:    { label: "Active",         cls: "bg-green-100 text-green-700" },
+    comp:      { label: "Complimentary",  cls: "bg-brand/30 text-brown" },
     past_due:  { label: "Payment overdue", cls: "bg-amber-100 text-amber-700" },
     cancelled: { label: "Cancelled",      cls: "bg-red-100 text-red-700" },
     unpaid:    { label: "Payment failed", cls: "bg-red-100 text-red-700" },
@@ -68,6 +69,7 @@ export default function BillingPage() {
 
   const isTrialing  = subscriptionStatus === "trialing";
   const isActive    = subscriptionStatus === "active";
+  const isComp      = subscriptionStatus === "comp";
   const isPastDue   = subscriptionStatus === "past_due";
   const isCancelled = subscriptionStatus === "cancelled" || subscriptionStatus === "unpaid";
   const hasStripe   = !!stripeCustomerId;
@@ -111,7 +113,13 @@ export default function BillingPage() {
           </p>
         )}
 
-        {!hasStripe && (subscriptionStatus === "trial" || !subscriptionStatus) && (
+        {isComp && (
+          <p className="text-sm text-brown/70 mb-4">
+            This is a complimentary account — full access with no payment required. There&apos;s nothing to set up.
+          </p>
+        )}
+
+        {!isComp && !hasStripe && (subscriptionStatus === "trial" || !subscriptionStatus) && (
           <p className="text-sm text-brown/70 mb-4">
             Complete your billing setup to activate your 7-day free trial. No charge until day 8.
           </p>
@@ -119,7 +127,7 @@ export default function BillingPage() {
 
         {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
 
-        {hasStripe ? (
+        {!isComp && (hasStripe ? (
           <button
             onClick={openPortal}
             disabled={opening}
@@ -135,7 +143,7 @@ export default function BillingPage() {
           >
             {opening ? "Loading…" : "Complete billing setup"}
           </button>
-        )}
+        ))}
       </div>
 
       {/* What's included */}

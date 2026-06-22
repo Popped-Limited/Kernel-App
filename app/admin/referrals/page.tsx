@@ -38,6 +38,7 @@ export default async function BeaconReferralsPage() {
   const statusBadge = (status: string | null) => {
     const map: Record<string, string> = {
       active:    "bg-green-100 text-green-800",
+      comp:      "bg-amber-100 text-amber-900",
       trialing:  "bg-blue-100 text-blue-800",
       past_due:  "bg-yellow-100 text-yellow-800",
       cancelled: "bg-red-100 text-red-800",
