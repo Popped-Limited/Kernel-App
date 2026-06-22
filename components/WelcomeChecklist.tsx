@@ -22,6 +22,8 @@ export default function WelcomeChecklist() {
   const [show, setShow] = useState(false);
   const [done, setDone] = useState<Set<StepKey>>(new Set());
   const [dismissing, setDismissing] = useState(false);
+  const [celebrating, setCelebrating] = useState(false); // all steps done — show the send-off
+  const [popping, setPopping] = useState(false);         // run the "pop" animation, then unmount
 
   useEffect(() => {
     if (!orgId) return;
@@ -42,18 +44,28 @@ export default function WelcomeChecklist() {
       for (const k of tourDone) dataDone.add(k);
       if (cancelled) return;
 
-      // Auto-hide (and persist) once every step is complete.
-      if (dataDone.size >= ONBOARDING_STEPS.length) {
-        await dismissOnboarding(orgId);
-        return;
-      }
       setDone(dataDone);
       setShow(true);
+      // Every step complete → show the celebratory send-off, then pop away.
+      if (dataDone.size >= ONBOARDING_STEPS.length) setCelebrating(true);
     })();
     return () => {
       cancelled = true;
     };
   }, [orgId]);
+
+  // Hold the congrats note briefly, then trigger the pop animation.
+  useEffect(() => {
+    if (!celebrating) return;
+    const t = setTimeout(() => setPopping(true), 2200);
+    return () => clearTimeout(t);
+  }, [celebrating]);
+
+  // When the pop animation finishes, persist the dismissal and unmount.
+  function handlePopEnd() {
+    if (orgId) dismissOnboarding(orgId);
+    setShow(false);
+  }
 
   async function handleDismiss() {
     if (!orgId) return;
@@ -67,6 +79,24 @@ export default function WelcomeChecklist() {
   const doneCount = done.size;
   const total = ONBOARDING_STEPS.length;
   const pct = Math.round((doneCount / total) * 100);
+
+  // All done — celebratory send-off that "pops" away to reveal the dashboard.
+  if (celebrating) {
+    return (
+      <section
+        onAnimationEnd={popping ? handlePopEnd : undefined}
+        className={`card overflow-hidden border-2 border-brand shadow-md bg-brand text-center ${
+          popping ? "animate-pop" : ""
+        }`}
+      >
+        <div className="px-5 py-8">
+          <div className="text-5xl mb-2 animate-bounce">🍿</div>
+          <h2 className="text-lg font-bold text-brown">Congratulations — you&apos;re ready to pop!</h2>
+          <p className="text-sm text-brown/70 mt-1">You&apos;re all set up. Here&apos;s your dashboard.</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="card overflow-hidden border-2 border-brand shadow-md">
