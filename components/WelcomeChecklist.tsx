@@ -90,7 +90,8 @@ export default function WelcomeChecklist() {
         }`}
       >
         <div className="px-5 py-8">
-          <div className="text-5xl mb-2 animate-bounce">🍿</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/popcorn.png" alt="" className="h-16 w-auto mx-auto mb-3 animate-bounce drop-shadow-sm" />
           <h2 className="text-lg font-bold text-brown">Congratulations — you&apos;re ready to pop!</h2>
           <p className="text-sm text-brown/70 mt-1">You&apos;re all set up. Here&apos;s your dashboard.</p>
         </div>
