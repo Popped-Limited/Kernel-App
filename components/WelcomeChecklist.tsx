@@ -69,8 +69,8 @@ export default function WelcomeChecklist() {
   const pct = Math.round((doneCount / total) * 100);
 
   return (
-    <section className="card overflow-hidden border-brand/40">
-      <div className="bg-brand-light px-5 py-4 border-b border-brand/30">
+    <section className="card overflow-hidden border-2 border-brand shadow-md">
+      <div className="bg-brand px-5 py-4 border-b border-brand-dark/20">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-brown">Welcome to Kernel 👋</h2>
@@ -89,8 +89,8 @@ export default function WelcomeChecklist() {
           </button>
         </div>
         {/* Progress bar */}
-        <div className="mt-3 h-2 rounded-full bg-white/60 overflow-hidden">
-          <div className="h-full bg-brand rounded-full transition-all" style={{ width: `${pct}%` }} />
+        <div className="mt-3 h-2 rounded-full bg-brown/15 overflow-hidden">
+          <div className="h-full bg-brown rounded-full transition-all" style={{ width: `${pct}%` }} />
         </div>
       </div>
 

@@ -148,9 +148,9 @@ export default function SuppliersPage() {
         {
           element: '[data-tour="supplier-name"]',
           popover: {
-            title: "Name & what they supply",
+            title: "Supplier name",
             description:
-              "Give the supplier a name and note what they provide — e.g. \"AA Produce — fresh chillies\".",
+              "Enter just the supplier's name here — e.g. \"AA Produce\". There's a separate field for what they supply.",
             side: "right",
           },
         },
@@ -160,6 +160,15 @@ export default function SuppliersPage() {
             title: "Choose a type",
             description:
               "Raw material, packaging or service. Raw-material and packaging suppliers get a Self-Assessment Questionnaire (SAQ); services don't.",
+            side: "right",
+          },
+        },
+        {
+          element: '[data-tour="supplier-supplies"]',
+          popover: {
+            title: "What they supply",
+            description:
+              "List what this supplier provides — e.g. \"Fresh chillies\" or \"Glass jars\".",
             side: "right",
           },
         },
@@ -456,7 +465,7 @@ export default function SuppliersPage() {
               </Field>
 
               <Field label="What they supply *">
-                <input className="input w-full" value={form.supplies} onChange={e => setF("supplies", e.target.value)} placeholder="e.g. Fresh produce, Glass jars, Pest control" />
+                <input data-tour="supplier-supplies" className="input w-full" value={form.supplies} onChange={e => setF("supplies", e.target.value)} placeholder="e.g. Fresh produce, Glass jars, Pest control" />
               </Field>
 
               {/* Contact Information */}
