@@ -8,8 +8,7 @@ import { useOrganisation } from "@/contexts/OrganisationContext";
 import DocUploader from "@/components/DocUploader";
 import RiskCalculator from "@/components/RiskCalculator";
 import SAQResponsesViewer from "@/components/SAQResponsesViewer";
-import { createTour } from "@/lib/tour";
-import { markTourComplete } from "@/lib/onboarding";
+import { useGuidedTour } from "@/lib/useGuidedTour";
 
 type SupplierType = "raw_material" | "packaging" | "service";
 type SupplierRisk = "low" | "medium" | "high";
@@ -120,94 +119,69 @@ export default function SuppliersPage() {
   useEffect(() => { if (orgId) load(); }, [orgId]);
 
   // Guided tour — launched from the /dashboard "Get started" checklist via ?tour=suppliers
-  const [tourStarted, setTourStarted] = useState(false);
-  useEffect(() => {
-    if (tourStarted || loading || !orgId) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("tour") !== "suppliers") return;
-    setTourStarted(true);
-    // Strip the param so a refresh doesn't relaunch the tour.
-    window.history.replaceState(null, "", window.location.pathname);
-    startSuppliersTour();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, orgId, tourStarted]);
-
-  function startSuppliersTour() {
-    const tour = createTour(
-      [
-        {
-          element: '[data-tour="add-supplier"]',
-          popover: {
-            title: "Add your first supplier",
-            description:
-              "Every ingredient, packaging item or service you buy in is logged here. Click Next and I'll open the form for you.",
-            side: "bottom",
-            align: "end",
-          },
-        },
-        {
-          element: '[data-tour="supplier-name"]',
-          popover: {
-            title: "Supplier name",
-            description:
-              "Enter just the supplier's name here — e.g. \"AA Produce\". There's a separate field for what they supply.",
-            side: "right",
-          },
-        },
-        {
-          element: '[data-tour="supplier-type"]',
-          popover: {
-            title: "Choose a type",
-            description:
-              "Raw material, packaging or service. Raw-material and packaging suppliers get a Self-Assessment Questionnaire (SAQ); services don't.",
-            side: "right",
-          },
-        },
-        {
-          element: '[data-tour="supplier-supplies"]',
-          popover: {
-            title: "What they supply",
-            description:
-              "List what this supplier provides — e.g. \"Fresh chillies\" or \"Glass jars\".",
-            side: "right",
-          },
-        },
-        {
-          element: '[data-tour="supplier-risk"]',
-          popover: {
-            title: "Risk assessment",
-            description:
-              "Set a supplier and raw-material risk rating, or hit \"Run calculator\" to work it out from their certification and SAQ.",
-            side: "left",
-          },
-        },
-        {
-          element: '[data-tour="supplier-save"]',
-          popover: {
-            title: "Save to finish",
-            description:
-              "Hit Save. The supplier reopens with a unique SAQ link to send them, and a file-upload area to store their certificates and accreditations.",
-            side: "top",
-          },
-        },
-      ],
+  useGuidedTour({
+    tourKey: "suppliers",
+    ready: !loading,
+    orgId,
+    openPanel: openNew,
+    steps: [
       {
-        onNextClick: (_el, _step, opts) => {
-          // After the intro step, open the Add panel so the form anchors exist.
-          if (opts.state.activeIndex === 0 && !panelOpen) {
-            openNew();
-            setTimeout(() => tour.moveNext(), 180);
-          } else {
-            tour.moveNext();
-          }
+        element: '[data-tour="add-supplier"]',
+        popover: {
+          title: "Add your first supplier",
+          description:
+            "Every ingredient, packaging item or service you buy in is logged here. Click Next and I'll open the form for you.",
+          side: "bottom",
+          align: "end",
         },
-        onDestroyed: () => {
-          if (orgId) markTourComplete(orgId, "suppliers");
+      },
+      {
+        element: '[data-tour="supplier-name"]',
+        popover: {
+          title: "Supplier name",
+          description:
+            "Enter just the supplier's name here — e.g. \"AA Produce\". There's a separate field for what they supply.",
+          side: "right",
         },
-      }
-    );
-    tour.drive();
-  }
+      },
+      {
+        element: '[data-tour="supplier-type"]',
+        popover: {
+          title: "Choose a type",
+          description:
+            "Raw material, packaging or service. Raw-material and packaging suppliers get a Self-Assessment Questionnaire (SAQ); services don't.",
+          side: "right",
+        },
+      },
+      {
+        element: '[data-tour="supplier-supplies"]',
+        popover: {
+          title: "What they supply",
+          description:
+            "List what this supplier provides — e.g. \"Fresh chillies\" or \"Glass jars\".",
+          side: "right",
+        },
+      },
+      {
+        element: '[data-tour="supplier-risk"]',
+        popover: {
+          title: "Risk assessment",
+          description:
+            "Set a supplier and raw-material risk rating, or hit \"Run calculator\" to work it out from their certification and SAQ.",
+          side: "left",
+        },
+      },
+      {
+        element: '[data-tour="supplier-save"]',
+        popover: {
+          title: "Save to finish",
+          description:
+            "Hit Save. The supplier reopens with a unique SAQ link to send them, and a file-upload area to store their certificates and accreditations.",
+          side: "top",
+        },
+      },
+    ],
+  });
 
   async function load() {
     const { data } = await supabase

@@ -7,6 +7,7 @@ import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Ingredient, IngredientLot } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import DocUploader from "@/components/DocUploader";
+import { useGuidedTour } from "@/lib/useGuidedTour";
 
 interface Supplier { id: string; name: string }
 type ItemType = "ingredient" | "packaging" | "supplies";
@@ -138,6 +139,59 @@ export default function RawMaterialsPage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  useGuidedTour({
+    tourKey: "raw_materials",
+    ready: !loading,
+    orgId,
+    openPanel: openCreate,
+    steps: [
+      {
+        element: '[data-tour="add-ingredient"]',
+        popover: {
+          title: "Add a raw material",
+          description:
+            "Every ingredient, packaging item and cleaning supply lives here. Click Next and I'll open the form.",
+          side: "left",
+        },
+      },
+      {
+        element: '[data-tour="ingredient-name"]',
+        popover: {
+          title: "Name it",
+          description: "Give the raw material a name — e.g. \"Garlic\".",
+          side: "right",
+        },
+      },
+      {
+        element: '[data-tour="ingredient-price"]',
+        popover: {
+          title: "Price per kg",
+          description:
+            "Enter the price per kg so Kernel can value your stock automatically.",
+          side: "right",
+        },
+      },
+      {
+        element: '[data-tour="ingredient-density"]',
+        popover: {
+          title: "Density (liquids only)",
+          description:
+            "For liquids, add the density (e.g. 917 for oil) so deliveries logged in litres convert to grams correctly.",
+          side: "right",
+        },
+      },
+      {
+        element: '[data-tour="ingredient-save"]',
+        popover: {
+          title: "Save to finish",
+          description:
+            "Hit Create. Reopen it any time to attach a spec sheet or COSHH document.",
+          side: "top",
+        },
+      },
+    ],
+  });
 
   async function load() {
     const [lotsRes, ingsRes, supRes, docsRes, draftsRes] = await Promise.all([
@@ -404,7 +458,7 @@ export default function RawMaterialsPage() {
                 </h2>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-gray-400 hidden sm:block">Click a row to edit</span>
-                  <button onClick={openCreate} className="btn-primary text-xs py-1 px-3">+ Add</button>
+                  <button data-tour="add-ingredient" onClick={openCreate} className="btn-primary text-xs py-1 px-3">+ Add</button>
                 </div>
               </div>
 
@@ -747,6 +801,7 @@ export default function RawMaterialsPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
                   <input
+                    data-tour="ingredient-name"
                     type="text"
                     className="input w-full"
                     placeholder="e.g. Garlic"
@@ -769,6 +824,7 @@ export default function RawMaterialsPage() {
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">£</span>
                   <input
+                    data-tour="ingredient-price"
                     type="number" step="0.01" min="0"
                     className="input w-full pl-7" placeholder="0.00"
                     value={editPrice} onChange={e => setEditPrice(e.target.value)}
@@ -792,6 +848,7 @@ export default function RawMaterialsPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Density (g per litre)</label>
                   <input
+                    data-tour="ingredient-density"
                     type="number" step="0.1" min="0"
                     className="input w-full" placeholder="e.g. 917 for oil"
                     value={editDensity} onChange={e => setEditDensity(e.target.value)}
@@ -866,7 +923,7 @@ export default function RawMaterialsPage() {
               )}
               <div className="flex gap-3">
                 <button onClick={() => setEditing(null)} className="btn-ghost flex-1">Cancel</button>
-                <button onClick={saveEdit} disabled={saving} className="btn-primary flex-1">
+                <button data-tour="ingredient-save" onClick={saveEdit} disabled={saving} className="btn-primary flex-1">
                   {saving ? "Saving…" : isNew ? "Create" : "Save"}
                 </button>
               </div>

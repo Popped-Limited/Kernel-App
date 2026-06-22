@@ -4,6 +4,8 @@ import BackButton from "@/components/BackButton";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useOrganisation } from "@/contexts/OrganisationContext";
+import { useGuidedTour } from "@/lib/useGuidedTour";
 import type { Checklist } from "@/lib/types";
 import { frequencyLabel, frequencyBadgeColor } from "@/lib/utils";
 
@@ -15,8 +17,43 @@ export default function AdminChecklistsPage() {
   const [tab, setTab] = useState<Tab>("all");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const { orgId } = useOrganisation();
 
   useEffect(() => { load(); }, []);
+
+  useGuidedTour({
+    tourKey: "checklists",
+    ready: !loading,
+    orgId,
+    steps: [
+      {
+        element: '[data-tour="cl-new"]',
+        popover: {
+          title: "Create a checklist",
+          description: "Build a brand-new checklist from scratch here.",
+          side: "bottom",
+          align: "end",
+        },
+      },
+      {
+        element: '[data-tour="cl-tabs"]',
+        popover: {
+          title: "Find the right one",
+          description: "Switch between your production records and everything else.",
+          side: "bottom",
+        },
+      },
+      {
+        element: '[data-tour="cl-edit"]',
+        popover: {
+          title: "Customise any checklist",
+          description:
+            "Click Edit to open a checklist, then add the questions you need and remove the ones you don't.",
+          side: "left",
+        },
+      },
+    ],
+  });
 
   async function load() {
     const { data } = await supabase.from("checklists").select("*").order("name");
@@ -68,11 +105,11 @@ export default function AdminChecklistsPage() {
           </div>
           <div className="flex items-center gap-2">
             <Link href="/admin/production-flow" className="btn-secondary text-sm">+ Production run</Link>
-            <Link href="/admin/checklists/new" className="btn-primary">+ New checklist</Link>
+            <Link data-tour="cl-new" href="/admin/checklists/new" className="btn-primary">+ New checklist</Link>
           </div>
         </div>
         {/* Tabs */}
-        <div className="flex gap-1 mb-4 border-b border-gray-200">
+        <div data-tour="cl-tabs" className="flex gap-1 mb-4 border-b border-gray-200">
           {TABS.map(t => (
             <button
               key={t.key}
@@ -131,7 +168,7 @@ export default function AdminChecklistsPage() {
                   >
                     {cl.active ? "Disable" : "Enable"}
                   </button>
-                  <Link href={`/admin/checklists/${cl.id}`} className="btn-secondary text-xs">
+                  <Link data-tour="cl-edit" href={`/admin/checklists/${cl.id}`} className="btn-secondary text-xs">
                     Edit
                   </Link>
                   <button

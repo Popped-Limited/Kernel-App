@@ -23,7 +23,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     key: "staff",
     title: "Add your staff & users",
     blurb: "Record your team members and invite the people who'll log in.",
-    href: "/admin/staff",
+    href: "/admin/staff?tour=staff",
   },
   {
     key: "suppliers",
@@ -35,19 +35,19 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     key: "raw_materials",
     title: "Add your raw materials",
     blurb: "Add an ingredient with its price per kg, density (for liquids) and spec sheet.",
-    href: "/compliance/raw-materials",
+    href: "/compliance/raw-materials?tour=raw_materials",
   },
   {
     key: "production",
     title: "Create your first production record",
     blurb: "Walk through logging a production run start to finish.",
-    href: "/admin/production-flow",
+    href: "/admin/production-flow?tour=production",
   },
   {
     key: "checklists",
     title: "Customise your checklists",
     blurb: "Edit a checklist — add the questions you need and remove the ones you don't.",
-    href: "/admin/checklists",
+    href: "/admin/checklists?tour=checklists",
   },
 ];
 

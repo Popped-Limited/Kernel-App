@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
+import { useGuidedTour } from "@/lib/useGuidedTour";
 import type { Ingredient } from "@/lib/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -152,6 +153,40 @@ export default function ProductionBuilderPage() {
         setLoadingIngs(false);
       });
   }, []);
+
+  useGuidedTour({
+    tourKey: "production",
+    ready: true,
+    orgId,
+    steps: [
+      {
+        element: '[data-tour="prod-steps"]',
+        popover: {
+          title: "Build a production record",
+          description:
+            "This 5-step wizard creates a reusable production checklist: Product, Ingredients, Control points, Quality and Packaging.",
+          side: "bottom",
+        },
+      },
+      {
+        element: '[data-tour="prod-name"]',
+        popover: {
+          title: "Name your product",
+          description: "Start by naming what you're making — e.g. \"Sichuan Chilli Oil\".",
+          side: "bottom",
+        },
+      },
+      {
+        element: '[data-tour="prod-next"]',
+        popover: {
+          title: "Work through each step",
+          description:
+            "Fill each step and hit Next. On the last step you'll create the record — it then appears as a checklist your team fills in for every batch.",
+          side: "left",
+        },
+      },
+    ],
+  });
 
   // ── Validation ───────────────────────────────────────────────────────────────
 
@@ -388,7 +423,7 @@ export default function ProductionBuilderPage() {
       </div>
 
       {/* Step indicator */}
-      <div className="flex items-center mb-8">
+      <div data-tour="prod-steps" className="flex items-center mb-8">
         {STEPS.map((s, i) => (
           <div key={s.n} className="flex items-center flex-1">
             <div className="flex flex-col items-center flex-1">
@@ -420,6 +455,7 @@ export default function ProductionBuilderPage() {
             <div>
               <label className="label">Product name <span className="text-red-500">*</span></label>
               <input
+                data-tour="prod-name"
                 className="input"
                 value={productName}
                 onChange={(e) => setProductName(e.target.value)}
@@ -736,7 +772,7 @@ export default function ProductionBuilderPage() {
           {step > 1 && <button type="button" onClick={back} className="btn-ghost">← Back</button>}
           <div className="flex-1" />
           {step < STEPS.length ? (
-            <button type="button" onClick={next} className="btn-primary">Next →</button>
+            <button data-tour="prod-next" type="button" onClick={next} className="btn-primary">Next →</button>
           ) : (
             <button type="button" onClick={create} disabled={saving} className="btn-primary">
               {saving ? "Creating…" : "Create production run →"}

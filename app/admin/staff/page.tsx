@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
+import { useGuidedTour } from "@/lib/useGuidedTour";
 
 interface TeamMember {
   id: string;
@@ -60,6 +61,51 @@ export default function StaffPage() {
   }
 
   useEffect(() => { if (orgId) load(); }, [orgId]);
+
+  useGuidedTour({
+    tourKey: "staff",
+    ready: !loading,
+    orgId,
+    openPanel: openAdd,
+    steps: [
+      {
+        element: '[data-tour="add-staff"]',
+        popover: {
+          title: "Add your team",
+          description:
+            "Keep a record of everyone who works in your kitchen here. Click Next and I'll open the form.",
+          side: "bottom",
+          align: "end",
+        },
+      },
+      {
+        element: '[data-tour="staff-name"]',
+        popover: {
+          title: "Name & role",
+          description: "Enter the person's name and their job title.",
+          side: "right",
+        },
+      },
+      {
+        element: '[data-tour="staff-cert"]',
+        popover: {
+          title: "Training certificates",
+          description:
+            "Upload their food-safety certificate and set its expiry — Kernel warns you before it lapses.",
+          side: "left",
+        },
+      },
+      {
+        element: '[data-tour="staff-save"]',
+        popover: {
+          title: "Save the member",
+          description:
+            "Hit Save. Tip: to give someone a login to Kernel, head to Account → Users.",
+          side: "top",
+        },
+      },
+    ],
+  });
 
   function openAdd() {
     setEditing(emptyMember() as TeamMember);
@@ -139,7 +185,7 @@ export default function StaffPage() {
           <h1 className="text-xl font-bold text-gray-900">Staff Members</h1>
           <p className="text-sm text-gray-500 mt-0.5">{active.length} active member{active.length !== 1 ? "s" : ""}</p>
         </div>
-        <button onClick={openAdd} className="btn-primary">+ Add Staff Member</button>
+        <button data-tour="add-staff" onClick={openAdd} className="btn-primary">+ Add Staff Member</button>
       </div>
 
       {loading ? (
@@ -184,7 +230,7 @@ export default function StaffPage() {
                 <div className="space-y-3">
                   <div>
                     <label className="label">Full name *</label>
-                    <input className="input" value={editing.name} onChange={e => setEditing(v => v ? { ...v, name: e.target.value } : v)} placeholder="e.g. Jane Smith" />
+                    <input data-tour="staff-name" className="input" value={editing.name} onChange={e => setEditing(v => v ? { ...v, name: e.target.value } : v)} placeholder="e.g. Jane Smith" />
                   </div>
                   <div>
                     <label className="label">Position / Job title</label>
@@ -223,7 +269,7 @@ export default function StaffPage() {
               </section>
 
               {/* Training cert */}
-              <section>
+              <section data-tour="staff-cert">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Training Certificates</p>
                 <div className="space-y-3">
                   {editing.food_safety_cert_path ? (
@@ -277,7 +323,7 @@ export default function StaffPage() {
 
             <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
               <button onClick={close} className="btn-ghost">Cancel</button>
-              <button onClick={save} disabled={saving} className="btn-primary">
+              <button data-tour="staff-save" onClick={save} disabled={saving} className="btn-primary">
                 {saving ? "Saving…" : isNew ? "Add Member" : "Save Changes"}
               </button>
             </div>
