@@ -8,6 +8,8 @@ import { useOrganisation } from "@/contexts/OrganisationContext";
 import DocUploader from "@/components/DocUploader";
 import RiskCalculator from "@/components/RiskCalculator";
 import SAQResponsesViewer from "@/components/SAQResponsesViewer";
+import { createTour } from "@/lib/tour";
+import { markTourComplete } from "@/lib/onboarding";
 
 type SupplierType = "raw_material" | "packaging" | "service";
 type SupplierRisk = "low" | "medium" | "high";
@@ -116,6 +118,87 @@ export default function SuppliersPage() {
   const [saqViewerOpen, setSaqViewerOpen] = useState(false);
 
   useEffect(() => { if (orgId) load(); }, [orgId]);
+
+  // Guided tour — launched from the /home "Get started" checklist via ?tour=suppliers
+  const [tourStarted, setTourStarted] = useState(false);
+  useEffect(() => {
+    if (tourStarted || loading || !orgId) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tour") !== "suppliers") return;
+    setTourStarted(true);
+    // Strip the param so a refresh doesn't relaunch the tour.
+    window.history.replaceState(null, "", window.location.pathname);
+    startSuppliersTour();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, orgId, tourStarted]);
+
+  function startSuppliersTour() {
+    const tour = createTour(
+      [
+        {
+          element: '[data-tour="add-supplier"]',
+          popover: {
+            title: "Add your first supplier",
+            description:
+              "Every ingredient, packaging item or service you buy in is logged here. Click Next and I'll open the form for you.",
+            side: "bottom",
+            align: "end",
+          },
+        },
+        {
+          element: '[data-tour="supplier-name"]',
+          popover: {
+            title: "Name & what they supply",
+            description:
+              "Give the supplier a name and note what they provide — e.g. \"AA Produce — fresh chillies\".",
+            side: "right",
+          },
+        },
+        {
+          element: '[data-tour="supplier-type"]',
+          popover: {
+            title: "Choose a type",
+            description:
+              "Raw material, packaging or service. Raw-material and packaging suppliers get a Self-Assessment Questionnaire (SAQ); services don't.",
+            side: "right",
+          },
+        },
+        {
+          element: '[data-tour="supplier-risk"]',
+          popover: {
+            title: "Risk assessment",
+            description:
+              "Set a supplier and raw-material risk rating, or hit \"Run calculator\" to work it out from their certification and SAQ.",
+            side: "left",
+          },
+        },
+        {
+          element: '[data-tour="supplier-save"]',
+          popover: {
+            title: "Save to finish",
+            description:
+              "Hit Save. The supplier reopens with a unique SAQ link to send them, and a file-upload area to store their certificates and accreditations.",
+            side: "top",
+          },
+        },
+      ],
+      {
+        onNextClick: (_el, _step, opts) => {
+          // After the intro step, open the Add panel so the form anchors exist.
+          if (opts.state.activeIndex === 0 && !panelOpen) {
+            openNew();
+            setTimeout(() => tour.moveNext(), 180);
+          } else {
+            tour.moveNext();
+          }
+        },
+        onDestroyed: () => {
+          if (orgId) markTourComplete(orgId, "suppliers");
+        },
+      }
+    );
+    tour.drive();
+  }
 
   async function load() {
     const { data } = await supabase
@@ -243,7 +326,7 @@ export default function SuppliersPage() {
               </span>
             )}
           </div>
-          <button onClick={openNew} className="btn-primary text-sm">+ Add Supplier</button>
+          <button data-tour="add-supplier" onClick={openNew} className="btn-primary text-sm">+ Add Supplier</button>
         </div>
         {/* Summary */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -361,11 +444,11 @@ export default function SuppliersPage() {
 
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               <Field label="Supplier name *">
-                <input className="input w-full" value={form.name} onChange={e => setF("name", e.target.value)} placeholder="e.g. AA Produce" />
+                <input data-tour="supplier-name" className="input w-full" value={form.name} onChange={e => setF("name", e.target.value)} placeholder="e.g. AA Produce" />
               </Field>
 
               <Field label="Type *">
-                <select className="input w-full" value={form.type} onChange={e => setF("type", e.target.value as SupplierType)}>
+                <select data-tour="supplier-type" className="input w-full" value={form.type} onChange={e => setF("type", e.target.value as SupplierType)}>
                   <option value="raw_material">Raw Material</option>
                   <option value="packaging">Packaging</option>
                   <option value="service">Service</option>
@@ -459,7 +542,7 @@ export default function SuppliersPage() {
               {/* Risk + review — not applicable for services */}
               {form.type !== "service" && (
                 <>
-                  <div className="space-y-2">
+                  <div data-tour="supplier-risk" className="space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-medium text-gray-700">Risk Assessment</p>
                       <button
@@ -549,7 +632,7 @@ export default function SuppliersPage() {
 
             <div className="border-t border-gray-200 px-6 py-4 flex gap-3 shrink-0">
               <button onClick={closePanel} className="btn-ghost flex-1">Cancel</button>
-              <button onClick={save} disabled={saving || !form.name.trim() || !form.supplies.trim()} className="btn-primary flex-1">
+              <button data-tour="supplier-save" onClick={save} disabled={saving || !form.name.trim() || !form.supplies.trim()} className="btn-primary flex-1">
                 {saving ? "Saving…" : isNew ? "Add Supplier" : "Save Changes"}
               </button>
             </div>

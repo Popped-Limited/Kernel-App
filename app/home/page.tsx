@@ -8,6 +8,7 @@ import type { Checklist, Submission, IngredientLot, Ingredient, Dispatch } from 
 import { frequencyLabel, frequencyBadgeColor } from "@/lib/utils";
 import AppSidebar from "@/components/AppSidebar";
 import ProductionCalendar, { checklistColour } from "@/components/ProductionCalendar";
+import WelcomeChecklist from "@/components/WelcomeChecklist";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -182,6 +183,9 @@ export default function Dashboard() {
             </div>
             <Link href="/admin/goods-in" className="btn-primary text-sm hidden sm:inline-flex">+ Goods In</Link>
           </div>
+
+          {/* ── Get started checklist (new orgs only) ──────────────────── */}
+          <WelcomeChecklist />
 
           {/* ── Production Calendar ────────────────────────────────────── */}
           <ProductionCalendar checklists={checklists} />

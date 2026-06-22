@@ -83,3 +83,48 @@
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
 }
+
+/* ── Guided tour (driver.js) — Kernel brand theme ─────────────────────────── */
+.driver-popover.kernel-tour {
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(58, 53, 32, 0.25);
+  max-width: 320px;
+}
+.driver-popover.kernel-tour .driver-popover-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #3a3520;
+}
+.driver-popover.kernel-tour .driver-popover-description {
+  font-size: 0.85rem;
+  color: #5c5740;
+  line-height: 1.45;
+}
+.driver-popover.kernel-tour .driver-popover-progress-text {
+  font-size: 0.72rem;
+  color: #7a7050;
+}
+.driver-popover.kernel-tour .driver-popover-navigation-btns button {
+  background: #f5c65a;
+  color: #3a3520;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  text-shadow: none;
+}
+.driver-popover.kernel-tour .driver-popover-navigation-btns button:hover {
+  background: #c9a24a;
+}
+.driver-popover.kernel-tour .driver-popover-prev-btn {
+  background: #ede5d0 !important;
+  color: #7a7050 !important;
+}
+.driver-popover.kernel-tour .driver-popover-close-btn {
+  color: #7a7050;
+}
+.driver-popover.kernel-tour .driver-popover-arrow {
+  border-color: #ffffff;
+}
