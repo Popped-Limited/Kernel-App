@@ -23,7 +23,7 @@ function AuthCallbackContent() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    const next = searchParams.get("next") ?? "/home";
+    const next = searchParams.get("next") ?? "/dashboard";
     let done = false;
 
     function redirect() {

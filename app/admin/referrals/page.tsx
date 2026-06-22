@@ -24,7 +24,7 @@ export default async function BeaconReferralsPage() {
   // Only accessible to support@kernelapp.co.uk
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || user.email !== "support@kernelapp.co.uk") {
-    redirect("/home");
+    redirect("/dashboard");
   }
 
   const { data: orgs } = await supabase
@@ -97,7 +97,7 @@ export default async function BeaconReferralsPage() {
                     <td className="px-4 py-3">
                       {org.stripe_customer_id ? (
                         <a
-                          href={`https://dashboard.stripe.com/customers/${org.stripe_customer_id}`}
+                          href={`https://compliance/submissions.stripe.com/customers/${org.stripe_customer_id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-brown underline hover:text-brown-light text-xs"

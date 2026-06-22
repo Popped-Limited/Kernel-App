@@ -20,7 +20,7 @@ export default function SubmissionPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const backHref = searchParams.get("back") ?? "/home";
+  const backHref = searchParams.get("back") ?? "/dashboard";
   const [submission, setSubmission] = useState<FullSubmission | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingOff, setSigningOff] = useState(false);

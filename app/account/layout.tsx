@@ -2,6 +2,6 @@
 
 import PortalLayout from "@/components/PortalLayout";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AccountLayout({ children }: { children: React.ReactNode }) {
   return <PortalLayout>{children}</PortalLayout>;
 }

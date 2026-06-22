@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const from = searchParams.get("from") ?? "/home";
+  const from = searchParams.get("from") ?? "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +37,7 @@ function LoginForm() {
     setPopState("popping");
     setTimeout(() => setPopState("popped"), 280);
     setTimeout(() => {
-      const dest = from && from !== "/login" ? from : "/home";
+      const dest = from && from !== "/login" ? from : "/dashboard";
       router.push(dest);
       router.refresh();
     }, 1100);

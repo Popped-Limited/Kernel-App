@@ -667,7 +667,7 @@ function ChecklistPageInner() {
           <p className="mt-2 text-sm text-gray-600">
             {checklist.name} has been recorded.
           </p>
-          <a href={isInduction ? "/admin/team/training" : "/home"} className="btn-primary mt-6 w-full">
+          <a href={isInduction ? "/compliance/training" : "/dashboard"} className="btn-primary mt-6 w-full">
             {isInduction ? "Return to training portal" : "Return to dashboard"}
           </a>
         </div>

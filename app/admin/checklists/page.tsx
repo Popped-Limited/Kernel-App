@@ -67,7 +67,7 @@ export default function AdminChecklistsPage() {
             <h1 className="text-xl font-bold text-gray-900">Manage Checklists</h1>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/admin/production-builder" className="btn-secondary text-sm">+ Production run</Link>
+            <Link href="/admin/production-flow" className="btn-secondary text-sm">+ Production run</Link>
             <Link href="/admin/checklists/new" className="btn-primary">+ New checklist</Link>
           </div>
         </div>
@@ -105,7 +105,7 @@ export default function AdminChecklistsPage() {
         ) : visible.length === 0 ? (
           <div className="card p-8 text-center text-sm text-gray-400">
             {tab === "production"
-              ? <>No production runs yet. <Link href="/admin/production-builder" className="underline text-brown">Create one →</Link></>
+              ? <>No production runs yet. <Link href="/admin/production-flow" className="underline text-brown">Create one →</Link></>
               : "No checklists in this category."}
           </div>
         ) : (

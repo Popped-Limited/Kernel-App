@@ -31,9 +31,9 @@ const NAV = [
     icon: "box",
     minRole: "staff",
     items: [
-      { label: "Finished Goods", href: "/admin/finished-goods" },
-      { label: "Goods In",       href: "/admin/goods-in"       },
-      { label: "Goods Out",      href: "/admin/goods-out"      },
+      { label: "Finished Goods", href: "/production/finished-goods" },
+      { label: "Goods In",       href: "/production/goods-in"       },
+      { label: "Goods Out",      href: "/production/goods-out"      },
     ],
   },
   {
@@ -41,12 +41,12 @@ const NAV = [
     icon: "clipboard",
     minRole: "staff",
     items: [
-      { label: "Checklist Submissions", href: "/dashboard"           },
-      { label: "Raw Materials",         href: "/admin/stock"         },
-      { label: "SOPs",                  href: "/admin/sops"          },
-      { label: "Suppliers",             href: "/admin/suppliers"     },
-      { label: "Traceability",          href: "/admin/traceability"  },
-      { label: "Training",              href: "/admin/team/training" },
+      { label: "Checklist Submissions", href: "/compliance/submissions"           },
+      { label: "Raw Materials",         href: "/compliance/raw-materials"         },
+      { label: "SOPs",                  href: "/compliance/sops"          },
+      { label: "Suppliers",             href: "/compliance/suppliers"     },
+      { label: "Traceability",          href: "/compliance/traceability"  },
+      { label: "Training",              href: "/compliance/training" },
     ],
   },
   {
@@ -54,12 +54,12 @@ const NAV = [
     icon: "squares",
     minRole: "manager",
     items: [
-      { label: "Create Production Flow", href: "/admin/production-builder" },
+      { label: "Create Production Flow", href: "/admin/production-flow" },
       { label: "Manage Checklists",      href: "/admin/checklists"         },
       { label: "Manage Training",        href: "/admin/training-setup"     },
-      { label: "Print QR Codes",         href: "/print-qr"                 },
+      { label: "Print QR Codes",         href: "/admin/print-qr"                 },
       { label: "SAQ Questions",          href: "/admin/saq-questions"      },
-      { label: "Staff Members",          href: "/admin/team/staff"         },
+      { label: "Staff Members",          href: "/admin/staff"         },
     ],
   },
   {
@@ -67,8 +67,8 @@ const NAV = [
     icon: "card",
     minRole: "admin",
     items: [
-      { label: "Billing", href: "/admin/billing" },
-      { label: "Users",   href: "/admin/users"   },
+      { label: "Billing", href: "/account/billing" },
+      { label: "Users",   href: "/account/users"   },
     ],
   },
 ] as const;
@@ -157,7 +157,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
       {/* Desktop sidebar — always visible on lg+, hidden on mobile */}
       <aside className="hidden lg:flex fixed top-0 left-0 z-40 h-screen w-56 bg-brand-light border-r border-brown/10 flex-col">
         {/* Logo */}
-        <Link href="/home" className="px-4 py-4 border-b border-brown/15 flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+        <Link href="/dashboard" className="px-4 py-4 border-b border-brown/15 flex items-center gap-2.5 hover:opacity-80 transition-opacity">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/popcorn.png" alt="" className="h-9 w-auto shrink-0 drop-shadow-sm" />
           <p className="font-serif text-4xl text-brown leading-none tracking-tight">Kernel</p>
@@ -165,9 +165,9 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
 
         <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
           <Link
-            href="/home"
+            href="/dashboard"
             className={`flex items-center gap-2.5 rounded-md px-2.5 py-2.5 text-sm font-bold transition-colors ${
-              pathname === "/home" ? "bg-brand text-brown" : "text-brown hover:bg-brand/30"
+              pathname === "/dashboard" ? "bg-brand text-brown" : "text-brown hover:bg-brand/30"
             }`}
           >
             <SvgIcon d={ICONS.home} />
@@ -279,10 +279,10 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
           <nav className="flex-1 overflow-y-auto py-4 px-5 space-y-1">
             {/* Dashboard */}
             <Link
-              href="/home"
+              href="/dashboard"
               onClick={onClose}
               className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-colors ${
-                pathname === "/home" ? "bg-brand text-brown" : "text-brown hover:bg-brand/30"
+                pathname === "/dashboard" ? "bg-brand text-brown" : "text-brown hover:bg-brand/30"
               }`}
             >
               <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

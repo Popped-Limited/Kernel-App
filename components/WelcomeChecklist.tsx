@@ -12,7 +12,7 @@ import {
   type StepKey,
 } from "@/lib/onboarding";
 
-// "Get started" checklist shown on /home to brand-new orgs. Hidden once the org
+// "Get started" checklist shown on /dashboard to brand-new orgs. Hidden once the org
 // dismisses it, completes all 5 steps, or was created before onboarding shipped
 // (those orgs have onboarding_dismissed = true — see scripts/add-onboarding.sql).
 

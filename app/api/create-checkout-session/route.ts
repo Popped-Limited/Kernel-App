@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
         organisation_id: member.organisation_id,
         ...(referralSource ? { referral_source: referralSource } : {}),
       },
-      success_url: `${appUrl}/home?welcome=1`,
+      success_url: `${appUrl}/dashboard?welcome=1`,
       cancel_url:  `${appUrl}/signup?cancelled=1`,
     });
 

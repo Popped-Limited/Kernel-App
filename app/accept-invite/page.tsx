@@ -69,7 +69,7 @@ function AcceptInviteContent() {
     }
 
     setState("success");
-    setTimeout(() => router.push("/home"), 2000);
+    setTimeout(() => router.push("/dashboard"), 2000);
   }
 
   return (

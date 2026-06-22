@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase";
 
 // ── Onboarding "Get started" checklist ──────────────────────────────────────
-// A 5-step walkthrough shown on /home to brand-new orgs (gated by
+// A 5-step walkthrough shown on /dashboard to brand-new orgs (gated by
 // organisations.onboarding_dismissed — see scripts/add-onboarding.sql).
 //
 // Each step is "done" when EITHER the org has the real data for it, OR the user
@@ -23,25 +23,25 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     key: "staff",
     title: "Add your staff & users",
     blurb: "Record your team members and invite the people who'll log in.",
-    href: "/admin/team/staff",
+    href: "/admin/staff",
   },
   {
     key: "suppliers",
     title: "Add your suppliers",
     blurb: "Create a supplier, send the SAQ link, set a risk rating and upload their certificates.",
-    href: "/admin/suppliers?tour=suppliers",
+    href: "/compliance/suppliers?tour=suppliers",
   },
   {
     key: "raw_materials",
     title: "Add your raw materials",
     blurb: "Add an ingredient with its price per kg, density (for liquids) and spec sheet.",
-    href: "/admin/stock",
+    href: "/compliance/raw-materials",
   },
   {
     key: "production",
     title: "Create your first production record",
     blurb: "Walk through logging a production run start to finish.",
-    href: "/admin/production-builder",
+    href: "/admin/production-flow",
   },
   {
     key: "checklists",

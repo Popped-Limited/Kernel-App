@@ -7,7 +7,7 @@ export default function NotFound() {
       <img src="/kernel.png" alt="Kernel" className="h-16 w-auto mb-4" />
       <h1 className="text-2xl font-bold text-gray-900">Page not found</h1>
       <p className="mt-2 text-sm text-gray-500">The page you're looking for doesn't exist.</p>
-      <Link href="/home" className="btn-primary mt-6">
+      <Link href="/dashboard" className="btn-primary mt-6">
         Back to Dashboard
       </Link>
     </div>

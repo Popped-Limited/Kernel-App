@@ -1,341 +1,425 @@
 "use client";
-import BackButton from "@/components/BackButton";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import type { Checklist, Submission, Answer, Question } from "@/lib/types";
-import { formatDateTime, frequencyLabel, frequencyBadgeColor } from "@/lib/utils";
-import PortalShell from "@/components/PortalShell";
+import type { Checklist, Submission, IngredientLot, Ingredient, Dispatch } from "@/lib/types";
+import { frequencyLabel, frequencyBadgeColor } from "@/lib/utils";
+import AppSidebar from "@/components/AppSidebar";
+import ProductionCalendar, { checklistColour } from "@/components/ProductionCalendar";
+import WelcomeChecklist from "@/components/WelcomeChecklist";
+import { useOrganisation } from "@/contexts/OrganisationContext";
 
-type SubmissionWithChecklist = Submission & { checklist: Checklist };
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-function SubmissionsPageInner() {
-  const searchParams = useSearchParams();
-  const [checklists, setChecklists] = useState<Checklist[]>([]);
-  const [submissions, setSubmissions] = useState<SubmissionWithChecklist[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
-  const [filterChecklist, setFilterChecklist] = useState("");
-  const [filterSigned, setFilterSigned] = useState<"all" | "pending" | "signed">(
-    searchParams.get("filter") === "pending" ? "pending" : "all"
-  );
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  // Quick time-range presets. Default to this week so the page opens with a
-  // manageable recent view; custom From/To dates override the preset.
-  const [rangePreset, setRangePreset] = useState<"this_week" | "last_week" | "this_month" | "last_month" | "all">("this_week");
+const NAV = [
+  {
+    title: "Production",
+    items: [
+      { label: "Goods In", href: "/production/goods-in" },
+      { label: "Goods Out", href: "/production/goods-out" },
+      { label: "Raw Materials", href: "/compliance/raw-materials" },
+    ],
+  },
+  {
+    title: "Compliance",
+    items: [
+      { label: "Suppliers", href: "/compliance/suppliers" },
+      { label: "Traceability", href: "/compliance/traceability" },
+    ],
+  },
+  {
+    title: "Records",
+    items: [
+      { label: "All Submissions", href: "/compliance/submissions" },
+      { label: "Print QR Codes", href: "/admin/print-qr" },
+    ],
+  },
+  {
+    title: "Admin",
+    items: [
+      { label: "Manage Checklists", href: "/admin/checklists" },
+    ],
+  },
+];
 
-  // [fromISO, toISO) — to is exclusive (start of the day after the range ends)
-  function presetBounds(preset: typeof rangePreset): [string, string] | null {
-    if (preset === "all") return null;
+const FREQ_GROUPS = [
+  { key: "daily",      label: "Daily",                      freqs: ["per_shift_am", "per_shift_pm", "per_shift_eod"] },
+  { key: "weekly",     label: "Weekly",                     freqs: ["weekly"]                                        },
+  { key: "adhoc",      label: "Adhoc",                      freqs: ["adhoc", "monthly"]                              },
+  { key: "production", label: "Production & Traceability",  freqs: ["per_batch", "per_delivery", "per_dispatch"]     },
+  { key: "people",     label: "People",                     freqs: ["per_new_start"]                                 },
+  { key: "incidents",  label: "Incidents",                  freqs: ["per_complaint", "per_corrective_action"]        },
+] as const;
+
+const GROUP_STYLE = { header: "border-brand/50 bg-brand-light text-brown", dot: "bg-brand", badge: "bg-brand-light text-brown" };
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface SkuStock { name: string; produced: number; dispatched: number; inStock: number }
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
+export default function Dashboard() {
+  const [checklists, setChecklists]         = useState<Checklist[]>([]);
+  const [recentSubs, setRecentSubs]         = useState<(Submission & { checklist: Checklist })[]>([]);
+  const [pendingSignOff, setPendingSignOff] = useState<(Submission & { checklist: Checklist })[]>([]);
+  const [openDrafts, setOpenDrafts]         = useState<Array<{ id: string; checklist_id: string; started_by: string; last_saved_at: string; checklist?: Checklist }>>([]);
+  const [skuStock, setSkuStock]             = useState<SkuStock[]>([]);
+  const [loading, setLoading]               = useState(true);
+  const [sidebarOpen, setSidebarOpen]       = useState(false);
+  const [activitySearch, setActivitySearch] = useState("");
+  const [activityPeriod, setActivityPeriod] = useState<"week" | "month">("week");
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    // Calculate current week start (Monday at midnight)
     const now = new Date();
-    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    // Week starts Monday
-    const dow = (now.getDay() + 6) % 7;
-    const monday = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow));
-    if (preset === "this_week") {
-      const end = new Date(monday); end.setDate(end.getDate() + 7);
-      return [iso(monday), iso(end)];
+    const daysFromMon = now.getDay() === 0 ? 6 : now.getDay() - 1;
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - daysFromMon);
+    weekStart.setHours(0, 0, 0, 0);
+
+    // Recent activity: last 60 days (display only — date filter is appropriate here)
+    const sixtyDaysAgo = new Date(now); sixtyDaysAgo.setDate(now.getDate() - 60);
+    const [clRes, recentSubRes, pendingSubRes, draftRes, dispRes, batchSubRes] = await Promise.all([
+      supabase.from("checklists").select("*").eq("active", true).order("name"),
+      supabase.from("submissions").select("*, checklist:checklists(*)").gte("submitted_at", sixtyDaysAgo.toISOString()).order("submitted_at", { ascending: false }),
+      // Pending sign-offs: no date limit — must never miss one
+      supabase.from("submissions").select("*, checklist:checklists(*)").is("signed_off_at", null).order("submitted_at", { ascending: false }),
+      supabase.from("batch_drafts").select("*, checklist:checklists(name, category)").order("last_saved_at", { ascending: false }),
+      supabase.from("dispatches").select("product, total_units").gte("dispatch_date", weekStart.toISOString().slice(0, 10)),
+      supabase.from("submissions").select("id, checklist:checklists(name, category), answers(value, question:questions(type, label))").eq("checklists.category", "Production").gte("submitted_at", weekStart.toISOString()),
+    ]);
+
+    if (clRes.data) setChecklists(clRes.data as Checklist[]);
+
+    if (recentSubRes.data) {
+      const all = recentSubRes.data as (Submission & { checklist: Checklist })[];
+      setRecentSubs(all.filter(s => s.checklist));
     }
-    if (preset === "last_week") {
-      const start = new Date(monday); start.setDate(start.getDate() - 7);
-      return [iso(start), iso(monday)];
+
+    if (pendingSubRes.data) {
+      const all = pendingSubRes.data as (Submission & { checklist: Checklist })[];
+      setPendingSignOff(all.filter(s => s.checklist));
     }
-    if (preset === "this_month") {
-      return [iso(new Date(now.getFullYear(), now.getMonth(), 1)), iso(new Date(now.getFullYear(), now.getMonth() + 1, 1))];
-    }
-    // last_month
-    return [iso(new Date(now.getFullYear(), now.getMonth() - 1, 1)), iso(new Date(now.getFullYear(), now.getMonth(), 1))];
-  }
 
-  useEffect(() => {
-    async function load() {
-      const [clRes, subRes] = await Promise.all([
-        supabase.from("checklists").select("*").eq("active", true).order("name"),
-        supabase
-          .from("submissions")
-          .select("*, checklist:checklists(*)")
-          .order("submitted_at", { ascending: false }),
-      ]);
-      if (clRes.data) setChecklists(clRes.data);
-      if (subRes.data) setSubmissions(subRes.data as SubmissionWithChecklist[]);
-      setLoading(false);
-    }
-    load();
-  }, []);
+    if (draftRes.data) setOpenDrafts(draftRes.data as never);
 
-  // Custom From/To dates take precedence over the quick-range preset
-  const usingCustomDates = Boolean(dateFrom || dateTo);
-  const bounds = usingCustomDates ? null : presetBounds(rangePreset);
+    if (batchSubRes.data && dispRes.data) {
+      const dispatched: Record<string, number> = {};
+      for (const d of (dispRes.data as { product: string; total_units: number }[]))
+        dispatched[d.product] = (dispatched[d.product] ?? 0) + d.total_units;
 
-  const filtered = submissions.filter((s) => {
-    if (filterChecklist && s.checklist_id !== filterChecklist) return false;
-    if (filterSigned === "pending" && s.signed_off_at) return false;
-    if (filterSigned === "signed" && !s.signed_off_at) return false;
-    if (dateFrom && s.submitted_at < dateFrom) return false;
-    if (dateTo && s.submitted_at > dateTo + "T23:59:59") return false;
-    if (bounds && (s.submitted_at < bounds[0] || s.submitted_at >= bounds[1])) return false;
-    return true;
-  });
-
-  async function handleExport() {
-    setExporting(true);
-    try {
-      const ids = filtered.map((s) => s.id);
-      if (ids.length === 0) {
-        alert("No submissions to export.");
-        setExporting(false);
-        return;
-      }
-
-      // Fetch answers + questions for filtered submissions
-      const { data: answers } = await supabase
-        .from("answers")
-        .select("*, question:questions(*)")
-        .in("submission_id", ids);
-
-      const answerMap: Record<string, (Answer & { question: Question })[]> = {};
-      for (const a of (answers ?? []) as (Answer & { question: Question })[]) {
-        if (!answerMap[a.submission_id]) answerMap[a.submission_id] = [];
-        answerMap[a.submission_id].push(a);
-      }
-
-      const rows: string[][] = [];
-      rows.push([
-        "Date",
-        "Time",
-        "Checklist",
-        "Category",
-        "Submitted By",
-        "Signed Off",
-        "Signed Off By",
-        "Signed Off At",
-        "Question",
-        "Answer",
-      ]);
-
-      for (const s of filtered) {
-        const submittedAt = new Date(s.submitted_at);
-        const date = submittedAt.toLocaleDateString("en-GB");
-        const time = submittedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-        const checklist = s.checklist?.name ?? "(Deleted checklist)";
-        const category = s.checklist?.category ?? "Uncategorised";
-        const submittedBy = s.submitted_by;
-        const signedOff = s.signed_off_at ? "Yes" : "No";
-        const signedOffBy = s.signed_off_by ?? "";
-        const signedOffAt = s.signed_off_at
-          ? new Date(s.signed_off_at).toLocaleString("en-GB")
-          : "";
-
-        const subAnswers = answerMap[s.id] ?? [];
-        if (subAnswers.length === 0) {
-          rows.push([date, time, checklist, category, submittedBy, signedOff, signedOffBy, signedOffAt, "", ""]);
-        } else {
-          const sorted = [...subAnswers].sort(
-            (a, b) => (a.question?.order_index ?? 0) - (b.question?.order_index ?? 0)
-          );
-          for (const ans of sorted) {
-            const question = ans.question?.label ?? "";
-            let value = ans.value ?? "";
-            // Pretty-print JSON arrays (multiple_choice)
-            try {
-              const parsed = JSON.parse(value);
-              if (Array.isArray(parsed)) value = parsed.join(", ");
-            } catch {}
-            rows.push([date, time, checklist, category, submittedBy, signedOff, signedOffBy, signedOffAt, question, value]);
+      const produced: Record<string, number> = {};
+      for (const sub of (batchSubRes.data as never as Array<{ checklist: { name: string; category: string } | null; answers: Array<{ value: string | null; question: { type: string; label: string } | null }> }>)) {
+        if (sub.checklist?.category !== "Production") continue;
+        const sku = sub.checklist.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
+        for (const ans of (sub.answers ?? [])) {
+          if (!ans.value) continue;
+          // Prefer the explicit "Total units produced" field over jars_used
+          if (ans.question?.label?.toLowerCase().includes("total units produced")) {
+            produced[sku] = (produced[sku] ?? 0) + (Number(ans.value) || 0);
           }
         }
       }
 
-      const csv = rows
-        .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-        .join("\n");
+      // Derive product list dynamically from production data — no hardcoded fallback
+      const productList = Array.from(new Set([
+        ...Object.keys(produced),
+        ...Object.keys(dispatched),
+      ])).sort();
 
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      const label = dateFrom && dateTo
-        ? `kernel-export-${dateFrom}-to-${dateTo}`
-        : `kernel-export-${new Date().toISOString().slice(0, 10)}`;
-      a.href = url;
-      a.download = `${label}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setExporting(false);
+      setSkuStock(productList.map(name => {
+        const p = produced[name] ?? 0;
+        const d = dispatched[name] ?? 0;
+        return { name, produced: p, dispatched: d, inStock: Math.max(0, p - d) };
+      }));
     }
+
+    setLoading(false);
   }
 
-  function getRowSecondary(s: SubmissionWithChecklist): string {
-    const clName = s.checklist?.name?.toLowerCase() ?? "";
-    if (clName.includes("goods in") && s.batch_notes) {
-      const line = s.batch_notes.split("\n").find(l => l.startsWith("Supplier:"));
-      if (line) return line.slice("Supplier:".length).trim();
-    }
-    if (clName.includes("goods out") && s.batch_notes) {
-      const line = s.batch_notes.split("\n").find(l => l.startsWith("Customer:"));
-      if (line) return line.slice("Customer:".length).trim();
-    }
-    return s.submitted_by;
-  }
+  const { orgName } = useOrganisation();
+
+  const freqSet = new Set(FREQ_GROUPS.flatMap(g => g.freqs));
+  const uncategorised = checklists.filter(cl => !freqSet.has(cl.frequency));
 
   return (
-    <PortalShell>
-      <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-6xl w-full mx-auto space-y-6">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-3">
-            <BackButton />
-            <h1 className="text-xl font-bold text-gray-900">Checklist Submissions</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500">{filtered.length} records</span>
-            <button onClick={handleExport} disabled={exporting || loading} className="btn-secondary text-sm">
-              {exporting ? "Exporting…" : "Export CSV"}
-            </button>
-          </div>
-        </div>
-        {/* Quick time ranges */}
-        <div className="flex flex-wrap gap-2">
-          {([
-            ["this_week", "This week"],
-            ["last_week", "Last week"],
-            ["this_month", "This month"],
-            ["last_month", "Last month"],
-            ["all", "All time"],
-          ] as const).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => { setRangePreset(key); setDateFrom(""); setDateTo(""); }}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                !usingCustomDates && rangePreset === key
-                  ? "bg-brand text-brown"
-                  : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+    <div className="flex min-h-screen bg-brand-cream">
+
+      {/* ── Sidebar ──────────────────────────────────────────────────────── */}
+      <AppSidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      {/* ── Main ─────────────────────────────────────────────────────────── */}
+      <div className="flex-1 lg:ml-56 flex flex-col min-h-screen min-w-0">
+
+        {/* Mobile top bar */}
+        <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-gray-200 flex items-center justify-between px-5 py-4">
+          <p className="font-serif text-3xl text-brown leading-none">Kernel</p>
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-lg bg-brand/20 hover:bg-brand/40 transition-colors"
+            aria-label="Open menu"
+          >
+            <svg className="h-6 w-6 text-brown" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M3 6h18M3 12h18M3 18h18"/>
+            </svg>
+          </button>
         </div>
 
-        {/* Filters */}
-        <div className="card p-4 space-y-3">
-          <div>
-            <label className="label mb-1">Checklist</label>
-            <select
-              value={filterChecklist}
-              onChange={(e) => setFilterChecklist(e.target.value)}
-              className="input w-full"
-            >
-              <option value="">All checklists</option>
-              {checklists.map((cl) => (
-                <option key={cl.id} value={cl.id}>{cl.name}</option>
+        <div className="flex flex-1 min-h-0 min-w-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 space-y-6 xl:mr-80">
+
+          {/* ── Header ─────────────────────────────────────────────────── */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-baseline gap-3">
+              {orgName && (
+                <span className="text-xl font-bold text-gray-900">{orgName}</span>
+              )}
+              <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
+            </div>
+            <Link href="/production/goods-in" className="btn-primary text-sm hidden sm:inline-flex">+ Goods In</Link>
+          </div>
+
+          {/* ── Get started checklist (new orgs only) ──────────────────── */}
+          <WelcomeChecklist />
+
+          {/* ── Production Calendar ────────────────────────────────────── */}
+          <ProductionCalendar checklists={checklists} />
+
+          {/* ── Alert strip ────────────────────────────────────────────── */}
+          {pendingSignOff.length > 0 && (
+            <Link href="/compliance/submissions?filter=pending" className="flex items-center gap-3 rounded-xl border border-brown/10 bg-white shadow-sm px-4 py-3 hover:bg-brand-light transition">
+              <span className="h-2 w-2 rounded-full bg-brand-dark shrink-0" />
+              <p className="text-sm font-medium text-brown">
+                {pendingSignOff.length} submission{pendingSignOff.length !== 1 ? "s" : ""} awaiting sign-off
+              </p>
+              <span className="ml-auto text-xs text-brown/70">Review →</span>
+            </Link>
+          )}
+
+          {/* ── In-progress batches ────────────────────────────────────── */}
+          {openDrafts.length > 0 && (
+            <section>
+              <h2 className="text-sm font-semibold text-gray-700 mb-2">In Progress</h2>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {openDrafts.map(d => {
+                  const mins = Math.round((Date.now() - new Date(d.last_saved_at).getTime()) / 60000);
+                  const ago = mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
+                  return (
+                    <div key={d.id} className="flex items-center gap-3 rounded-xl border border-brown/10 bg-white shadow-sm px-4 py-3 hover:bg-brand-light transition">
+                      <span className="h-2 w-2 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: checklistColour(checklists, d.checklist_id) }} />
+                      <Link href={`/checklist/${d.checklist_id}`} className="flex-1 min-w-0 hover:opacity-80 transition">
+                        <p className="text-sm font-medium text-brown truncate">{(d.checklist as Checklist | undefined)?.name ?? "Batch record"}</p>
+                        <p className="text-xs text-brown/60">{d.started_by} · {ago}</p>
+                      </Link>
+                      <Link href={`/checklist/${d.checklist_id}`} className="hidden sm:block text-xs text-brown/70 shrink-0 hover:text-brown transition">Continue →</Link>
+                      <button
+                        onClick={async () => {
+                          if (!confirm("Delete this in-progress draft? This can't be undone.")) return;
+                          await supabase.from("batch_drafts").delete().eq("id", d.id);
+                          load();
+                        }}
+                        className="hidden sm:block shrink-0 ml-1 rounded p-1 text-brown/40 hover:text-red-600 hover:bg-red-50 transition"
+                        title="Delete draft"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9a1 1 0 001 1h6a1 1 0 001-1l1-9"/>
+                        </svg>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* ── Checklists ─────────────────────────────────────────────── */}
+          <section>
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">Checklists</h2>
+            <div className="space-y-3">
+              {FREQ_GROUPS.filter(group => group.key !== "production" && group.key !== "people").map(group => {
+                const items = checklists.filter(cl => (group.freqs as readonly string[]).includes(cl.frequency));
+                if (items.length === 0) return null;
+                const styles = GROUP_STYLE;
+                return (
+                  <ChecklistGroup
+                    key={group.key}
+                    label={group.label}
+                    items={items}
+                    styles={styles}
+                    loading={loading}
+                  />
+                );
+              })}
+              {uncategorised.length > 0 && (
+                <ChecklistGroup
+                  label="Other"
+                  items={uncategorised}
+                  styles={GROUP_STYLE}
+                  loading={loading}
+                />
+              )}
+            </div>
+          </section>
+
+        </main>
+
+        {/* ── Activity log — right panel ──────────────────────────────── */}
+        <aside className="hidden xl:flex flex-col w-80 fixed top-0 right-0 z-30 h-screen border-l border-gray-200 bg-white overflow-hidden">
+          <div className="px-4 pt-4 pb-3 border-b border-gray-200 shrink-0 space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-900">Activity log</h2>
+              <Link href="/compliance/submissions" className="text-xs text-brown/70 hover:text-brown transition-colors">View all →</Link>
+            </div>
+            <input
+              type="text"
+              placeholder="Search checklists or submitted by…"
+              value={activitySearch}
+              onChange={e => setActivitySearch(e.target.value)}
+              className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-brand"
+            />
+            <div className="flex gap-1">
+              {(["week", "month"] as const).map(p => (
+                <button key={p} onClick={() => setActivityPeriod(p)}
+                  className={`flex-1 px-2 py-1.5 rounded text-xs font-medium border transition-colors ${activityPeriod === p ? "bg-brand border-brand/50 text-brown" : "bg-white border-gray-200 text-gray-600 hover:bg-brand-light"}`}>
+                  {p === "week" ? "This Week" : "This Month"}
+                </button>
               ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label mb-1">From</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="input w-full"
-              />
-            </div>
-            <div>
-              <label className="label mb-1">To</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="input w-full"
-              />
             </div>
           </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {(["all", "pending", "signed"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => setFilterSigned(v)}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                  filterSigned === v ? "bg-brand text-brown" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                {v === "all" ? "All" : v === "pending" ? "Pending" : "Signed off"}
-              </button>
-            ))}
-            {(dateFrom || dateTo || filterChecklist || filterSigned !== "all") && (
-              <button
-                onClick={() => { setDateFrom(""); setDateTo(""); setFilterChecklist(""); setFilterSigned("all"); setRangePreset("this_week"); }}
-                className="text-xs text-gray-400 hover:text-gray-600 ml-auto"
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Table */}
-        {loading ? (
-          <div className="card p-8 text-center text-sm text-gray-500">Loading…</div>
-        ) : filtered.length === 0 ? (
-          <div className="card p-8 text-center text-sm text-gray-500">No submissions found.</div>
-        ) : (
-          <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b border-gray-200 bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Checklist</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Submitted by / Supplier</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Date / Time</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filtered.map((s) => (
-                    <tr key={s.id} className="hover:bg-gray-50 transition">
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900">
-                          {s.checklist?.name ?? <span className="text-gray-400 italic">Deleted checklist</span>}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3 text-gray-700">{getRowSecondary(s)}</td>
-                      <td className="px-4 py-3 text-gray-600">{formatDateTime(s.submitted_at)}</td>
-                      <td className="px-4 py-3">
-                        {s.signed_off_at ? (
-                          <span className="badge bg-brand/30 text-brown">Signed off</span>
-                        ) : (
-                          <span className="badge bg-amber-100 text-amber-700">Pending</span>
+          <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+            {loading ? (
+              <div className="p-4 text-sm text-gray-400 text-center">Loading…</div>
+            ) : (() => {
+              const now = new Date();
+              const filtered = recentSubs.filter(s => {
+                const dt = new Date(s.submitted_at);
+                if (activityPeriod === "week") {
+                  const daysFromMon = now.getDay() === 0 ? 6 : now.getDay() - 1;
+                  const weekStart = new Date(now); weekStart.setDate(now.getDate() - daysFromMon); weekStart.setHours(0,0,0,0);
+                  if (dt < weekStart) return false;
+                } else {
+                  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                  if (dt < monthStart) return false;
+                }
+                if (activitySearch) {
+                  const q = activitySearch.toLowerCase();
+                  const supplierMatch = s.batch_notes?.match(/^Supplier:\s*(.+)$/m)?.[1]?.toLowerCase() ?? "";
+                  return s.checklist?.name?.toLowerCase().includes(q) || s.submitted_by?.toLowerCase().includes(q) || supplierMatch.includes(q);
+                }
+                return true;
+              });
+              if (filtered.length === 0) return <div className="p-4 text-sm text-gray-400 text-center">No submissions found.</div>;
+              return filtered.map(s => {
+                const dt = new Date(s.submitted_at);
+                const isToday = dt.toDateString() === now.toDateString();
+                const timeStr = isToday
+                  ? dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+                  : dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+                const previewInfo = (() => {
+                  if (s.batch_notes) {
+                    const supplierMatch = s.batch_notes.match(/^Supplier:\s*(.+)$/m);
+                    if (supplierMatch) return supplierMatch[1].trim();
+                  }
+                  return s.submitted_by;
+                })();
+                return (
+                  <Link key={s.id} href={`/submission/${s.id}`} className="block px-4 py-3 hover:bg-gray-50 transition">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-brown/60 mb-0.5">{s.checklist?.category ?? "General"}</p>
+                        <p className="text-sm font-medium text-gray-900 truncate leading-tight">{s.checklist?.name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{previewInfo}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-xs text-gray-400">{timeStr}</p>
+                        {!s.signed_off_at && (
+                          <span className="inline-block mt-1 rounded-full bg-brand/40 px-1.5 py-0.5 text-[10px] font-semibold text-brown">Pending</span>
                         )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link href={`/submission/${s.id}`} className="text-brown/80 hover:text-brown hover:underline font-medium">
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              });
+            })()}
           </div>
-        )}
-      </main>
-    </PortalShell>
+        </aside>
+
+        </div>
+      </div>
+    </div>
   );
 }
 
-export default function SubmissionsPage() {
+// ── Checklist group ───────────────────────────────────────────────────────────
+
+function ChecklistGroup({
+  label, items, styles, loading,
+}: {
+  label: string;
+  items: Checklist[];
+  styles: { header: string; dot: string; badge: string };
+  loading: boolean;
+}) {
+  const [open, setOpen] = useState(false);
   return (
-    <Suspense>
-      <SubmissionsPageInner />
-    </Suspense>
+    <div className="card overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`w-full flex items-center gap-3 px-4 py-3 border-b text-left transition hover:opacity-90 focus:outline-none ${styles.header}`}
+      >
+        <span className={`h-2 w-2 rounded-full shrink-0 ${styles.dot}`} />
+        <span className="text-sm font-semibold flex-1">{label}</span>
+        <span className={`text-xs font-medium rounded-full px-2 py-0.5 ${styles.badge}`}>{items.length}</span>
+        <ChevronIcon open={open} />
+      </button>
+      {open && !loading && (
+        <div className="divide-y divide-gray-100">
+          {items.map(cl => (
+            <div key={cl.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{cl.name}</p>
+                <p className="text-xs text-gray-400">{frequencyLabel(cl.frequency as never)}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Link href={`/checklist/${cl.id}`} className="btn-primary text-xs py-1 px-3">Start</Link>
+                <Link href={`/admin/print-qr?id=${cl.id}`} className="btn-ghost text-xs py-1 px-2">QR</Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function SignOutButton() {
+  const router = useRouter();
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
+  return (
+    <button onClick={handleLogout} className="w-full flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-gray-400 hover:bg-white/10 hover:text-white transition-colors">
+      <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 11l3-3-3-3M13 8H6" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+      Sign out
+    </button>
+  );
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg className={`h-4 w-4 opacity-60 transition-transform ${open ? "rotate-90" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 4l4 4-4 4"/>
+    </svg>
   );
 }

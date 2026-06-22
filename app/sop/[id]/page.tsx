@@ -76,7 +76,7 @@ export default function SOPViewerPage() {
     <div className="flex flex-col min-h-screen bg-gray-950 text-white">
       {/* Header */}
       <header className="px-4 pt-safe-top pt-4 pb-3 flex items-center justify-between gap-4 shrink-0">
-        <Link href="/admin/sops" className="flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-sm">
+        <Link href="/compliance/sops" className="flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-sm">
           <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M10 3L5 8l5 5" />
           </svg>
@@ -179,7 +179,7 @@ export default function SOPViewerPage() {
                 </button>
               ) : (
                 <Link
-                  href="/admin/sops"
+                  href="/compliance/sops"
                   className="flex-2 flex-[2] py-3.5 rounded-xl bg-brand text-brown text-sm font-semibold text-center hover:opacity-90 transition-opacity block"
                 >
                   Done ✓

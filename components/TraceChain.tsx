@@ -18,7 +18,7 @@ const g = (n: number) => `${Math.round(n).toLocaleString()} g`;
 export default function TraceChain({
   result,
   defaultOpen = false,
-  linkBack = "/admin/traceability",
+  linkBack = "/compliance/traceability",
 }: {
   result: TraceResult;
   defaultOpen?: boolean;
