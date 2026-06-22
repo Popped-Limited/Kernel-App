@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
@@ -164,21 +164,30 @@ export default function RawMaterialsPage() {
         },
       },
       {
-        element: '[data-tour="ingredient-price"]',
+        element: '[data-tour="ingredient-supplier"]',
         popover: {
-          title: "Price per kg",
+          title: "Choose a supplier",
           description:
-            "Enter the price per kg so Kernel can value your stock automatically.",
+            "Link it to the supplier you buy it from — the ones you added earlier appear here.",
           side: "right",
         },
       },
       {
-        element: '[data-tour="ingredient-density"]',
+        element: '[data-tour="ingredient-price"]',
         popover: {
-          title: "Density (liquids only)",
+          title: "Price & density",
           description:
-            "For liquids, add the density (e.g. 917 for oil) so deliveries logged in litres convert to grams correctly.",
+            "Enter the price per kg so Kernel values your stock. For liquids, set the density just below (e.g. 917 for oil) so deliveries in litres convert to grams.",
           side: "right",
+        },
+      },
+      {
+        element: '[data-tour="ingredient-allergens"]',
+        popover: {
+          title: "Tag allergens",
+          description:
+            "Tap any allergens this ingredient contains — these flow through to your allergen records.",
+          side: "left",
         },
       },
       {
@@ -496,9 +505,8 @@ export default function RawMaterialsPage() {
                         : null;
 
                       return (
-                        <>
+                        <React.Fragment key={ing.id}>
                           <tr
-                            key={ing.id}
                             className="hover:bg-gray-50 transition-colors cursor-pointer"
                             onClick={() => openEdit(ing)}
                           >
@@ -623,7 +631,7 @@ export default function RawMaterialsPage() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
@@ -813,7 +821,7 @@ export default function RawMaterialsPage() {
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Supplier</label>
-                <select className="input w-full" value={editSupplier} onChange={e => setEditSupplier(e.target.value)}>
+                <select data-tour="ingredient-supplier" className="input w-full" value={editSupplier} onChange={e => setEditSupplier(e.target.value)}>
                   <option value="">— None —</option>
                   {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
@@ -858,7 +866,7 @@ export default function RawMaterialsPage() {
               )}
 
               {editType === "ingredient" && (
-                <div>
+                <div data-tour="ingredient-allergens">
                   <label className="block text-xs font-medium text-gray-700 mb-2">Allergens</label>
                   <div className="flex flex-wrap gap-1.5">
                     {ALLERGENS.map(allergen => {

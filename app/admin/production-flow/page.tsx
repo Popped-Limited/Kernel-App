@@ -164,7 +164,7 @@ export default function ProductionBuilderPage() {
         popover: {
           title: "Build a production record",
           description:
-            "This 5-step wizard creates a reusable production checklist: Product, Ingredients, Control points, Quality and Packaging.",
+            "The 5-step process creates your digital production records, an essential part of your new traceability portal. Add ingredients, critical control points, quality and packaging steps.",
           side: "bottom",
         },
       },

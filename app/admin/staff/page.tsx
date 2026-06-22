@@ -81,8 +81,16 @@ export default function StaffPage() {
       {
         element: '[data-tour="staff-name"]',
         popover: {
-          title: "Name & role",
-          description: "Enter the person's name and their job title.",
+          title: "Full name",
+          description: "Enter just the person's name — there's a separate field for their job title below.",
+          side: "right",
+        },
+      },
+      {
+        element: '[data-tour="staff-position"]',
+        popover: {
+          title: "Position / job title",
+          description: "Add their role — e.g. \"Production Assistant\".",
           side: "right",
         },
       },
@@ -234,7 +242,7 @@ export default function StaffPage() {
                   </div>
                   <div>
                     <label className="label">Position / Job title</label>
-                    <input className="input" value={editing.position ?? ""} onChange={e => setEditing(v => v ? { ...v, position: e.target.value } : v)} placeholder="e.g. Production Assistant" />
+                    <input data-tour="staff-position" className="input" value={editing.position ?? ""} onChange={e => setEditing(v => v ? { ...v, position: e.target.value } : v)} placeholder="e.g. Production Assistant" />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
