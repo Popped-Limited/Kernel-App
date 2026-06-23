@@ -697,7 +697,7 @@ export default function MarketingPage() {
                 So I built Kernel to do exactly what I needed it to do. It saved me so much time, I
                 thought — you probably need this too.
               </p>
-              <p className="byline">Built by Tom Palmer, Yep Kitchen Founder</p>
+              <p className="byline">Tom Palmer, Yep Kitchen Founder</p>
             </div>
           </div>
           <div className="reveal d1">
