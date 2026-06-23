@@ -234,6 +234,19 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 .pop-puff{position:fixed;width:9px;height:9px;border-radius:50%;
   background:var(--gold);z-index:8999;pointer-events:none;}
 
+/* ---------- mobile: swipeable card carousels ---------- */
+@media(max-width:768px){
+  .pain-grid,.feat-grid,.vs-grid{
+    display:flex;grid-template-columns:none;
+    overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
+    gap:16px;margin-left:-28px;margin-right:-28px;padding:6px 28px 20px;
+    scrollbar-width:none;
+  }
+  .pain-grid::-webkit-scrollbar,.feat-grid::-webkit-scrollbar,.vs-grid::-webkit-scrollbar{display:none;}
+  .pain-grid>*,.feat-grid>*,.vs-grid>*{flex:0 0 84%;scroll-snap-align:center;}
+  .vs-card{padding:34px 26px;}
+}
+
 @media(prefers-reduced-motion:reduce){
   html{scroll-behavior:auto;}
   .reveal{opacity:1!important;transform:none!important;transition:none!important;}
