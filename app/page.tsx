@@ -70,13 +70,15 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 .nav-links a.lnk:hover{color:var(--ink);}
 .nav-cta{background:var(--ink);color:var(--ivory);padding:11px 22px;border-radius:10px;font-weight:700;font-size:15px;transition:transform .2s,background .2s;}
 .nav-cta:hover{transform:translateY(-2px);background:var(--black);}
+.nav-cta-gold{background:var(--gold);color:var(--ink);}
+.nav-cta-gold:hover{background:var(--gold-dark);}
 @media(max-width:820px){.nav-links a.lnk{display:none;}}
 
 /* ---------- sections ---------- */
 .kpage section{padding:130px 0;position:relative;}
 .sec-head{max-width:780px;}
 .sec-head.center{margin:0 auto;text-align:center;}
-.sec-head h2{font-size:clamp(46px,6vw,76px);margin-top:16px;}
+.sec-head h2{font-size:clamp(46px,6vw,76px);margin-top:16px;text-wrap:balance;}
 .sec-head .lead{color:var(--muted);font-size:21px;margin-top:18px;}
 
 /* ---------- hero ---------- */
@@ -123,16 +125,23 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 .mock-chip .lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
 
 /* popcorn — third floating element, anchored inside the hero */
-.hero-pop{position:absolute;bottom:-46px;right:-18px;width:124px;z-index:4;
-  transform:scale(0);opacity:0;filter:drop-shadow(0 16px 26px rgba(58,53,32,.4));}
+.hero-pop{position:absolute;z-index:4;transform:scale(0);opacity:0;
+  filter:drop-shadow(0 16px 26px rgba(58,53,32,.4));}
 .hero-pop.pop{animation:kpop .85s cubic-bezier(.18,.9,.32,1.4) forwards;}
 .hero-pop.settled{animation:floatPop 5.5s ease-in-out infinite;opacity:1;}
 @keyframes floatPop{0%,100%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(-15px) rotate(5deg);}}
+.pop-a{top:42px;left:-48px;width:104px;}
+.pop-b{top:-58px;right:78px;width:94px;}
+.pop-c{bottom:-46px;right:-18px;width:124px;}
+.pop-b.settled{animation-duration:6.2s;}
+.pop-c.settled{animation-duration:5s;}
 
 @media(max-width:900px){
   .hero-grid{grid-template-columns:1fr;gap:56px;text-align:left;}
   .mock{margin-top:6px;}
-  .hero-pop{width:104px;bottom:-38px;right:0;}
+  .pop-a{left:-12px;width:82px;}
+  .pop-b{right:22px;top:-44px;width:74px;}
+  .pop-c{bottom:-34px;right:0;width:100px;}
 }
 
 /* ---------- problem ---------- */
@@ -169,11 +178,12 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 .weare-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:64px;align-items:center;}
 .weare blockquote{margin:0 0 30px;font-family:var(--serif);font-size:clamp(34px,4.6vw,56px);line-height:1.08;}
 .weare blockquote b{color:var(--gold-dark);}
+.weare blockquote .bq-gold{color:var(--gold-dark);font-weight:400;}
 .weare .side{border-left:3px solid var(--gold);padding-left:26px;}
 .weare .side p{margin:0 0 16px;color:var(--muted);font-size:17px;line-height:1.55;}
 .weare .byline{margin:22px 0 0;color:var(--ink);font-weight:700;font-size:15px;}
-.photo-card{background:var(--white);border-radius:24px;border:1px solid rgba(58,53,32,.1);
-  box-shadow:0 40px 80px -30px rgba(58,53,32,.45);overflow:hidden;padding:12px;max-width:420px;margin:0 auto;
+.photo-card{background:var(--white);border-radius:20px;border:1px solid var(--gold-dark);
+  box-shadow:0 40px 80px -30px rgba(58,53,32,.45);overflow:hidden;padding:6px;max-width:420px;margin:0 auto;
   transform:rotate(-1.6deg);animation:floatPhoto 6.5s ease-in-out infinite;}
 .photo-card img{width:100%;display:block;border-radius:15px;object-fit:cover;aspect-ratio:4/5;}
 @keyframes floatPhoto{0%,100%{transform:rotate(-1.6deg) translateY(0);}50%{transform:rotate(-1.6deg) translateY(-13px);}}
@@ -181,21 +191,26 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 
 /* ---------- pricing ---------- */
 .pricing{text-align:center;background:linear-gradient(180deg,var(--cream),var(--ivory));}
-.price-card{max-width:540px;margin:58px auto 0;background:var(--ink);color:var(--cream);
-  border-radius:28px;padding:50px 46px;position:relative;overflow:hidden;
-  box-shadow:0 50px 100px -42px rgba(0,0,0,.7);}
-.price-card .glow{position:absolute;top:-120px;right:-120px;width:340px;height:340px;border-radius:50%;
-  background:radial-gradient(circle,rgba(245,198,90,.45),transparent 65%);}
-.price-card .rel{position:relative;z-index:1;}
-.price-card .lead{color:var(--gold);font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-size:13px;}
-.price-tag{font-family:var(--serif);font-size:90px;line-height:1;margin:6px 0;color:var(--ivory);}
-.price-tag span{font-size:24px;color:var(--gold);}
-.price-list{list-style:none;padding:0;margin:28px 0 34px;text-align:left;display:inline-block;}
-.price-list li{padding:10px 0;font-size:17px;color:#e9e2cf;display:flex;gap:12px;align-items:center;}
-.price-list li::before{content:"✓";width:24px;height:24px;border-radius:50%;background:var(--gold);
-  color:var(--ink);font-weight:800;font-size:13px;display:grid;place-items:center;flex:none;}
-.price-foot{margin-top:26px;color:var(--muted);font-size:15px;}
+.price-headline{font-size:clamp(46px,6.2vw,84px)!important;}
+.vs-grid{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:56px;text-align:left;}
+.vs-card{border-radius:24px;padding:42px 40px;border:1px solid rgba(58,53,32,.1);
+  animation:floatSoft 6s ease-in-out infinite;}
+.vs-card.vs-without{background:var(--white);box-shadow:0 30px 70px -44px rgba(58,53,32,.5);}
+.vs-card.vs-with{background:var(--ink);color:var(--cream);border-color:rgba(255,255,255,.08);
+  box-shadow:0 44px 90px -42px rgba(0,0,0,.6);animation-duration:6.8s;animation-delay:.7s;}
+@keyframes floatSoft{0%,100%{transform:translateY(0);}50%{transform:translateY(-9px);}}
+.vs-eyebrow{font-weight:700;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-dark);margin:0 0 24px;}
+.vs-with .vs-eyebrow{color:var(--gold);}
+.vs-list{list-style:none;margin:0;padding:0;}
+.vs-list li{display:flex;align-items:flex-start;gap:14px;padding:11px 0;font-size:17px;line-height:1.4;}
+.vs-with .vs-list li{color:#e9e2cf;}
+.vs-mark{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;}
+.vs-mark.no{background:rgba(58,53,32,.07);color:var(--muted);}
+.vs-mark.yes{background:rgba(245,198,90,.18);color:var(--gold);}
+.pricing-cta{margin-top:50px;}
+.price-foot{margin-top:20px;color:var(--muted);font-size:15px;}
 .price-foot b{color:var(--gold-dark);}
+@media(max-width:760px){.vs-grid{grid-template-columns:1fr;}}
 
 /* ---------- footer ---------- */
 .kpage footer{background:var(--ink);color:#bdb59f;padding:54px 0;text-align:center;font-size:14px;}
@@ -223,7 +238,7 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
   html{scroll-behavior:auto;}
   .reveal{opacity:1!important;transform:none!important;transition:none!important;}
   .stagger>*{opacity:1!important;transform:none!important;animation:none!important;}
-  .mock-card,.mock-chip,.photo-card{animation:none!important;}
+  .mock-card,.mock-chip,.photo-card,.vs-card{animation:none!important;}
   .hero-pop{opacity:1!important;transform:none!important;animation:none!important;}
   .pop-puff{display:none!important;}
 }
@@ -253,11 +268,11 @@ export default function MarketingPage() {
       els.forEach((el) => el.classList.add("in"));
     }
 
-    // Signature: Kernel Pop after 3s — anchored in the hero
-    const pop = document.getElementById("kernelPop");
-    const puffs = () => {
-      if (reduce || !pop) return;
-      const r = pop.getBoundingClientRect();
+    // Signature: Kernel Pop — three pieces pop in on seconds 1, 2, 3
+    const popEls = Array.from(document.querySelectorAll<HTMLElement>(".hero-pop"));
+    const puff = (el: HTMLElement) => {
+      if (reduce) return;
+      const r = el.getBoundingClientRect();
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
       for (let i = 0; i < 10; i++) {
@@ -267,37 +282,40 @@ export default function MarketingPage() {
         p.style.left = `${cx}px`;
         p.style.top = `${cy}px`;
         const ang = Math.PI * 2 * (i / 10);
-        const dist = 60 + Math.random() * 55;
+        const dist = 50 + Math.random() * 45;
         p.animate(
           [
             { transform: "translate(-50%,-50%) scale(1)", opacity: 1 },
             {
               transform: `translate(calc(-50% + ${Math.cos(ang) * dist}px), calc(-50% + ${
-                Math.sin(ang) * dist - 20
+                Math.sin(ang) * dist - 18
               }px)) scale(0)`,
               opacity: 0,
             },
           ],
-          { duration: 700 + Math.random() * 250, easing: "cubic-bezier(.2,.7,.3,1)" }
+          { duration: 650 + Math.random() * 250, easing: "cubic-bezier(.2,.7,.3,1)" }
         );
-        window.setTimeout(() => p.remove(), 1000);
+        window.setTimeout(() => p.remove(), 950);
       }
     };
 
-    let timer: number | undefined;
-    const onEnd = () => pop?.classList.add("settled");
-    if (pop) {
-      pop.addEventListener("animationend", onEnd, { once: true });
-      timer = window.setTimeout(() => {
-        pop.classList.add("pop");
-        puffs();
-      }, 3000);
-    }
+    const timers: number[] = [];
+    const handlers: Array<[HTMLElement, () => void]> = [];
+    popEls.forEach((el, i) => {
+      const onEnd = () => el.classList.add("settled");
+      el.addEventListener("animationend", onEnd, { once: true });
+      handlers.push([el, onEnd]);
+      const t = window.setTimeout(() => {
+        el.classList.add("pop");
+        puff(el);
+      }, (i + 1) * 1000);
+      timers.push(t);
+    });
 
     return () => {
       io?.disconnect();
-      if (timer) clearTimeout(timer);
-      if (pop) pop.removeEventListener("animationend", onEnd);
+      timers.forEach((t) => clearTimeout(t));
+      handlers.forEach(([el, h]) => el.removeEventListener("animationend", h));
     };
   }, []);
 
@@ -315,7 +333,7 @@ export default function MarketingPage() {
             <a className="lnk" href="#problem">The Problem</a>
             <a className="lnk" href="#ecosystem">Features</a>
             <a className="lnk" href="#pricing">Pricing</a>
-            <Link className="lnk" href="/login">Log in</Link>
+            <Link className="nav-cta nav-cta-gold" href="/login">Log in</Link>
             <Link className="nav-cta" href="/signup">Start popping →</Link>
           </nav>
         </div>
@@ -343,7 +361,11 @@ export default function MarketingPage() {
           {/* CSS UI mockup + popcorn (three floating elements) */}
           <div className="mock" aria-hidden="true">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="hero-pop" id="kernelPop" src="/popcorn.png" alt="" />
+            <img className="hero-pop pop-a" src="/popcorn.png" alt="" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="hero-pop pop-b" src="/popcorn.png" alt="" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="hero-pop pop-c" src="/popcorn.png" alt="" />
             <div className="mock-card">
               <div className="mock-top">
                 <span className="t">Batch #KS-0042</span>
@@ -427,7 +449,8 @@ export default function MarketingPage() {
         <div className="wrap weare weare-grid">
           <div className="reveal">
             <blockquote>
-              I didn&apos;t build this in an office. I built it in my own <b>factory.</b>
+              I didn&apos;t build this in an office.<br />
+              <span className="bq-gold">I built it in my own factory.</span>
             </blockquote>
             <div className="side">
               <p>
@@ -454,23 +477,39 @@ export default function MarketingPage() {
       <section className="pricing" id="pricing">
         <div className="wrap">
           <div className="sec-head center reveal">
-            <p className="eyebrow">No tiers. No traps.</p>
-            <h2 className="serif">One price. No exceptions.</h2>
+            <p className="eyebrow">Pricing</p>
+            <h2 className="serif price-headline">£149 a month. <span className="italic">Everything included.</span></h2>
+            <p className="lead">Every feature. Unlimited users. No surprises.</p>
           </div>
-          <div className="price-card reveal d1">
-            <div className="glow" aria-hidden="true" />
-            <div className="rel">
-              <p className="lead">Everything included</p>
-              <div className="price-tag">£149<span> / month</span></div>
-              <ul className="price-list">
-                <li>Every feature included</li>
-                <li>Unlimited users — no per-seat charges</li>
-                <li>No setup fees</li>
-                <li>Cancel anytime</li>
+          <div className="vs-grid reveal d1">
+            <div className="vs-card vs-without">
+              <p className="vs-eyebrow">Without Kernel</p>
+              <ul className="vs-list">
+                <li><span className="vs-mark no">✗</span>Audit prep takes days, not minutes</li>
+                <li><span className="vs-mark no">✗</span>Traceability means searching through folders</li>
+                <li><span className="vs-mark no">✗</span>More products means more admin</li>
+                <li><span className="vs-mark no">✗</span>Compliance software costs £300–500/month</li>
+                <li><span className="vs-mark no">✗</span>SOPs live in folders no one can find</li>
+                <li><span className="vs-mark no">✗</span>Multiple tools, multiple logins, multiple bills</li>
+                <li><span className="vs-mark no">✗</span>Built on effort, not infrastructure</li>
               </ul>
-              <div><Link className="btn" href="/signup">Start your free trial →</Link></div>
-              <p className="price-foot"><b>Kernel EHO</b> &amp; <b>Kernel BRC</b> — coming soon.</p>
             </div>
+            <div className="vs-card vs-with">
+              <p className="vs-eyebrow">With Kernel</p>
+              <ul className="vs-list">
+                <li><span className="vs-mark yes">✓</span>Audit-ready records, always up to date</li>
+                <li><span className="vs-mark yes">✓</span>Full traceability in seconds, not hours</li>
+                <li><span className="vs-mark yes">✓</span>Scales with your product range automatically</li>
+                <li><span className="vs-mark yes">✓</span>SOPs &amp; training records, always accessible</li>
+                <li><span className="vs-mark yes">✓</span>£149/month — a fraction of the alternative</li>
+                <li><span className="vs-mark yes">✓</span>Everything in one place, one login</li>
+                <li><span className="vs-mark yes">✓</span>Built for growing food businesses like yours</li>
+              </ul>
+            </div>
+          </div>
+          <div className="pricing-cta reveal">
+            <Link className="btn" href="/signup">Start your free trial →</Link>
+            <p className="price-foot"><b>Kernel EHO</b> &amp; <b>Kernel BRC</b> — coming soon.</p>
           </div>
         </div>
       </section>
