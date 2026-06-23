@@ -215,8 +215,8 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 .si-desc{font-size:14px;color:var(--muted);line-height:1.4;max-height:0;overflow:hidden;opacity:0;transition:opacity .3s ease;}
 .switch-item.on .si-desc{max-height:52px;opacity:1;}
 .switch-preview{position:relative;min-height:430px;}
-.sp-card{position:absolute;inset:0;background:var(--white);border:1px solid rgba(58,53,32,.1);border-radius:24px;
-  box-shadow:0 40px 80px -40px rgba(58,53,32,.5);padding:32px;opacity:0;transform:translateY(14px) scale(.99);
+.sp-card{position:absolute;inset:0;background:var(--white);border:1px solid rgba(58,53,32,.12);border-radius:22px;
+  box-shadow:0 40px 80px -40px rgba(58,53,32,.5);overflow:hidden;opacity:0;transform:translateY(14px) scale(.99);
   transition:opacity .45s ease,transform .45s cubic-bezier(.2,.8,.2,1);pointer-events:none;}
 .sp-card.on{opacity:1;transform:none;pointer-events:auto;}
 /* preview internals */
@@ -250,6 +250,26 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 .pv-person b{font-size:16px;color:var(--ink);}
 .pv-person small{display:block;color:var(--muted);font-size:13px;}
 .pv-note{margin-top:8px;color:var(--muted);font-size:13px;}
+/* realistic Kernel app-window frame around each preview */
+.appwin{display:grid;grid-template-columns:152px 1fr;height:100%;}
+.aw-side{background:var(--cream);border-right:1px solid rgba(58,53,32,.12);padding:13px 9px;display:flex;flex-direction:column;gap:1px;overflow:hidden;}
+.aw-logo{display:flex;align-items:center;gap:6px;padding:1px 5px 12px;}
+.aw-logo img{height:20px;width:auto;}
+.aw-logo span{font-family:var(--serif);font-size:21px;color:var(--ink);line-height:1;}
+.aw-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);padding:7px 9px;border-radius:7px;font-weight:700;white-space:nowrap;}
+.aw-row.on{background:var(--gold);}
+.aw-row svg{width:15px;height:15px;flex:none;}
+.aw-sec{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);padding:9px 9px 5px;font-weight:700;white-space:nowrap;}
+.aw-sec svg{width:15px;height:15px;flex:none;}
+.aw-sub{margin-left:9px;border-left:1px solid rgba(58,53,32,.2);padding-left:8px;display:flex;flex-direction:column;gap:1px;}
+.aw-item{font-size:12.5px;color:var(--ink);padding:6px 9px;border-radius:6px;font-weight:500;white-space:nowrap;}
+.aw-item.on{background:var(--gold);font-weight:700;}
+.aw-main{display:flex;flex-direction:column;min-width:0;background:var(--white);}
+.aw-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 18px;border-bottom:1px solid rgba(58,53,32,.1);}
+.aw-title{font-family:var(--serif);font-size:21px;color:var(--ink);line-height:1;}
+.aw-user{width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--gold);display:grid;place-items:center;font-weight:700;font-size:12px;flex:none;}
+.aw-body{padding:18px 20px;flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;overflow:hidden;}
+@media(max-width:860px){.appwin{grid-template-columns:1fr;}.aw-side{display:none;}}
 @media(max-width:860px){
   .switch{grid-template-columns:1fr;gap:18px;}
   .switch-preview{display:none;}
@@ -344,6 +364,51 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 }
 `;
 
+const NAV_ICON = {
+  home: "M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25",
+  box: "M7 20C5 17 9 14 7 12C5 10 9 7 7 4M12 20C10 17 14 14 12 12C10 10 14 7 12 4M17 20C15 17 19 14 17 12C15 10 19 7 17 4",
+  clipboard: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
+};
+
+function NavIcon({ d }: { d: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
+  );
+}
+
+function AppFrame({ active, title, children }: { active: string; title: string; children: ReactNode }) {
+  const item = (label: string) => "aw-item" + (active === label ? " on" : "");
+  return (
+    <div className="appwin">
+      <aside className="aw-side">
+        <div className="aw-logo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/popcorn.png" alt="" /><span>Kernel</span>
+        </div>
+        <div className={"aw-row" + (active === "Dashboard" ? " on" : "")}><NavIcon d={NAV_ICON.home} />Dashboard</div>
+        <div className="aw-sec"><NavIcon d={NAV_ICON.box} />Production</div>
+        <div className="aw-sub">
+          <div className={item("Finished Goods")}>Finished Goods</div>
+        </div>
+        <div className="aw-sec"><NavIcon d={NAV_ICON.clipboard} />Compliance</div>
+        <div className="aw-sub">
+          <div className={item("Submissions")}>Submissions</div>
+          <div className={item("Raw Materials")}>Raw Materials</div>
+          <div className={item("Suppliers")}>Suppliers</div>
+          <div className={item("Traceability")}>Traceability</div>
+          <div className={item("Training")}>Training</div>
+        </div>
+      </aside>
+      <div className="aw-main">
+        <div className="aw-top"><span className="aw-title">{title}</span><span className="aw-user">YK</span></div>
+        <div className="aw-body">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 type Feature = { icon: string; title: string; desc: string; preview: ReactNode };
 
 const FEATURES: Feature[] = [
@@ -352,16 +417,16 @@ const FEATURES: Feature[] = [
     title: "Digital batch records",
     desc: "Log every production run as it happens.",
     preview: (
-      <div className="pv">
-        <div className="pv-top"><span className="pv-ttl">Batch #POP-001</span><span className="pv-pill ok">Fully Popped ✅</span></div>
-        <div className="pv-row"><span>Product</span><b>Sichuan Pepper Popcorn</b></div>
+      <AppFrame active="Finished Goods" title="Finished Goods">
+        <div className="pv-row"><span>Batch</span><b>#POP-001 · Sichuan Pepper Popcorn</b></div>
         <div className="pv-row"><span>Operator</span><b>Kernel Sanders</b></div>
         <div className="pv-row"><span>Units produced</span><b>1,500 bags</b></div>
+        <div className="pv-row"><span>Status</span><b><span className="pv-pill ok">Fully Popped ✅</span></b></div>
         <div className="pv-progress">
           <div className="pv-progress-top"><span>Record complete</span><span className="pv-pct">92%</span></div>
           <div className="pv-track"><i style={{ width: "92%" }} /></div>
         </div>
-      </div>
+      </AppFrame>
     ),
   },
   {
@@ -369,13 +434,12 @@ const FEATURES: Feature[] = [
     title: "Live inventory",
     desc: "Stock deducts itself as you produce.",
     preview: (
-      <div className="pv">
-        <div className="pv-top"><span className="pv-ttl">Live stock</span><span className="pv-pill">auto-updating</span></div>
+      <AppFrame active="Raw Materials" title="Raw materials">
         <div className="pv-stock"><span>Popcorn kernels</span><div className="pv-track"><i style={{ width: "74%" }} /></div><b>48 kg</b></div>
         <div className="pv-stock"><span>Sichuan pepper</span><div className="pv-track"><i style={{ width: "52%" }} /></div><b>12.4 kg</b></div>
         <div className="pv-stock"><span>Kraft bags</span><div className="pv-track"><i style={{ width: "63%" }} /></div><b>3,200</b></div>
         <div className="pv-stock"><span>Labels</span><div className="pv-track"><i style={{ width: "29%" }} /></div><b>2,750</b></div>
-      </div>
+      </AppFrame>
     ),
   },
   {
@@ -383,8 +447,7 @@ const FEATURES: Feature[] = [
     title: "Full traceability",
     desc: "Ingredient to shelf in one click.",
     preview: (
-      <div className="pv">
-        <div className="pv-top"><span className="pv-ttl">Trace #POP-001</span><span className="pv-pill">one click</span></div>
+      <AppFrame active="Traceability" title="Traceability">
         <div className="pv-flow">
           <div className="pv-node">Supplier<small>Pepper Co. · cert on file</small></div>
           <span className="pv-arrow" aria-hidden="true">↓</span>
@@ -392,7 +455,7 @@ const FEATURES: Feature[] = [
           <span className="pv-arrow" aria-hidden="true">↓</span>
           <div className="pv-node">Dispatched<small>480 bags → Tesco</small></div>
         </div>
-      </div>
+      </AppFrame>
     ),
   },
   {
@@ -400,13 +463,12 @@ const FEATURES: Feature[] = [
     title: "Supplier management",
     desc: "Approved suppliers, specs and certs in one place.",
     preview: (
-      <div className="pv">
-        <div className="pv-top"><span className="pv-ttl">Approved suppliers</span><span className="pv-pill ok">All current</span></div>
+      <AppFrame active="Suppliers" title="Suppliers">
         <div className="pv-doc"><span>Pepper Co. — Sichuan pepper</span><span className="pv-tick">✓</span></div>
         <div className="pv-doc"><span>Maize Mills — popcorn kernels</span><span className="pv-tick">✓</span></div>
         <div className="pv-doc"><span>KraftPack — bags &amp; labels</span><span className="pv-tick">✓</span></div>
         <div className="pv-note">Specs &amp; certificates stored against every supplier.</div>
-      </div>
+      </AppFrame>
     ),
   },
   {
@@ -414,13 +476,12 @@ const FEATURES: Feature[] = [
     title: "Audit-ready reports",
     desc: "Export what your auditor wants, before they ask.",
     preview: (
-      <div className="pv">
-        <div className="pv-top"><span className="pv-ttl">SALSA evidence pack</span><span className="pv-pill ok">Ready</span></div>
+      <AppFrame active="Submissions" title="Evidence pack">
         <div className="pv-doc"><span>Traceability report</span><span className="pv-tick">✓</span></div>
         <div className="pv-doc"><span>Production records</span><span className="pv-tick">✓</span></div>
         <div className="pv-doc"><span>Cleaning &amp; CCP logs</span><span className="pv-tick">✓</span></div>
         <div className="pv-btn">Export PDF →</div>
-      </div>
+      </AppFrame>
     ),
   },
   {
@@ -428,13 +489,12 @@ const FEATURES: Feature[] = [
     title: "Staff training portal",
     desc: "Train your team and record every sign-off.",
     preview: (
-      <div className="pv">
-        <div className="pv-top"><span className="pv-ttl">Staff training</span><span className="pv-pill ok">92% complete</span></div>
+      <AppFrame active="Training" title="Training">
         <div className="pv-stock"><span>Kernel Sanders</span><div className="pv-track"><i style={{ width: "100%" }} /></div><b>Done</b></div>
         <div className="pv-stock"><span>Kernel Mustard</span><div className="pv-track"><i style={{ width: "100%" }} /></div><b>Done</b></div>
         <div className="pv-stock"><span>New starter</span><div className="pv-track"><i style={{ width: "40%" }} /></div><b>40%</b></div>
         <div className="pv-note">Assign modules, track completion, store sign-offs.</div>
-      </div>
+      </AppFrame>
     ),
   },
   {
@@ -442,13 +502,12 @@ const FEATURES: Feature[] = [
     title: "SALSA-ready checklists",
     desc: "Checks mapped to the standard you're audited on.",
     preview: (
-      <div className="pv">
-        <div className="pv-top"><span className="pv-ttl">SALSA checklist</span><span className="pv-pill ok">On track</span></div>
+      <AppFrame active="Submissions" title="SALSA checklist">
         <div className="pv-check"><span className="pv-tick">✓</span>Traceability records</div>
         <div className="pv-check"><span className="pv-tick">✓</span>HACCP &amp; CCP logs</div>
         <div className="pv-check"><span className="pv-tick">✓</span>Approved supplier list</div>
         <div className="pv-check"><span className="pv-tick">✓</span>Cleaning schedules</div>
-      </div>
+      </AppFrame>
     ),
   },
 ];
