@@ -82,7 +82,7 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 .sec-head .lead{color:var(--muted);font-size:21px;margin-top:18px;}
 
 /* ---------- hero ---------- */
-.hero{min-height:100vh;display:flex;align-items:center;padding:110px 0 80px;overflow:hidden;}
+.kpage .hero{min-height:80vh;display:flex;align-items:center;padding:64px 0 76px;overflow:hidden;}
 .hero-glow{position:absolute;top:-220px;right:-160px;width:760px;height:760px;border-radius:50%;
   background:radial-gradient(circle,rgba(245,198,90,.5),rgba(245,198,90,0) 62%);filter:blur(10px);pointer-events:none;}
 .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:64px;align-items:center;position:relative;z-index:2;}
@@ -362,8 +362,8 @@ export default function MarketingPage() {
               Stop being a kernel. <span className="italic">Start being popcorn.</span>
             </h1>
             <p className="sub">
-              The <b>only</b> app built for SALSA food manufacturers. Production records, live
-              inventory, full traceability. <b>One system.</b>
+              The first <b>all-in-one</b> app built specifically for SALSA manufacturers. Not just
+              your compliance partner, <b>your operations too.</b>
             </p>
             <div className="hero-cta">
               <Link className="btn" href="/signup">Start popping →</Link>
@@ -530,7 +530,7 @@ export default function MarketingPage() {
       <footer>
         <div className="wrap">
           <div className="logo">Kern<b>el</b></div>
-          <p>Built in a kitchen by Yep Kitchen · SALSA accredited · kernelapp.co.uk</p>
+          <p>Kernel App, by Popped Limited</p>
           <p className="footer-links">
             <Link href="/login">Log in</Link> · <Link href="/privacy">Privacy</Link> ·{" "}
             <Link href="/terms">Terms</Link>
