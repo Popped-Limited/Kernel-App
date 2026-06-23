@@ -261,6 +261,8 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 .aw-row svg{width:15px;height:15px;flex:none;}
 .aw-sec{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);padding:9px 9px 5px;font-weight:700;white-space:nowrap;}
 .aw-sec svg{width:15px;height:15px;flex:none;}
+.aw-sec .aw-chev{width:12px;height:12px;margin-left:auto;opacity:.5;transition:transform .2s;}
+.aw-chev.open{transform:rotate(180deg);}
 .aw-sub{margin-left:9px;border-left:1px solid rgba(58,53,32,.2);padding-left:8px;display:flex;flex-direction:column;gap:1px;}
 .aw-item{font-size:12.5px;color:var(--ink);padding:6px 9px;border-radius:6px;font-weight:500;white-space:nowrap;}
 .aw-item.on{background:var(--gold);font-weight:700;}
@@ -368,12 +370,22 @@ const NAV_ICON = {
   home: "M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25",
   box: "M7 20C5 17 9 14 7 12C5 10 9 7 7 4M12 20C10 17 14 14 12 12C10 10 14 7 12 4M17 20C15 17 19 14 17 12C15 10 19 7 17 4",
   clipboard: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
+  squares: "M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z",
+  card: "M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z",
 };
 
 function NavIcon({ d }: { d: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d={d} />
+    </svg>
+  );
+}
+
+function Chev({ open }: { open?: boolean }) {
+  return (
+    <svg className={"aw-chev" + (open ? " open" : "")} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M4 6l4 4 4-4" />
     </svg>
   );
 }
@@ -388,11 +400,11 @@ function AppFrame({ active, title, children }: { active: string; title: string; 
           <img src="/popcorn.png" alt="" /><span>Kernel</span>
         </div>
         <div className={"aw-row" + (active === "Dashboard" ? " on" : "")}><NavIcon d={NAV_ICON.home} />Dashboard</div>
-        <div className="aw-sec"><NavIcon d={NAV_ICON.box} />Production</div>
+        <div className="aw-sec"><NavIcon d={NAV_ICON.box} />Production<Chev open /></div>
         <div className="aw-sub">
           <div className={item("Finished Goods")}>Finished Goods</div>
         </div>
-        <div className="aw-sec"><NavIcon d={NAV_ICON.clipboard} />Compliance</div>
+        <div className="aw-sec"><NavIcon d={NAV_ICON.clipboard} />Compliance<Chev open /></div>
         <div className="aw-sub">
           <div className={item("Submissions")}>Submissions</div>
           <div className={item("Raw Materials")}>Raw Materials</div>
@@ -400,6 +412,8 @@ function AppFrame({ active, title, children }: { active: string; title: string; 
           <div className={item("Traceability")}>Traceability</div>
           <div className={item("Training")}>Training</div>
         </div>
+        <div className="aw-sec"><NavIcon d={NAV_ICON.squares} />Admin<Chev /></div>
+        <div className="aw-sec"><NavIcon d={NAV_ICON.card} />Account<Chev /></div>
       </aside>
       <div className="aw-main">
         <div className="aw-top"><span className="aw-title">{title}</span><span className="aw-user">YK</span></div>
