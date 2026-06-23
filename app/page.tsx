@@ -212,7 +212,7 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 .si-ico{font-size:23px;line-height:1.25;}
 .si-text{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .si-title{font-family:var(--serif);font-size:23px;color:var(--ink);line-height:1.1;}
-.si-desc{font-size:14px;color:var(--muted);line-height:1.4;max-height:0;overflow:hidden;opacity:0;transition:max-height .3s ease,opacity .3s ease;}
+.si-desc{font-size:14px;color:var(--muted);line-height:1.4;max-height:0;overflow:hidden;opacity:0;transition:opacity .3s ease;}
 .switch-item.on .si-desc{max-height:52px;opacity:1;}
 .switch-preview{position:relative;min-height:430px;}
 .sp-card{position:absolute;inset:0;background:var(--white);border:1px solid rgba(58,53,32,.1);border-radius:24px;
@@ -252,7 +252,7 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 .pv-note{margin-top:8px;color:var(--muted);font-size:13px;}
 @media(max-width:860px){
   .switch{grid-template-columns:1fr;gap:18px;}
-  .switch-preview{min-height:380px;order:2;}
+  .switch-preview{display:none;}
   .si-desc{max-height:52px;opacity:1;}
 }
 
