@@ -182,15 +182,21 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 .replace-item{font-family:var(--serif);font-size:clamp(23px,2.5vw,33px);line-height:1.2;padding:13px 0;color:var(--ivory);}
 .replace-item span{position:relative;display:inline-block;transition:opacity .45s ease .3s;}
 .replace-item span::after{content:"";position:absolute;left:-2px;top:56%;height:3px;width:0;
-  background:var(--gold);border-radius:3px;transition:width .55s cubic-bezier(.2,.8,.2,1);}
-.replace-list.in .replace-item span{opacity:.42;}
+  background:var(--gold);border-radius:3px;transition:width 1s cubic-bezier(.45,.05,.3,1);}
+.replace-list.in .replace-item span{opacity:.42;transition-delay:.7s;}
 .replace-list.in .replace-item span::after{width:calc(100% + 4px);}
-.replace-list.in .replace-item:nth-child(1) span::after{transition-delay:.05s;}
-.replace-list.in .replace-item:nth-child(2) span::after{transition-delay:.14s;}
-.replace-list.in .replace-item:nth-child(3) span::after{transition-delay:.23s;}
-.replace-list.in .replace-item:nth-child(4) span::after{transition-delay:.32s;}
-.replace-list.in .replace-item:nth-child(5) span::after{transition-delay:.41s;}
-.replace-list.in .replace-item:nth-child(6) span::after{transition-delay:.5s;}
+.replace-list.in .replace-item:nth-child(1) span::after{transition-delay:.1s;}
+.replace-list.in .replace-item:nth-child(2) span::after{transition-delay:.55s;}
+.replace-list.in .replace-item:nth-child(3) span::after{transition-delay:1s;}
+.replace-list.in .replace-item:nth-child(4) span::after{transition-delay:1.45s;}
+.replace-list.in .replace-item:nth-child(5) span::after{transition-delay:1.9s;}
+.replace-list.in .replace-item:nth-child(6) span::after{transition-delay:2.35s;}
+.replace-list.in .replace-item:nth-child(1) span{transition-delay:.7s;}
+.replace-list.in .replace-item:nth-child(2) span{transition-delay:1.15s;}
+.replace-list.in .replace-item:nth-child(3) span{transition-delay:1.6s;}
+.replace-list.in .replace-item:nth-child(4) span{transition-delay:2.05s;}
+.replace-list.in .replace-item:nth-child(5) span{transition-delay:2.5s;}
+.replace-list.in .replace-item:nth-child(6) span{transition-delay:2.95s;}
 @media(max-width:860px){.problem-grid{grid-template-columns:1fr;gap:40px;}.problem-lead{max-width:none;}}
 
 /* ===== With Kernel — interactive feature switcher ===== */
@@ -433,8 +439,8 @@ const FEATURES: Feature[] = [
   },
   {
     icon: "✅",
-    title: "Built for SALSA",
-    desc: "Mapped to the standard you're audited on.",
+    title: "SALSA-ready checklists",
+    desc: "Checks mapped to the standard you're audited on.",
     preview: (
       <div className="pv">
         <div className="pv-top"><span className="pv-ttl">SALSA checklist</span><span className="pv-pill ok">On track</span></div>
