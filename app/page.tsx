@@ -338,17 +338,15 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 .pop-puff{position:fixed;width:9px;height:9px;border-radius:50%;
   background:var(--gold);z-index:8999;pointer-events:none;}
 
-/* ---------- mobile: swipeable card carousels ---------- */
+/* ---------- mobile tightening ---------- */
 @media(max-width:768px){
-  .vs-grid{
-    display:flex;grid-template-columns:none;
-    overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
-    gap:16px;margin-left:-28px;margin-right:-28px;padding:6px 28px 20px;
-    scrollbar-width:none;
-  }
-  .vs-grid::-webkit-scrollbar{display:none;}
-  .vs-grid>*{flex:0 0 84%;scroll-snap-align:center;}
-  .vs-card{padding:34px 26px;}
+  /* less dead space between sections on small screens */
+  .kpage section{padding:76px 0;}
+  /* pricing: clean full-width stacked cards instead of a narrow carousel */
+  .vs-grid{grid-template-columns:1fr;gap:16px;margin-top:38px;}
+  .vs-card{padding:26px 22px;animation:none;}
+  .vs-eyebrow{margin:0 0 16px;}
+  .vs-list li{padding:9px 0;font-size:15.5px;}
 }
 
 @media(prefers-reduced-motion:reduce){
