@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 
 const css = `
@@ -174,6 +174,82 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 @media(max-width:1000px){.feat-grid{grid-template-columns:repeat(2,1fr);}}
 @media(max-width:560px){.feat-grid{grid-template-columns:1fr;}}
 
+/* ===== Before Kernel — "replaces all this" struck list ===== */
+.problem-grid{display:grid;grid-template-columns:1fr 1fr;gap:72px;align-items:center;}
+.problem-head{font-size:clamp(34px,4vw,56px)!important;line-height:1.05;}
+.problem-lead{margin:22px 0 0;color:#cfc7b2;font-size:19px;line-height:1.55;max-width:34ch;}
+.replace-list{list-style:none;margin:0;padding:0;}
+.replace-item{font-family:var(--serif);font-size:clamp(23px,2.5vw,33px);line-height:1.2;padding:13px 0;color:var(--ivory);}
+.replace-item span{position:relative;display:inline-block;transition:opacity .45s ease .3s;}
+.replace-item span::after{content:"";position:absolute;left:-2px;top:56%;height:3px;width:0;
+  background:var(--gold);border-radius:3px;transition:width .55s cubic-bezier(.2,.8,.2,1);}
+.replace-list.in .replace-item span{opacity:.42;}
+.replace-list.in .replace-item span::after{width:calc(100% + 4px);}
+.replace-list.in .replace-item:nth-child(1) span::after{transition-delay:.05s;}
+.replace-list.in .replace-item:nth-child(2) span::after{transition-delay:.14s;}
+.replace-list.in .replace-item:nth-child(3) span::after{transition-delay:.23s;}
+.replace-list.in .replace-item:nth-child(4) span::after{transition-delay:.32s;}
+.replace-list.in .replace-item:nth-child(5) span::after{transition-delay:.41s;}
+.replace-list.in .replace-item:nth-child(6) span::after{transition-delay:.5s;}
+@media(max-width:860px){.problem-grid{grid-template-columns:1fr;gap:40px;}.problem-lead{max-width:none;}}
+
+/* ===== With Kernel — interactive feature switcher ===== */
+.switch{display:grid;grid-template-columns:.82fr 1.18fr;gap:36px;margin-top:56px;align-items:stretch;}
+.switch-list{display:flex;flex-direction:column;gap:4px;}
+.switch-item{display:flex;gap:16px;align-items:flex-start;text-align:left;cursor:pointer;width:100%;
+  background:transparent;border:none;border-radius:16px;padding:17px 20px;position:relative;font-family:var(--sans);
+  transition:background .25s;}
+.switch-item::before{content:"";position:absolute;left:0;top:15px;bottom:15px;width:3px;border-radius:3px;background:transparent;transition:background .25s;}
+.switch-item:hover{background:rgba(201,162,74,.08);}
+.switch-item.on{background:var(--cream);}
+.switch-item.on::before{background:var(--gold);}
+.si-ico{font-size:23px;line-height:1.25;}
+.si-text{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.si-title{font-family:var(--serif);font-size:23px;color:var(--ink);line-height:1.1;}
+.si-desc{font-size:14px;color:var(--muted);line-height:1.4;max-height:0;overflow:hidden;opacity:0;transition:max-height .3s ease,opacity .3s ease;}
+.switch-item.on .si-desc{max-height:52px;opacity:1;}
+.switch-preview{position:relative;min-height:430px;}
+.sp-card{position:absolute;inset:0;background:var(--white);border:1px solid rgba(58,53,32,.1);border-radius:24px;
+  box-shadow:0 40px 80px -40px rgba(58,53,32,.5);padding:32px;opacity:0;transform:translateY(14px) scale(.99);
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.8,.2,1);pointer-events:none;}
+.sp-card.on{opacity:1;transform:none;pointer-events:auto;}
+/* preview internals */
+.pv{display:flex;flex-direction:column;gap:13px;height:100%;}
+.pv-top{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.pv-ttl{font-family:var(--serif);font-size:25px;}
+.pv-pill{font-weight:700;font-size:11px;letter-spacing:.04em;padding:6px 12px;border-radius:999px;background:var(--cream);color:var(--muted);text-transform:uppercase;white-space:nowrap;}
+.pv-pill.ok{background:#e7f0d8;color:#3f5e1d;}
+.pv-row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:11px 0;border-bottom:1px dashed rgba(58,53,32,.14);font-size:15px;color:var(--muted);}
+.pv-row b{color:var(--ink);text-align:right;}
+.pv-progress{margin-top:auto;}
+.pv-progress-top{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-bottom:8px;}
+.pv-pct{color:var(--gold-dark);font-weight:700;}
+.pv-track{height:10px;border-radius:999px;background:var(--cream);overflow:hidden;}
+.pv-track i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-dark));border-radius:999px;}
+.pv-stock{display:grid;grid-template-columns:1.1fr 1fr auto;gap:14px;align-items:center;padding:9px 0;font-size:15px;}
+.pv-stock span{color:var(--muted);}
+.pv-stock b{color:var(--ink);text-align:right;min-width:58px;}
+.pv-flow{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;height:100%;}
+.pv-node{width:100%;max-width:340px;text-align:center;background:var(--cream);border-radius:14px;padding:15px;font-weight:700;color:var(--ink);font-size:16px;}
+.pv-node small{display:block;font-weight:500;color:var(--muted);font-size:13px;margin-top:3px;}
+.pv-arrow{color:var(--gold-dark);font-size:20px;font-weight:800;}
+.pv-doc{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 0;border-bottom:1px dashed rgba(58,53,32,.14);font-size:15px;color:var(--ink);}
+.pv-tick{width:22px;height:22px;border-radius:50%;background:#e7f0d8;color:#3f5e1d;display:grid;place-items:center;font-size:12px;font-weight:800;flex:none;}
+.pv-check{display:flex;align-items:center;gap:13px;padding:11px 0;font-size:16px;color:var(--ink);}
+.pv-btn{margin-top:auto;align-self:flex-start;background:var(--gold);color:var(--ink);font-weight:700;padding:12px 22px;border-radius:10px;font-size:15px;}
+.pv-people{display:flex;flex-direction:column;gap:14px;justify-content:center;height:100%;}
+.pv-person{display:flex;align-items:center;gap:14px;}
+.pv-av{width:44px;height:44px;border-radius:50%;background:var(--ink);color:var(--gold);display:grid;place-items:center;font-weight:700;font-size:14px;flex:none;}
+.pv-av.plus{background:var(--cream);color:var(--gold-dark);font-size:22px;}
+.pv-person b{font-size:16px;color:var(--ink);}
+.pv-person small{display:block;color:var(--muted);font-size:13px;}
+.pv-note{margin-top:8px;color:var(--muted);font-size:13px;}
+@media(max-width:860px){
+  .switch{grid-template-columns:1fr;gap:18px;}
+  .switch-preview{min-height:380px;order:2;}
+  .si-desc{max-height:52px;opacity:1;}
+}
+
 /* ---------- we are you ---------- */
 .weare-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:64px;align-items:center;}
 .weare blockquote{margin:0 0 30px;font-family:var(--serif);font-size:clamp(34px,4.6vw,56px);line-height:1.08;}
@@ -236,14 +312,14 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
 
 /* ---------- mobile: swipeable card carousels ---------- */
 @media(max-width:768px){
-  .pain-grid,.feat-grid,.vs-grid{
+  .vs-grid{
     display:flex;grid-template-columns:none;
     overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
     gap:16px;margin-left:-28px;margin-right:-28px;padding:6px 28px 20px;
     scrollbar-width:none;
   }
-  .pain-grid::-webkit-scrollbar,.feat-grid::-webkit-scrollbar,.vs-grid::-webkit-scrollbar{display:none;}
-  .pain-grid>*,.feat-grid>*,.vs-grid>*{flex:0 0 84%;scroll-snap-align:center;}
+  .vs-grid::-webkit-scrollbar{display:none;}
+  .vs-grid>*{flex:0 0 84%;scroll-snap-align:center;}
   .vs-card{padding:34px 26px;}
 }
 
@@ -254,10 +330,126 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
   .mock-card,.mock-chip,.photo-card,.vs-card{animation:none!important;}
   .hero-pop{opacity:1!important;transform:none!important;animation:none!important;}
   .pop-puff{display:none!important;}
+  /* struck list: show struck state without animating */
+  .replace-item span::after{transition:none!important;width:calc(100% + 4px)!important;}
+  .replace-item span{opacity:.42!important;transition:none!important;}
+  /* feature switcher: no crossfade transition */
+  .sp-card{transition:none!important;}
 }
 `;
 
+type Feature = { icon: string; title: string; desc: string; preview: ReactNode };
+
+const FEATURES: Feature[] = [
+  {
+    icon: "📝",
+    title: "Digital batch records",
+    desc: "Log every production run as it happens.",
+    preview: (
+      <div className="pv">
+        <div className="pv-top"><span className="pv-ttl">Batch #POP-001</span><span className="pv-pill ok">Fully Popped ✅</span></div>
+        <div className="pv-row"><span>Product</span><b>Sichuan Pepper Popcorn</b></div>
+        <div className="pv-row"><span>Operator</span><b>Kernel Sanders</b></div>
+        <div className="pv-row"><span>Units produced</span><b>1,500 bags</b></div>
+        <div className="pv-progress">
+          <div className="pv-progress-top"><span>Record complete</span><span className="pv-pct">92%</span></div>
+          <div className="pv-track"><i style={{ width: "92%" }} /></div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    icon: "📦",
+    title: "Live inventory",
+    desc: "Stock deducts itself as you produce.",
+    preview: (
+      <div className="pv">
+        <div className="pv-top"><span className="pv-ttl">Live stock</span><span className="pv-pill">auto-updating</span></div>
+        <div className="pv-stock"><span>Popcorn kernels</span><div className="pv-track"><i style={{ width: "74%" }} /></div><b>48 kg</b></div>
+        <div className="pv-stock"><span>Sichuan pepper</span><div className="pv-track"><i style={{ width: "52%" }} /></div><b>12.4 kg</b></div>
+        <div className="pv-stock"><span>Kraft bags</span><div className="pv-track"><i style={{ width: "63%" }} /></div><b>3,200</b></div>
+        <div className="pv-stock"><span>Labels</span><div className="pv-track"><i style={{ width: "29%" }} /></div><b>2,750</b></div>
+      </div>
+    ),
+  },
+  {
+    icon: "🔍",
+    title: "Full traceability",
+    desc: "Ingredient to shelf in one click.",
+    preview: (
+      <div className="pv">
+        <div className="pv-top"><span className="pv-ttl">Trace #POP-001</span><span className="pv-pill">one click</span></div>
+        <div className="pv-flow">
+          <div className="pv-node">Supplier<small>Pepper Co. · cert on file</small></div>
+          <span className="pv-arrow" aria-hidden="true">↓</span>
+          <div className="pv-node">Batch #POP-001<small>1,500 bags produced</small></div>
+          <span className="pv-arrow" aria-hidden="true">↓</span>
+          <div className="pv-node">Dispatched<small>480 bags → Tesco</small></div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    icon: "🚚",
+    title: "Supplier management",
+    desc: "Approved suppliers, specs and certs in one place.",
+    preview: (
+      <div className="pv">
+        <div className="pv-top"><span className="pv-ttl">Approved suppliers</span><span className="pv-pill ok">All current</span></div>
+        <div className="pv-doc"><span>Pepper Co. — Sichuan pepper</span><span className="pv-tick">✓</span></div>
+        <div className="pv-doc"><span>Maize Mills — popcorn kernels</span><span className="pv-tick">✓</span></div>
+        <div className="pv-doc"><span>KraftPack — bags &amp; labels</span><span className="pv-tick">✓</span></div>
+        <div className="pv-note">Specs &amp; certificates stored against every supplier.</div>
+      </div>
+    ),
+  },
+  {
+    icon: "📊",
+    title: "Audit-ready reports",
+    desc: "Export what your auditor wants, before they ask.",
+    preview: (
+      <div className="pv">
+        <div className="pv-top"><span className="pv-ttl">SALSA evidence pack</span><span className="pv-pill ok">Ready</span></div>
+        <div className="pv-doc"><span>Traceability report</span><span className="pv-tick">✓</span></div>
+        <div className="pv-doc"><span>Production records</span><span className="pv-tick">✓</span></div>
+        <div className="pv-doc"><span>Cleaning &amp; CCP logs</span><span className="pv-tick">✓</span></div>
+        <div className="pv-btn">Export PDF →</div>
+      </div>
+    ),
+  },
+  {
+    icon: "🎓",
+    title: "Staff training portal",
+    desc: "Train your team and record every sign-off.",
+    preview: (
+      <div className="pv">
+        <div className="pv-top"><span className="pv-ttl">Staff training</span><span className="pv-pill ok">92% complete</span></div>
+        <div className="pv-stock"><span>Kernel Sanders</span><div className="pv-track"><i style={{ width: "100%" }} /></div><b>Done</b></div>
+        <div className="pv-stock"><span>Kernel Mustard</span><div className="pv-track"><i style={{ width: "100%" }} /></div><b>Done</b></div>
+        <div className="pv-stock"><span>New starter</span><div className="pv-track"><i style={{ width: "40%" }} /></div><b>40%</b></div>
+        <div className="pv-note">Assign modules, track completion, store sign-offs.</div>
+      </div>
+    ),
+  },
+  {
+    icon: "✅",
+    title: "Built for SALSA",
+    desc: "Mapped to the standard you're audited on.",
+    preview: (
+      <div className="pv">
+        <div className="pv-top"><span className="pv-ttl">SALSA checklist</span><span className="pv-pill ok">On track</span></div>
+        <div className="pv-check"><span className="pv-tick">✓</span>Traceability records</div>
+        <div className="pv-check"><span className="pv-tick">✓</span>HACCP &amp; CCP logs</div>
+        <div className="pv-check"><span className="pv-tick">✓</span>Approved supplier list</div>
+        <div className="pv-check"><span className="pv-tick">✓</span>Cleaning schedules</div>
+      </div>
+    ),
+  },
+];
+
 export default function MarketingPage() {
+  const [active, setActive] = useState(0);
+  const paused = useRef(false);
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -330,6 +522,15 @@ export default function MarketingPage() {
       timers.forEach((t) => clearTimeout(t));
       handlers.forEach(([el, h]) => el.removeEventListener("animationend", h));
     };
+  }, []);
+
+  // Feature switcher: gently auto-advance unless the user is interacting
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const id = window.setInterval(() => {
+      if (!paused.current) setActive((a) => (a + 1) % FEATURES.length);
+    }, 3800);
+    return () => clearInterval(id);
   }, []);
 
   return (
@@ -409,28 +610,23 @@ export default function MarketingPage() {
 
       {/* PROBLEM */}
       <section className="problem" id="problem">
-        <div className="wrap">
-          <div className="sec-head reveal">
+        <div className="wrap problem-grid">
+          <div className="reveal">
             <p className="eyebrow">Life before Kernel</p>
-            <h2 className="serif">Compliance shouldn&apos;t feel like a burden.</h2>
+            <h2 className="serif problem-head">Compliance shouldn&apos;t feel like a burden.</h2>
+            <p className="problem-lead">
+              You shouldn&apos;t need five tools and a fat invoice to prove you make safe food.
+              Kernel replaces the lot.
+            </p>
           </div>
-          <div className="pain-grid">
-            <div className="pain reveal">
-              <div className="ico" aria-hidden="true">📋</div>
-              <h3 className="serif">Paper slows you down</h3>
-              <p>Batch sheets in a binder. One coffee spill from a failed audit.</p>
-            </div>
-            <div className="pain reveal d1">
-              <div className="ico" aria-hidden="true">🧮</div>
-              <h3 className="serif">Spreadsheets lack connectivity</h3>
-              <p>Seven tabs only you understand. Stock that&apos;s never quite right.</p>
-            </div>
-            <div className="pain reveal d2">
-              <div className="ico" aria-hidden="true">💸</div>
-              <h3 className="serif">Existing software isn&apos;t made for you</h3>
-              <p>Enterprise prices, enterprise bloat. Built for factories, not makers.</p>
-            </div>
-          </div>
+          <ul className="replace-list reveal">
+            <li className="replace-item"><span>£450/month compliance software</span></li>
+            <li className="replace-item"><span>Spreadsheets for stock &amp; costing</span></li>
+            <li className="replace-item"><span>Paper batch records</span></li>
+            <li className="replace-item"><span>Clipboards &amp; ring binders</span></li>
+            <li className="replace-item"><span>A different login for everything</span></li>
+            <li className="replace-item"><span>Audit-day panic</span></li>
+          </ul>
         </div>
       </section>
 
@@ -442,16 +638,38 @@ export default function MarketingPage() {
             <h2 className="serif eco-title">One app. Everything connected.</h2>
             <p className="lead">Your auditor will actually smile.</p>
           </div>
-          <div className="feat-grid">
-            <div className="feat reveal"><div className="ico" aria-hidden="true">📝</div><h3 className="serif">Digital batch records</h3><p>Log production as it happens. No end-of-day catch-up.</p></div>
-            <div className="feat reveal d1"><div className="ico" aria-hidden="true">📦</div><h3 className="serif">Live inventory tracking</h3><p>Stock updates itself as you produce and dispatch.</p></div>
-            <div className="feat reveal d2"><div className="ico" aria-hidden="true">🔍</div><h3 className="serif">Ingredient traceability</h3><p>Trace any batch back to its raw materials instantly.</p></div>
-            <div className="feat reveal"><div className="ico" aria-hidden="true">🚚</div><h3 className="serif">Supplier management</h3><p>Approved suppliers, specs and certs in one place.</p></div>
-            <div className="feat reveal d1"><div className="ico" aria-hidden="true">📚</div><h3 className="serif">Document library</h3><p>SOPs, policies and records — always audit-ready.</p></div>
-            <div className="feat reveal d2"><div className="ico" aria-hidden="true">📊</div><h3 className="serif">Audit-ready reports</h3><p>Export what your auditor wants, before they ask.</p></div>
-            <div className="feat reveal"><div className="ico" aria-hidden="true">👥</div><h3 className="serif">Unlimited team access</h3><p>Add your whole kitchen. We don&apos;t charge per head.</p></div>
-            <div className="feat reveal d1"><div className="ico" aria-hidden="true">🎓</div><h3 className="serif">Staff training portal</h3><p>Assign, track and record training in one place.</p></div>
-            <div className="feat reveal d2"><div className="ico" aria-hidden="true">✅</div><h3 className="serif">Built for SALSA</h3><p>Designed around the standard you&apos;re audited against.</p></div>
+          <div
+            className="switch reveal"
+            onMouseEnter={() => { paused.current = true; }}
+            onMouseLeave={() => { paused.current = false; }}
+          >
+            <div className="switch-list" role="tablist" aria-label="Kernel features">
+              {FEATURES.map((f, i) => (
+                <button
+                  key={f.title}
+                  type="button"
+                  role="tab"
+                  aria-selected={i === active}
+                  className={"switch-item" + (i === active ? " on" : "")}
+                  onMouseEnter={() => setActive(i)}
+                  onFocus={() => setActive(i)}
+                  onClick={() => setActive(i)}
+                >
+                  <span className="si-ico" aria-hidden="true">{f.icon}</span>
+                  <span className="si-text">
+                    <span className="si-title">{f.title}</span>
+                    <span className="si-desc">{f.desc}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="switch-preview">
+              {FEATURES.map((f, i) => (
+                <div key={f.title} className={"sp-card" + (i === active ? " on" : "")} aria-hidden={i !== active}>
+                  {f.preview}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
