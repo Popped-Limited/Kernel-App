@@ -380,13 +380,13 @@ export default function MarketingPage() {
             <img className="hero-pop pop-c" src="/popcorn.png" alt="" />
             <div className="mock-card">
               <div className="mock-top">
-                <span className="t">Batch #KS-0042</span>
+                <span className="t">Batch #POP-001</span>
                 <span className="pill ok">Fully Popped ✅</span>
               </div>
               <div className="mock-body">
-                <div className="mrow"><span className="k">Product</span><span className="v">Sichuan Chilli Oil</span></div>
+                <div className="mrow"><span className="k">Product</span><span className="v">Sichuan Pepper Popcorn</span></div>
                 <div className="mrow"><span className="k">Operator</span><span className="v">Kernel Sanders</span></div>
-                <div className="mrow"><span className="k">Units produced</span><span className="v">480 jars</span></div>
+                <div className="mrow"><span className="k">Units produced</span><span className="v">1,500 bags</span></div>
                 <div className="mrow"><span className="k">Traceability</span><span className="v">12 ingredients linked</span></div>
                 <div className="mrow">
                   <div className="k" style={{ width: "100%" }}>
