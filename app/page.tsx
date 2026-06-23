@@ -347,7 +347,6 @@ export default function MarketingPage() {
             <a className="lnk" href="#ecosystem">Features</a>
             <a className="lnk" href="#pricing">Pricing</a>
             <Link className="nav-cta nav-cta-gold" href="/login">Log in</Link>
-            <Link className="nav-cta" href="/signup">Start popping →</Link>
           </nav>
         </div>
       </header>
@@ -363,7 +362,7 @@ export default function MarketingPage() {
             </h1>
             <p className="sub">
               The first <b>all-in-one</b> app built specifically for SALSA manufacturers. Not just
-              your compliance partner, <b>your operations too.</b>
+              your compliance partner, your operations too.
             </p>
             <div className="hero-cta">
               <Link className="btn" href="/signup">Start popping →</Link>
