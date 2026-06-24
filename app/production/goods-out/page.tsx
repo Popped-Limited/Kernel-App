@@ -142,7 +142,7 @@ export default function GoodsOutPage() {
   const [complianceWarning, setComplianceWarning] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [panelSearch, setPanelSearch] = useState("");
-  const [panelPeriod, setPanelPeriod] = useState<"week" | "month">("week");
+  const [panelPeriod, setPanelPeriod] = useState<"week" | "month" | "all">("week");
   const [goodsOutChecklistId, setGoodsOutChecklistId] = useState<string | null>(null);
   // Net units out per batch_submission_id (dispatched − returned). Drives the
   // "remaining" figure when allocating a batch, so returned units free up again.
@@ -772,10 +772,10 @@ export default function GoodsOutPage() {
             className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-brand"
           />
           <div className="flex gap-1">
-            {(["week", "month"] as const).map(p => (
+            {([["week", "This Week"], ["month", "This Month"], ["all", "All time"]] as const).map(([p, label]) => (
               <button key={p} onClick={() => setPanelPeriod(p)}
                 className={`flex-1 px-2 py-1.5 rounded text-xs font-medium border transition-colors ${panelPeriod === p ? "bg-brand border-brand/50 text-brown" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}>
-                {p === "week" ? "This Week" : "This Month"}
+                {label}
               </button>
             ))}
           </div>
@@ -786,15 +786,19 @@ export default function GoodsOutPage() {
           ) : recentDispatches.length === 0 ? (
             <div className="p-4 text-sm text-gray-400 text-center">No dispatches yet.</div>
           ) : recentDispatches.filter(d => {
-              const now = new Date();
-              const dDate = new Date(d.dispatch_date);
-              if (panelPeriod === "week") {
-                const daysFromMon = now.getDay() === 0 ? 6 : now.getDay() - 1;
-                const weekStart = new Date(now); weekStart.setDate(now.getDate() - daysFromMon); weekStart.setHours(0,0,0,0);
-                if (dDate < weekStart) return false;
-              } else {
-                const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-                if (dDate < monthStart) return false;
+              // A search spans all time so dispatches from months ago are findable
+              // (e.g. to log a late return); otherwise honour the period window.
+              if (!panelSearch && panelPeriod !== "all") {
+                const now = new Date();
+                const dDate = new Date(d.dispatch_date);
+                if (panelPeriod === "week") {
+                  const daysFromMon = now.getDay() === 0 ? 6 : now.getDay() - 1;
+                  const weekStart = new Date(now); weekStart.setDate(now.getDate() - daysFromMon); weekStart.setHours(0,0,0,0);
+                  if (dDate < weekStart) return false;
+                } else {
+                  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                  if (dDate < monthStart) return false;
+                }
               }
               return !panelSearch ||
                 d.product?.toLowerCase().includes(panelSearch.toLowerCase()) ||
