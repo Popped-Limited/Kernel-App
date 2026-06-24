@@ -8,6 +8,7 @@ import { useOrganisation } from "@/contexts/OrganisationContext";
 import DocUploader from "@/components/DocUploader";
 import RiskCalculator from "@/components/RiskCalculator";
 import SAQResponsesViewer from "@/components/SAQResponsesViewer";
+import SortableTh, { type SortDir } from "@/components/SortableTh";
 import { useGuidedTour } from "@/lib/useGuidedTour";
 
 type SupplierType = "raw_material" | "packaging" | "service";
@@ -115,6 +116,13 @@ export default function SuppliersPage() {
   const [copied, setCopied] = useState(false);
   const [riskCalcOpen, setRiskCalcOpen] = useState(false);
   const [saqViewerOpen, setSaqViewerOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<string>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  function toggleSort(col: string) {
+    if (sortKey === col) setSortDir(d => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(col); setSortDir("asc"); }
+  }
 
   useEffect(() => { if (orgId) load(); }, [orgId]);
 
@@ -282,6 +290,26 @@ export default function SuppliersPage() {
 
   const filtered = filter === "all" ? suppliers : suppliers.filter(s => s.type === filter);
 
+  const RISK_ORDER: Record<SupplierRisk, number> = { low: 1, medium: 2, high: 3 };
+  function sortVal(s: Supplier, key: string): string | number {
+    switch (key) {
+      case "contact": return (s.contact_name ?? "").toLowerCase();
+      case "phone": return (s.contact_phone ?? "").toLowerCase();
+      case "certification": return (s.certification ?? "").toLowerCase();
+      case "cert_expiry": return s.cert_expiry ? new Date(s.cert_expiry).getTime() : Infinity;
+      case "saq": return s.type === "service" ? -1 : s.saq_completed ? 1 : 0;
+      case "supplier_risk": return s.supplier_risk ? RISK_ORDER[s.supplier_risk] : 0;
+      case "raw_material_risk": return s.raw_material_risk ? RISK_ORDER[s.raw_material_risk] : 0;
+      case "next_review_due": return s.next_review_due ? new Date(s.next_review_due).getTime() : Infinity;
+      default: return s.name.toLowerCase();
+    }
+  }
+  const sorted = [...filtered].sort((a, b) => {
+    const av = sortVal(a, sortKey), bv = sortVal(b, sortKey);
+    const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
   const expiringSoon = suppliers.filter(s =>
     (s.cert_expiry && daysDiff(s.cert_expiry) <= 60) ||
     (s.next_review_due && daysDiff(s.next_review_due) <= 60)
@@ -345,25 +373,23 @@ export default function SuppliersPage() {
               <table className="w-full text-xs">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="text-left px-4 py-2.5 font-medium text-gray-600">Supplier</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-gray-600">Contact</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-gray-600">Email</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-gray-600">Phone</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-gray-600">Certification</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-gray-600">Cert Expires</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-gray-600">SAQ</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-gray-600">Supplier Risk</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-gray-600">RM Risk</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-gray-600">Next Review</th>
+                    <SortableTh label="Supplier" col="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-4 py-2.5 font-medium text-gray-600" />
+                    <SortableTh label="Contact" col="contact" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-3 py-2.5 font-medium text-gray-600" />
+                    <SortableTh label="Phone" col="phone" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-3 py-2.5 font-medium text-gray-600" />
+                    <SortableTh label="Certification" col="certification" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-3 py-2.5 font-medium text-gray-600" />
+                    <SortableTh label="Cert Expires" col="cert_expiry" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-3 py-2.5 font-medium text-gray-600" />
+                    <SortableTh label="SAQ" col="saq" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-3 py-2.5 font-medium text-gray-600" />
+                    <SortableTh label="Supplier Risk" col="supplier_risk" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-3 py-2.5 font-medium text-gray-600" />
+                    <SortableTh label="RM Risk" col="raw_material_risk" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-3 py-2.5 font-medium text-gray-600" />
+                    <SortableTh label="Next Review" col="next_review_due" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-3 py-2.5 font-medium text-gray-600" />
                     <th className="px-3 py-2.5" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filtered.map(s => (
+                  {sorted.map(s => (
                     <tr key={s.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-semibold text-gray-900">{s.name}</td>
                       <td className="px-3 py-3 text-gray-600">{s.contact_name ?? <span className="text-gray-400">—</span>}</td>
-                      <td className="px-3 py-3 text-gray-600">{s.contact_email ?? <span className="text-gray-400">—</span>}</td>
                       <td className="px-3 py-3 text-gray-600">{s.contact_phone ?? <span className="text-gray-400">—</span>}</td>
                       <td className="px-3 py-3">
                         {s.certification

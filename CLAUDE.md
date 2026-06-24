@@ -68,6 +68,8 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
 - `create-mock-recalls.sql` (mock recall tool), `fix-ingredient-name-per-org.sql`
   (ingredient names now unique PER org, not globally — fixed a multi-tenancy bug;
   also grants `finished_goods_adjustments` to `service_role`) — run 21 Jun 2026.
+- `add-may-contain-and-spec-review.sql` (ingredients gain `may_contain_allergens`,
+  `spec_sheet_review_frequency_years`, `spec_sheet_next_review_due`) — run 24 Jun 2026.
 - `scripts/clone-yep-to-demo.mjs` clones Yep Kitchen's operational data into the
   Popped demo org (dry-run by default; `--commit` to apply). Skips logins/billing
   and the tables the admin key can't write (SOPs, calendar, wastage, training_sessions).

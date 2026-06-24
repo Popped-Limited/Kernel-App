@@ -112,6 +112,9 @@ export interface Ingredient {
   supplier_id: string | null;
   density_g_per_l: number | null;
   allergens: string[] | null;
+  may_contain_allergens: string[] | null;
+  spec_sheet_review_frequency_years: number | null;
+  spec_sheet_next_review_due: string | null;
   created_at: string;
 }
 

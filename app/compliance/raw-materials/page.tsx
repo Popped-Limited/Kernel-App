@@ -7,6 +7,7 @@ import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Ingredient, IngredientLot } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import DocUploader from "@/components/DocUploader";
+import SortableTh, { type SortDir } from "@/components/SortableTh";
 import { useGuidedTour } from "@/lib/useGuidedTour";
 
 interface Supplier { id: string; name: string }
@@ -52,6 +53,19 @@ function reservedFromDrafts(drafts: { answers: Record<string, unknown> | null }[
   return reserved;
 }
 
+/** Small "review due" badge shown under the spec-sheet tick. Amber when due within
+ *  60 days, red when overdue — mirrors the supplier accreditation review dates. */
+function SpecReviewBadge({ dateStr }: { dateStr: string | null }) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr); d.setHours(0, 0, 0, 0);
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const days = Math.floor((d.getTime() - now.getTime()) / 86_400_000);
+  const formatted = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  if (days < 0) return <p className="mt-1 text-[10px] font-semibold text-red-600 whitespace-nowrap">Review overdue</p>;
+  if (days <= 60) return <p className="mt-1 text-[10px] font-semibold text-amber-600 whitespace-nowrap">Review due {formatted}</p>;
+  return <p className="mt-1 text-[10px] text-gray-400 whitespace-nowrap">Review {formatted}</p>;
+}
+
 const ALLERGENS = [
   "Celery", "Gluten", "Crustaceans", "Eggs", "Fish", "Lupin",
   "Milk", "Molluscs", "Mustard", "Tree nuts", "Peanuts", "Sesame",
@@ -61,7 +75,8 @@ const ALLERGENS = [
 const EMPTY_ITEM: IngredientWithLots = {
   id: "", name: "", type: "ingredient", unit: "g",
   price_per_kg: null, supplier_id: null, density_g_per_l: null,
-  allergens: [],
+  allergens: [], may_contain_allergens: [],
+  spec_sheet_review_frequency_years: null, spec_sheet_next_review_due: null,
   created_at: "", lots: [],
 };
 
@@ -109,11 +124,22 @@ export default function RawMaterialsPage() {
   const [editSupplier, setEditSupplier] = useState("");
   const [editDensity, setEditDensity]     = useState("");
   const [editAllergens, setEditAllergens] = useState<string[]>([]);
+  const [editMayContain, setEditMayContain] = useState<string[]>([]);
+  const [editSpecReviewFreq, setEditSpecReviewFreq] = useState("");
+  const [editSpecReviewDue, setEditSpecReviewDue]   = useState("");
   const [saving, setSaving]               = useState(false);
   const [saveError, setSaveError]       = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   const isNew = editing?.id === "";
+
+  // Table sorting
+  const [sortKey, setSortKey] = useState<string>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  function toggleSort(col: string) {
+    if (sortKey === col) setSortDir(d => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(col); setSortDir("asc"); }
+  }
 
   // Recalculate stock
   const [recalculating, setRecalculating] = useState(false);
@@ -251,6 +277,9 @@ export default function RawMaterialsPage() {
     setEditSupplier(ing.supplier_id ?? "");
     setEditDensity(ing.density_g_per_l != null ? String(ing.density_g_per_l) : "");
     setEditAllergens(ing.allergens ?? []);
+    setEditMayContain(ing.may_contain_allergens ?? []);
+    setEditSpecReviewFreq(ing.spec_sheet_review_frequency_years != null ? String(ing.spec_sheet_review_frequency_years) : "");
+    setEditSpecReviewDue(ing.spec_sheet_next_review_due ?? "");
     setSaveError("");
     setDeleteConfirm(false);
   }
@@ -265,6 +294,9 @@ export default function RawMaterialsPage() {
     setEditSupplier("");
     setEditDensity("");
     setEditAllergens([]);
+    setEditMayContain([]);
+    setEditSpecReviewFreq("");
+    setEditSpecReviewDue("");
     setSaveError("");
     setDeleteConfirm(false);
   }
@@ -283,6 +315,9 @@ export default function RawMaterialsPage() {
       supplier_id: editSupplier || null,
       density_g_per_l: editDensity ? parseFloat(editDensity) : null,
       allergens: editAllergens,
+      may_contain_allergens: editMayContain,
+      spec_sheet_review_frequency_years: editSpecReviewFreq ? parseInt(editSpecReviewFreq, 10) : null,
+      spec_sheet_next_review_due: editSpecReviewDue || null,
     };
 
     const { error } = isNew
@@ -371,7 +406,22 @@ export default function RawMaterialsPage() {
     await load();
   }
 
-  const tabItems = items.filter(i => (i.type ?? "ingredient") === activeTab);
+  function sortVal(ing: IngredientWithLots, key: string): string | number {
+    switch (key) {
+      case "supplier": return (ing.supplier?.name ?? "").toLowerCase();
+      case "price": return ing.price_per_kg ?? -1;
+      case "doc": return hasDoc.has(ing.id) ? 1 : 0;
+      case "stock": return ing.lots.reduce((s, l) => s + l.quantity_remaining_g, 0);
+      default: return ing.name.toLowerCase();
+    }
+  }
+  const tabItems = items
+    .filter(i => (i.type ?? "ingredient") === activeTab)
+    .sort((a, b) => {
+      const av = sortVal(a, sortKey), bv = sortVal(b, sortKey);
+      const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === "asc" ? cmp : -cmp;
+    });
   const totalRemainingG = items.filter(i => i.type === "ingredient").reduce((s, i) => s + i.lots.reduce((a, l) => a + l.quantity_remaining_g, 0), 0);
   const totalValue = items.reduce((s, ing) => {
     if (!ing.price_per_kg) return s;
@@ -480,15 +530,11 @@ export default function RawMaterialsPage() {
                 <table className="w-full text-sm">
                   <thead className="border-b border-gray-200 bg-gray-50">
                     <tr>
-                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
-                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Supplier</th>
-                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">
-                        {activeTab === "ingredient" ? "Price / kg" : "Price / unit"}
-                      </th>
-                      <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">
-                        {activeTab === "supplies" ? "COSHH" : "Spec Sheet"}
-                      </th>
-                      <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">In stock</th>
+                      <SortableTh label="Name" col="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide" />
+                      <SortableTh label="Supplier" col="supplier" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell" />
+                      <SortableTh label={activeTab === "ingredient" ? "Price / kg" : "Price / unit"} col="price" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell" />
+                      <SortableTh label={activeTab === "supplies" ? "COSHH" : "Spec Sheet"} col="doc" align="center" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell" />
+                      <SortableTh label="In stock" col="stock" align="right" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide" />
                       <th className="w-8 px-2" />
                     </tr>
                   </thead>
@@ -513,9 +559,19 @@ export default function RawMaterialsPage() {
                             <td className="px-4 py-3">
                               <p className="font-medium text-gray-900">{ing.name}</p>
                               {ing.allergens && ing.allergens.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                <div className="flex flex-wrap items-center gap-1 mt-1.5">
                                   {ing.allergens.map(a => (
                                     <span key={a} className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">
+                                      {a}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {ing.may_contain_allergens && ing.may_contain_allergens.length > 0 && (
+                                <div className="flex flex-wrap items-center gap-1 mt-1">
+                                  <span className="text-[10px] text-gray-400 font-medium">May contain:</span>
+                                  {ing.may_contain_allergens.map(a => (
+                                    <span key={a} className="text-[10px] px-1.5 py-0.5 rounded-full border border-amber-300 text-amber-700 font-medium">
                                       {a}
                                     </span>
                                   ))}
@@ -542,6 +598,7 @@ export default function RawMaterialsPage() {
                               ) : (
                                 <span className="text-gray-300 text-xs">—</span>
                               )}
+                              {activeTab !== "supplies" && <SpecReviewBadge dateStr={ing.spec_sheet_next_review_due} />}
                             </td>
                             <td className="px-4 py-3 text-right">
                               {noLots ? (
@@ -867,7 +924,7 @@ export default function RawMaterialsPage() {
 
               {editType === "ingredient" && (
                 <div data-tour="ingredient-allergens">
-                  <label className="block text-xs font-medium text-gray-700 mb-2">Allergens</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">Allergens (contains)</label>
                   <div className="flex flex-wrap gap-1.5">
                     {ALLERGENS.map(allergen => {
                       const selected = editAllergens.includes(allergen);
@@ -897,6 +954,38 @@ export default function RawMaterialsPage() {
                 </div>
               )}
 
+              {editType === "ingredient" && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">May contain (as stated on packaging)</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ALLERGENS.map(allergen => {
+                      const selected = editMayContain.includes(allergen);
+                      return (
+                        <button
+                          key={allergen}
+                          type="button"
+                          onClick={() => setEditMayContain(prev =>
+                            prev.includes(allergen)
+                              ? prev.filter(a => a !== allergen)
+                              : [...prev, allergen]
+                          )}
+                          className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                            selected
+                              ? "bg-white border-amber-400 text-amber-700 font-medium"
+                              : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+                          }`}
+                        >
+                          {allergen}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {editMayContain.length === 0 && (
+                    <p className="mt-1.5 text-xs text-gray-400">Cross-contamination warnings from the supplier&apos;s label</p>
+                  )}
+                </div>
+              )}
+
               {/* Documents — only shown when editing an existing item */}
               {!isNew && editing && editing.id && (
                 <DocUploader
@@ -906,6 +995,27 @@ export default function RawMaterialsPage() {
                   docType={editType === "supplies" ? "coshh" : "spec_sheet"}
                   label={editType === "supplies" ? "COSHH Sheet" : "Spec Sheet"}
                 />
+              )}
+
+              {editType !== "supplies" && (
+                <div className="border-t border-gray-100 pt-4">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Spec Sheet Review</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Review frequency</label>
+                      <select className="input w-full" value={editSpecReviewFreq} onChange={e => setEditSpecReviewFreq(e.target.value)}>
+                        <option value="">— Select —</option>
+                        <option value="1">Every year</option>
+                        <option value="2">Every 2 years</option>
+                        <option value="3">Every 3 years</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Next review due</label>
+                      <input className="input w-full" type="date" value={editSpecReviewDue} onChange={e => setEditSpecReviewDue(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
