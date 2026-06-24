@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useOrganisation } from "@/contexts/OrganisationContext";
 
 interface SAQQuestion {
   id: string;
@@ -57,13 +58,14 @@ function AnswerBadge({ value, type }: { value: string; type: string }) {
 }
 
 export default function SAQResponsesViewer({ open, onClose, supplierName, supplierId, supplierType, saqDate }: Props) {
+  const { orgId } = useOrganisation();
   const [responses, setResponses] = useState<Record<string, string> | null>(null);
   const [sections, setSections] = useState<Section[]>([]);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !orgId) return;
     setLoading(true);
 
     Promise.all([
@@ -77,6 +79,7 @@ export default function SAQResponsesViewer({ open, onClose, supplierName, suppli
       supabase
         .from("saq_questions")
         .select("*")
+        .eq("organisation_id", orgId)
         .eq("active", true)
         .order("sort_order"),
     ]).then(([{ data: resp }, { data: qs }]) => {
@@ -105,7 +108,7 @@ export default function SAQResponsesViewer({ open, onClose, supplierName, suppli
 
       setLoading(false);
     });
-  }, [open, supplierId, supplierType]);
+  }, [open, supplierId, supplierType, orgId]);
 
   if (!open) return null;
 
