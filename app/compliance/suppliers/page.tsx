@@ -402,8 +402,12 @@ export default function SuppliersPage() {
                         {s.type === "service"
                           ? <span className="text-gray-400">N/A</span>
                           : s.saq_completed
-                            ? <span className="text-brown font-medium">Yes{s.saq_date ? ` · ${new Date(s.saq_date).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}` : ""}</span>
-                            : <span className="text-red-600 font-medium">No</span>
+                            ? <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-green-100">
+                                <svg className="h-3 w-3 text-green-600" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M2 6l3 3 5-5" />
+                                </svg>
+                              </span>
+                            : <span className="text-gray-300 text-xs">—</span>
                         }
                       </td>
                       <td className="px-3 py-3">
