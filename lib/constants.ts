@@ -25,5 +25,6 @@ export const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
   { value: "multiple_choice", label: "Multiple choice" },
   { value: "photo", label: "Photo upload" },
   { value: "signature", label: "Signature" },
+  { value: "batch_link", label: "Batch record link" },
   { value: "document", label: "Document" },
 ];

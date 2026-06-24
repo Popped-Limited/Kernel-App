@@ -2,7 +2,7 @@
 
 import { useRef, useCallback, useState, useEffect } from "react";
 import type { Question, IngredientLot } from "@/lib/types";
-import { todayJulianCode } from "@/lib/utils";
+import { todayJulianCode, formatDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 
 /** Local-state input for litres — lets the user type freely, converts to grams only on blur */
@@ -86,6 +86,42 @@ export default function QuestionField({ question, value, onChange, error, ingred
     return [{ multiplier: 1, input: "1" }];
   });
   const totalMultiplier = batches.reduce((sum, b) => sum + b.multiplier, 0);
+
+  // Batch-record options — only used by batch_link questions. A production submission
+  // each, labelled "Product — batch code · date", newest first.
+  const [batchLinkOptions, setBatchLinkOptions] = useState<Array<{ id: string; product: string; code: string; label: string }>>([]);
+  useEffect(() => {
+    if (question.type !== "batch_link") return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("submissions")
+        .select("id, submitted_at, checklist:checklists(name, category), answers(value, question:questions(type, label))")
+        .order("submitted_at", { ascending: false })
+        .limit(300);
+      if (cancelled || !data) return;
+      const opts: Array<{ id: string; product: string; code: string; label: string }> = [];
+      for (const sub of data as unknown as Array<{ id: string; submitted_at: string; checklist: { name: string; category: string } | null; answers: Array<{ value: string | null; question: { type: string; label: string } | null }> }>) {
+        const cl = sub.checklist;
+        if (!cl || cl.category !== "Production") continue;
+        const product = cl.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
+        let code = "";
+        for (const a of sub.answers ?? []) {
+          if (!a.value) continue;
+          const lbl = (a.question?.label ?? "").toLowerCase();
+          if (a.question?.type === "text" && a.value.trim() &&
+              (lbl.includes("batch code") || lbl.includes("julian") || lbl.includes("batch ref") || lbl.includes("lot number"))) {
+            code = a.value.trim();
+            break;
+          }
+        }
+        const date = formatDate(sub.submitted_at.slice(0, 10));
+        opts.push({ id: sub.id, product, code, label: `${product} — ${code || "no batch code"} · ${date}` });
+      }
+      setBatchLinkOptions(opts);
+    })();
+    return () => { cancelled = true; };
+  }, [question.type]);
 
   const base = (
     <div className="space-y-1">
@@ -903,6 +939,37 @@ export default function QuestionField({ question, value, onChange, error, ingred
             + Add another packing run
           </button>
         </div>
+        {errMsg}
+      </div>
+    );
+  }
+
+  if (question.type === "batch_link") {
+    let selectedId = "";
+    try { const p = value ? JSON.parse(value) : null; selectedId = p?.submission_id ?? ""; } catch { /* legacy/plain */ }
+    return (
+      <div>
+        {base}
+        <select
+          className="input w-full"
+          value={selectedId}
+          onChange={(e) => {
+            const opt = batchLinkOptions.find(o => o.id === e.target.value);
+            onChange(opt ? JSON.stringify({ submission_id: opt.id, batch_code: opt.code, product: opt.product }) : "");
+          }}
+        >
+          <option value="">— Not linked —</option>
+          {batchLinkOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+          {/* Keep a previously-linked record selectable even if it's beyond the recent list */}
+          {selectedId && !batchLinkOptions.some(o => o.id === selectedId) && (() => {
+            let lbl = "Linked batch record";
+            try { const p = JSON.parse(value); lbl = `${p.product ?? ""} — ${p.batch_code || "no batch code"}`.trim(); } catch { /* ignore */ }
+            return <option value={selectedId}>{lbl}</option>;
+          })()}
+        </select>
+        {batchLinkOptions.length === 0 && (
+          <p className="mt-1 text-xs text-gray-400">No production batch records found yet.</p>
+        )}
         {errMsg}
       </div>
     );

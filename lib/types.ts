@@ -11,6 +11,7 @@ export type QuestionType =
   | "multiple_choice"
   | "ingredient_table"
   | "packing_runs"
+  | "batch_link"
   | "document";
 
 export type ChecklistFrequency =

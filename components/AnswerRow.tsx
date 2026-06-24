@@ -136,6 +136,18 @@ export default function AnswerRow({ answer }: { answer: AnswerRowData }) {
         </div>
       );
     } catch { display = <p className="text-sm text-gray-900">{val}</p>; }
+  } else if (q?.type === "batch_link") {
+    try {
+      const p = JSON.parse(val) as { submission_id?: string; batch_code?: string; product?: string };
+      display = p?.submission_id ? (
+        <a href={`/submission/${p.submission_id}`} className="inline-flex items-center gap-1.5 text-sm font-medium text-brown hover:underline">
+          <span className="badge bg-brand-cream text-brown">
+            {p.product}{p.batch_code ? ` — ${p.batch_code}` : ""}
+          </span>
+          <span aria-hidden>→</span>
+        </a>
+      ) : <span className="text-gray-400 text-sm italic">No batch linked</span>;
+    } catch { display = <p className="text-sm text-gray-900">{val}</p>; }
   } else {
     display = <p className="text-sm text-gray-900">{val}</p>;
   }
