@@ -738,14 +738,23 @@ export default function QuestionField({ question, value, onChange, error, ingred
     let packUnit = "jar";
     let packClosure = "lid";
     let packDisplayHint: string | null = question.hint; // default: show as-is (plain text)
+    // When the container/closure is linked to a primary packaging item, the batch
+    // field becomes a lot picker (from stock) and the count is deducted on submit.
+    let jarIngredient = "";
+    let closureIngredient = "";
     try {
       const hintData = question.hint ? JSON.parse(question.hint) : null;
       if (hintData && typeof hintData === "object") {
         if (hintData.unit) packUnit = hintData.unit;
         if (hintData.closure) packClosure = hintData.closure;
+        if (hintData.jar_ingredient) jarIngredient = hintData.jar_ingredient;
+        if (hintData.closure_ingredient) closureIngredient = hintData.closure_ingredient;
         packDisplayHint = hintData.hint ?? null; // only show if explicitly set
       }
     } catch { /* plain-text hint, use as-is */ }
+
+    const jarLots = jarIngredient ? (ingredientLots?.[jarIngredient] ?? []) : [];
+    const closureLots = closureIngredient ? (ingredientLots?.[closureIngredient] ?? []) : [];
 
     // Simple pluralisation — don't add "s" if word already ends in "s"
     const pluralise = (w: string) => (w.toLowerCase().endsWith("s") ? w : w + "s");
@@ -756,11 +765,13 @@ export default function QuestionField({ question, value, onChange, error, ingred
       pack_weight: string;
       jars_used: string;
       jar_batch: string;
+      jar_lot_id?: string;
       lids_count: string;
       lids_batch: string;
+      lids_lot_id?: string;
       packed_by: string;
     };
-    const emptyRun: PackRun = { pack_weight: "", jars_used: "", jar_batch: "", lids_count: "", lids_batch: "", packed_by: "" };
+    const emptyRun: PackRun = { pack_weight: "", jars_used: "", jar_batch: "", jar_lot_id: "", lids_count: "", lids_batch: "", lids_lot_id: "", packed_by: "" };
     let runs: PackRun[];
     try {
       runs = value ? JSON.parse(value) : [emptyRun];
@@ -770,6 +781,10 @@ export default function QuestionField({ question, value, onChange, error, ingred
     if (runs.length === 0) runs = [emptyRun];
     const updateRun = (idx: number, field: keyof PackRun, val: string) => {
       const next = runs.map((r, i) => (i === idx ? { ...r, [field]: val } : r));
+      onChange(JSON.stringify(next));
+    };
+    const updateRunFields = (idx: number, patch: Partial<PackRun>) => {
+      const next = runs.map((r, i) => (i === idx ? { ...r, ...patch } : r));
       onChange(JSON.stringify(next));
     };
     const addRun = () => onChange(JSON.stringify([...runs, emptyRun]));
@@ -797,26 +812,86 @@ export default function QuestionField({ question, value, onChange, error, ingred
                 )}
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {[
-                  { field: "pack_weight" as const, label: "Pack weight (g)", placeholder: "227", numeric: true },
-                  { field: "jars_used" as const, label: `No. of ${pluralise(packUnit)}`, placeholder: "0", numeric: true },
-                  { field: "jar_batch" as const, label: `${unitCap} batch no.`, placeholder: "JB001", numeric: false },
-                  { field: "lids_count" as const, label: `No. of ${pluralise(packClosure)}`, placeholder: "0", numeric: true },
-                  { field: "lids_batch" as const, label: `${closureCap} batch no.`, placeholder: "LB001", numeric: false },
-                  { field: "packed_by" as const, label: "Packed by (initials)", placeholder: "SS", numeric: false },
-                ].map(({ field, label, placeholder, numeric }) => (
-                  <div key={field}>
-                    <label className="text-xs text-gray-500 block mb-0.5">{label}</label>
-                    <input
-                      type={numeric ? "number" : "text"}
-                      value={run[field]}
-                      onChange={(e) => updateRun(idx, field, e.target.value)}
+                <div>
+                  <label className="text-xs text-gray-500 block mb-0.5">Pack weight (g)</label>
+                  <input type="number" inputMode="numeric" value={run.pack_weight} onChange={(e) => updateRun(idx, "pack_weight", e.target.value)} className="input text-sm py-1.5" placeholder="227" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-0.5">No. of {pluralise(packUnit)}</label>
+                  <input type="number" inputMode="numeric" value={run.jars_used} onChange={(e) => updateRun(idx, "jars_used", e.target.value)} className="input text-sm py-1.5" placeholder="0" />
+                </div>
+
+                {/* Container batch — lot picker (deducts stock) when linked, else free text */}
+                {jarIngredient ? (
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-0.5">{unitCap} batch (from stock)</label>
+                    <select
+                      value={run.jar_lot_id || ""}
+                      onChange={(e) => {
+                        const lot = jarLots.find((l) => l.id === e.target.value);
+                        updateRunFields(idx, { jar_lot_id: e.target.value, jar_batch: lot?.julian_code ?? "" });
+                      }}
                       className="input text-sm py-1.5"
-                      placeholder={placeholder}
-                      inputMode={numeric ? "numeric" : "text"}
-                    />
+                    >
+                      <option value="">— Select batch —</option>
+                      {jarLots.map((l) => (
+                        <option key={l.id} value={l.id}>{l.julian_code} — {l.quantity_remaining_g.toLocaleString()} left</option>
+                      ))}
+                      {run.jar_lot_id && !jarLots.some((l) => l.id === run.jar_lot_id) && (
+                        <option value={run.jar_lot_id}>{run.jar_batch || "Selected batch"}</option>
+                      )}
+                    </select>
+                    {jarLots.length === 0 && (
+                      <p className="text-[11px] text-amber-600 mt-0.5">No {jarIngredient} in stock — log a delivery in Goods In.</p>
+                    )}
                   </div>
-                ))}
+                ) : (
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-0.5">{unitCap} batch no.</label>
+                    <input type="text" value={run.jar_batch} onChange={(e) => updateRun(idx, "jar_batch", e.target.value)} className="input text-sm py-1.5" placeholder="JB001" />
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs text-gray-500 block mb-0.5">No. of {pluralise(packClosure)}</label>
+                  <input type="number" inputMode="numeric" value={run.lids_count} onChange={(e) => updateRun(idx, "lids_count", e.target.value)} className="input text-sm py-1.5" placeholder="0" />
+                </div>
+
+                {/* Closure batch — lot picker (deducts stock) when linked, else free text */}
+                {closureIngredient ? (
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-0.5">{closureCap} batch (from stock)</label>
+                    <select
+                      value={run.lids_lot_id || ""}
+                      onChange={(e) => {
+                        const lot = closureLots.find((l) => l.id === e.target.value);
+                        updateRunFields(idx, { lids_lot_id: e.target.value, lids_batch: lot?.julian_code ?? "" });
+                      }}
+                      className="input text-sm py-1.5"
+                    >
+                      <option value="">— Select batch —</option>
+                      {closureLots.map((l) => (
+                        <option key={l.id} value={l.id}>{l.julian_code} — {l.quantity_remaining_g.toLocaleString()} left</option>
+                      ))}
+                      {run.lids_lot_id && !closureLots.some((l) => l.id === run.lids_lot_id) && (
+                        <option value={run.lids_lot_id}>{run.lids_batch || "Selected batch"}</option>
+                      )}
+                    </select>
+                    {closureLots.length === 0 && (
+                      <p className="text-[11px] text-amber-600 mt-0.5">No {closureIngredient} in stock — log a delivery in Goods In.</p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-0.5">{closureCap} batch no.</label>
+                    <input type="text" value={run.lids_batch} onChange={(e) => updateRun(idx, "lids_batch", e.target.value)} className="input text-sm py-1.5" placeholder="LB001" />
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs text-gray-500 block mb-0.5">Packed by (initials)</label>
+                  <input type="text" value={run.packed_by} onChange={(e) => updateRun(idx, "packed_by", e.target.value)} className="input text-sm py-1.5" placeholder="SS" />
+                </div>
               </div>
             </div>
           ))}

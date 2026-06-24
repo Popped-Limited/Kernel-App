@@ -137,23 +137,47 @@ export function computeMassBalance(result: TraceResult): MassBalance {
   };
 }
 
-/** Pull the set of ingredient-lot IDs referenced by a batch's ingredient_table answers. */
+/**
+ * Extract {lot_id, amount} pairs from any lot-linked answer value. Handles both
+ * ingredient_table (rows[].lots[].weight_g, in grams) and packing_runs (runs with
+ * jar/lids lot ids + counts, in units). Primary packaging lots live in the same
+ * ingredient_lots table, so the whole trace/recall chain treats them uniformly.
+ */
+function lotUsesFromAnswer(value: string | null, type: string | undefined): Array<{ lot_id: string; amount: number }> {
+  if (!value) return [];
+  const out: Array<{ lot_id: string; amount: number }> = [];
+  try {
+    const parsed = JSON.parse(value);
+    if (type === "packing_runs") {
+      const runs = Array.isArray(parsed) ? parsed : [];
+      for (const run of runs) {
+        if (run.jar_lot_id && Number(run.jars_used) > 0) out.push({ lot_id: run.jar_lot_id, amount: Number(run.jars_used) });
+        if (run.lids_lot_id && Number(run.lids_count) > 0) out.push({ lot_id: run.lids_lot_id, amount: Number(run.lids_count) });
+      }
+    } else {
+      const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
+      for (const row of rows) {
+        for (const rl of (row.lots ?? [])) {
+          if (rl.lot_id) {
+            const g = Number(rl.weight_g);
+            out.push({ lot_id: rl.lot_id, amount: Number.isNaN(g) ? 0 : g });
+          }
+        }
+      }
+    }
+  } catch {
+    /* ignore malformed answer */
+  }
+  return out;
+}
+
+/** Pull the set of lot IDs referenced by a batch's lot-linked answers (ingredients + primary packaging). */
 function lotIdsFromBatches(batches: BatchInfo[]): Set<string> {
   const lotIds = new Set<string>();
   for (const batch of batches) {
     for (const ans of batch.answers ?? []) {
-      if (!ans.value || ans.question?.type !== "ingredient_table") continue;
-      try {
-        const parsed = JSON.parse(ans.value);
-        const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
-        for (const row of rows) {
-          for (const rl of (row.lots ?? [])) {
-            if (rl.lot_id) lotIds.add(rl.lot_id);
-          }
-        }
-      } catch {
-        /* ignore malformed answer */
-      }
+      if (ans.question?.type !== "ingredient_table" && ans.question?.type !== "packing_runs") continue;
+      for (const use of lotUsesFromAnswer(ans.value, ans.question?.type)) lotIds.add(use.lot_id);
     }
   }
   return lotIds;
@@ -181,21 +205,22 @@ async function fetchLots(lotIds: string[]): Promise<LotInfo[]> {
 }
 
 /**
- * Every ingredient_table answer for the caller's org, paginating past the
- * 1000-row PostgREST cap. Without this, orgs with >1000 answers silently miss
- * production usage recorded in the later rows — corrupting both the trace and
- * the mass balance.
+ * Every lot-linked answer (ingredient_table + packing_runs) for the caller's org,
+ * paginating past the 1000-row PostgREST cap. Without this, orgs with >1000 answers
+ * silently miss production usage recorded in the later rows — corrupting both the
+ * trace and the mass balance.
  */
-async function fetchIngredientTableAnswers(): Promise<Array<{ submission_id: string; value: string | null }>> {
-  const all: Array<{ submission_id: string; value: string | null }> = [];
+async function fetchLotLinkedAnswers(): Promise<Array<{ submission_id: string; value: string | null; type: string | undefined }>> {
+  const all: Array<{ submission_id: string; value: string | null; type: string | undefined }> = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
     const { data } = await supabase
       .from("answers")
       .select("submission_id, value, question:questions(type)")
-      .eq("questions.type", "ingredient_table")
+      .in("questions.type", ["ingredient_table", "packing_runs"])
       .range(from, from + PAGE - 1);
-    all.push(...((data ?? []) as Array<{ submission_id: string; value: string | null }>));
+    const rows = (data ?? []) as unknown as Array<{ submission_id: string; value: string | null; question: { type: string } | null }>;
+    all.push(...rows.map((r) => ({ submission_id: r.submission_id, value: r.value, type: r.question?.type })));
     if (!data || data.length < PAGE) break;
   }
   return all;
@@ -203,49 +228,29 @@ async function fetchIngredientTableAnswers(): Promise<Array<{ submission_id: str
 
 /** Find which production submissions consumed a given set of lot IDs. */
 async function submissionsUsingLots(lotIds: string[]): Promise<string[]> {
-  const answers = await fetchIngredientTableAnswers();
+  const answers = await fetchLotLinkedAnswers();
+  const wanted = new Set(lotIds);
 
   const matched = new Set<string>();
   for (const ans of answers ?? []) {
-    if (!ans.value) continue;
-    try {
-      const parsed = JSON.parse(ans.value);
-      const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
-      for (const row of rows) {
-        for (const rl of (row.lots ?? [])) {
-          if (rl.lot_id && lotIds.includes(rl.lot_id)) matched.add(ans.submission_id);
-        }
-      }
-    } catch {
-      /* ignore */
+    for (const use of lotUsesFromAnswer(ans.value, ans.type)) {
+      if (wanted.has(use.lot_id)) matched.add(ans.submission_id);
     }
   }
   return Array.from(matched);
 }
 
-/** Total grams of each lot consumed across ALL production batches (not just traced ones). */
+/** Total amount of each lot consumed across ALL production batches (grams for ingredients, units for packaging). */
 async function fetchLotUsage(lotIds: string[]): Promise<Record<string, number>> {
   const usage: Record<string, number> = {};
   if (lotIds.length === 0) return usage;
   const wanted = new Set(lotIds);
 
-  const answers = await fetchIngredientTableAnswers();
+  const answers = await fetchLotLinkedAnswers();
 
   for (const ans of answers ?? []) {
-    if (!ans.value) continue;
-    try {
-      const parsed = JSON.parse(ans.value);
-      const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
-      for (const row of rows) {
-        for (const rl of (row.lots ?? [])) {
-          if (rl.lot_id && wanted.has(rl.lot_id)) {
-            const g = Number(rl.weight_g);
-            if (!Number.isNaN(g)) usage[rl.lot_id] = (usage[rl.lot_id] ?? 0) + g;
-          }
-        }
-      }
-    } catch {
-      /* ignore */
+    for (const use of lotUsesFromAnswer(ans.value, ans.type)) {
+      if (wanted.has(use.lot_id)) usage[use.lot_id] = (usage[use.lot_id] ?? 0) + use.amount;
     }
   }
   return usage;

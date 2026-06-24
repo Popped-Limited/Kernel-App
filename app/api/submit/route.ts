@@ -64,6 +64,30 @@ export async function POST(req: NextRequest) {
           .filter((q: { id: string; type: string }) => q.type === "ingredient_table")
           .map((q: { id: string; type: string }) => q.id)
       );
+      const packingQIds = new Set(
+        (questions ?? [])
+          .filter((q: { id: string; type: string }) => q.type === "packing_runs")
+          .map((q: { id: string; type: string }) => q.id)
+      );
+
+      // Deduct `amount` units from a lot's remaining quantity (shared by ingredients
+      // and primary packaging — both live in ingredient_lots).
+      async function deductLot(lotId: string, amount: number) {
+        if (!lotId || !amount || amount <= 0) return;
+        const { data: lot } = await supabaseAdmin
+          .from("ingredient_lots")
+          .select("quantity_remaining_g")
+          .eq("id", lotId)
+          .eq("organisation_id", organisation_id)
+          .single();
+        if (!lot) return;
+        const newRemaining = Math.max(0, (lot.quantity_remaining_g as number) - amount);
+        await supabaseAdmin
+          .from("ingredient_lots")
+          .update({ quantity_remaining_g: newRemaining })
+          .eq("id", lotId)
+          .eq("organisation_id", organisation_id);
+      }
 
       for (const answer of answers) {
         if (!ingredientQIds.has(answer.question_id) || !answer.value) continue;
@@ -119,6 +143,23 @@ export async function POST(req: NextRequest) {
           }
         } catch (e) {
           console.error("Stock deduction error:", e);
+        }
+      }
+
+      // Deduct primary packaging from the packing log's lot-linked runs
+      for (const answer of answers) {
+        if (!packingQIds.has(answer.question_id) || !answer.value) continue;
+        try {
+          const runs = JSON.parse(answer.value);
+          if (!Array.isArray(runs)) continue;
+          for (const run of runs) {
+            const jarsUsed = Number(run.jars_used);
+            if (run.jar_lot_id && jarsUsed > 0) await deductLot(run.jar_lot_id, jarsUsed);
+            const lidsUsed = Number(run.lids_count);
+            if (run.lids_lot_id && lidsUsed > 0) await deductLot(run.lids_lot_id, lidsUsed);
+          }
+        } catch (e) {
+          console.error("Packaging deduction error:", e);
         }
       }
     }

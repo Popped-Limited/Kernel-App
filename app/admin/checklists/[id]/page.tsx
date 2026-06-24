@@ -782,9 +782,36 @@ function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel, c
   const isMultiNumber = question.type === "multi_number";
   const isIngredientTable = question.type === "ingredient_table";
   const isDocument = question.type === "document";
+  const isPackingRuns = question.type === "packing_runs";
   const boxCount = Math.min(5, Math.max(1, parseInt(question.options?.[0] ?? "3") || 3));
 
   const [uploading, setUploading] = useState(false);
+  const [primaryPackaging, setPrimaryPackaging] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    if (!isPackingRuns) return;
+    supabase
+      .from("ingredients")
+      .select("id, name")
+      .eq("type", "packaging")
+      .eq("is_primary_packaging", true)
+      .order("name")
+      .then(({ data }) => setPrimaryPackaging((data ?? []) as { id: string; name: string }[]));
+  }, [isPackingRuns]);
+
+  // packing_runs stores its config as JSON in `hint`: { unit, closure, jar_ingredient,
+  // closure_ingredient, hint }. Parse it so we can edit pieces without clobbering the rest.
+  let packCfg: { unit?: string; closure?: string; jar_ingredient?: string; closure_ingredient?: string; hint?: string } = {};
+  if (isPackingRuns && question.hint) {
+    try { const p = JSON.parse(question.hint); if (p && typeof p === "object") packCfg = p; } catch { /* legacy plain text */ packCfg = { hint: question.hint }; }
+  }
+  const setPackCfg = (patch: Partial<typeof packCfg>) => {
+    const next: Record<string, string> = { ...packCfg, ...patch } as Record<string, string>;
+    Object.keys(next).forEach(k => { if (!next[k]) delete next[k]; });
+    onChange({ ...question, hint: JSON.stringify(next) });
+  };
+  const unitCap = (packCfg.unit ?? "container").charAt(0).toUpperCase() + (packCfg.unit ?? "container").slice(1);
+  const closureCap = (packCfg.closure ?? "closure").charAt(0).toUpperCase() + (packCfg.closure ?? "closure").slice(1);
 
   async function handleDocumentFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -1063,12 +1090,48 @@ function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel, c
           </div>
         )}
 
+        {isPackingRuns && (
+          <div className="rounded-lg border border-brand/30 bg-brand/5 p-4 space-y-3">
+            <p className="text-xs font-semibold text-brown uppercase tracking-wide">Link to stock (optional)</p>
+            <p className="text-xs text-gray-500">
+              Link the {packCfg.unit ?? "container"} and {packCfg.closure ?? "closure"} to a primary packaging item so the packing log picks the batch from stock and deducts it. Leave as &ldquo;Not linked&rdquo; to keep typing batch numbers by hand.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label text-xs">{unitCap} item</label>
+                <select className="input text-sm" value={packCfg.jar_ingredient ?? ""} onChange={e => setPackCfg({ jar_ingredient: e.target.value })}>
+                  <option value="">Not linked</option>
+                  {primaryPackaging.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                  {packCfg.jar_ingredient && !primaryPackaging.some(p => p.name === packCfg.jar_ingredient) && (
+                    <option value={packCfg.jar_ingredient}>{packCfg.jar_ingredient}</option>
+                  )}
+                </select>
+              </div>
+              <div>
+                <label className="label text-xs">{closureCap} item</label>
+                <select className="input text-sm" value={packCfg.closure_ingredient ?? ""} onChange={e => setPackCfg({ closure_ingredient: e.target.value })}>
+                  <option value="">Not linked</option>
+                  {primaryPackaging.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                  {packCfg.closure_ingredient && !primaryPackaging.some(p => p.name === packCfg.closure_ingredient) && (
+                    <option value={packCfg.closure_ingredient}>{packCfg.closure_ingredient}</option>
+                  )}
+                </select>
+              </div>
+            </div>
+            {primaryPackaging.length === 0 && (
+              <p className="text-xs text-amber-600">
+                No primary packaging items yet — mark jars/lids as &ldquo;Primary packaging&rdquo; in Raw Materials to link them here.
+              </p>
+            )}
+          </div>
+        )}
+
         <div>
           <label className="label">Hint / helper text <span className="text-gray-400 font-normal">(optional)</span></label>
           <input
             type="text"
-            value={question.hint ?? ""}
-            onChange={e => onChange({ ...question, hint: e.target.value })}
+            value={isPackingRuns ? (packCfg.hint ?? "") : (question.hint ?? "")}
+            onChange={e => isPackingRuns ? setPackCfg({ hint: e.target.value }) : onChange({ ...question, hint: e.target.value })}
             className="input"
             placeholder="Small grey text shown below the question"
           />

@@ -74,25 +74,24 @@ export async function POST(req: NextRequest) {
 
     const { data: ingQuestions } = await supabaseAdmin
       .from("questions")
-      .select("id")
+      .select("id, type")
       .in("checklist_id", checklistIds)
-      .eq("type", "ingredient_table");
+      .in("type", ["ingredient_table", "packing_runs"]);
 
-    const ingQIds = (ingQuestions ?? []).map((q: { id: string }) => q.id);
-    if (ingQIds.length === 0) {
-      return NextResponse.json({ success: true, message: "No ingredient questions", deductions: 0 });
+    const ingQIds  = (ingQuestions ?? []).filter((q: { type: string }) => q.type === "ingredient_table").map((q: { id: string }) => q.id);
+    const packQIds = (ingQuestions ?? []).filter((q: { type: string }) => q.type === "packing_runs").map((q: { id: string }) => q.id);
+    if (ingQIds.length === 0 && packQIds.length === 0) {
+      return NextResponse.json({ success: true, message: "No ingredient or packaging questions", deductions: 0 });
     }
 
-    // ── Step 3: Fetch every ingredient_table answer ever submitted ─────────
-    const { data: allAnswers } = await supabaseAdmin
-      .from("answers")
-      .select("question_id, value")
-      .in("question_id", ingQIds)
-      .not("value", "is", null);
-
-    // Accumulate total grams used per lot
-    const usage = new Map<string, number>(); // lotId → total grams used
+    // Accumulate total amount used per lot (grams for ingredients, units for packaging)
+    const usage = new Map<string, number>(); // lotId → total used
     let deductionCount = 0;
+
+    // ── Step 3: Replay every ingredient_table answer ──────────────────────
+    const { data: allAnswers } = ingQIds.length > 0
+      ? await supabaseAdmin.from("answers").select("question_id, value").in("question_id", ingQIds).not("value", "is", null)
+      : { data: [] as Array<{ question_id: string; value: string | null }> };
 
     for (const answer of allAnswers ?? []) {
       if (!answer.value) continue;
@@ -121,6 +120,33 @@ export async function POST(req: NextRequest) {
           }
         }
       } catch { /* malformed answer — skip */ }
+    }
+
+    // ── Step 3b: Replay every packing_runs answer (primary packaging) ──────
+    if (packQIds.length > 0) {
+      const { data: packAnswers } = await supabaseAdmin
+        .from("answers")
+        .select("question_id, value")
+        .in("question_id", packQIds)
+        .not("value", "is", null);
+
+      for (const answer of packAnswers ?? []) {
+        if (!answer.value) continue;
+        try {
+          const runs = JSON.parse(answer.value);
+          if (!Array.isArray(runs)) continue;
+          for (const run of runs) {
+            for (const [lotKey, countKey] of [["jar_lot_id", "jars_used"], ["lids_lot_id", "lids_count"]] as const) {
+              const lotId = run[lotKey];
+              const used = Number(run[countKey]);
+              if (lotId && lotById.has(lotId) && used > 0) {
+                usage.set(lotId, (usage.get(lotId) ?? 0) + used);
+                deductionCount++;
+              }
+            }
+          }
+        } catch { /* malformed answer — skip */ }
+      }
     }
 
     // ── Step 4: Apply accumulated deductions ───────────────────────────────

@@ -41,13 +41,21 @@ function reservedFromDrafts(drafts: { answers: Record<string, unknown> | null }[
         const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
         if (!Array.isArray(rows) || rows.length === 0) continue;
         for (const row of rows) {
+          // ingredient_table lots (grams)
           for (const lot of (row.lots ?? [])) {
             if (lot.lot_id && Number(lot.weight_g) > 0) {
               reserved[lot.lot_id] = (reserved[lot.lot_id] || 0) + Number(lot.weight_g);
             }
           }
+          // packing_runs primary packaging (units)
+          if (row.jar_lot_id && Number(row.jars_used) > 0) {
+            reserved[row.jar_lot_id] = (reserved[row.jar_lot_id] || 0) + Number(row.jars_used);
+          }
+          if (row.lids_lot_id && Number(row.lids_count) > 0) {
+            reserved[row.lids_lot_id] = (reserved[row.lids_lot_id] || 0) + Number(row.lids_count);
+          }
         }
-      } catch { /* not ingredient_table format — skip */ }
+      } catch { /* not a lot-linked answer — skip */ }
     }
   }
   return reserved;
@@ -77,6 +85,7 @@ const EMPTY_ITEM: IngredientWithLots = {
   price_per_kg: null, supplier_id: null, density_g_per_l: null,
   allergens: [], may_contain_allergens: [],
   spec_sheet_review_frequency_years: null, spec_sheet_next_review_due: null,
+  is_primary_packaging: false,
   created_at: "", lots: [],
 };
 
@@ -127,6 +136,7 @@ export default function RawMaterialsPage() {
   const [editMayContain, setEditMayContain] = useState<string[]>([]);
   const [editSpecReviewFreq, setEditSpecReviewFreq] = useState("");
   const [editSpecReviewDue, setEditSpecReviewDue]   = useState("");
+  const [editIsPrimary, setEditIsPrimary]           = useState(false);
   const [saving, setSaving]               = useState(false);
   const [saveError, setSaveError]       = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -280,6 +290,7 @@ export default function RawMaterialsPage() {
     setEditMayContain(ing.may_contain_allergens ?? []);
     setEditSpecReviewFreq(ing.spec_sheet_review_frequency_years != null ? String(ing.spec_sheet_review_frequency_years) : "");
     setEditSpecReviewDue(ing.spec_sheet_next_review_due ?? "");
+    setEditIsPrimary(ing.is_primary_packaging ?? false);
     setSaveError("");
     setDeleteConfirm(false);
   }
@@ -297,6 +308,7 @@ export default function RawMaterialsPage() {
     setEditMayContain([]);
     setEditSpecReviewFreq("");
     setEditSpecReviewDue("");
+    setEditIsPrimary(false);
     setSaveError("");
     setDeleteConfirm(false);
   }
@@ -318,6 +330,7 @@ export default function RawMaterialsPage() {
       may_contain_allergens: editMayContain,
       spec_sheet_review_frequency_years: editSpecReviewFreq ? parseInt(editSpecReviewFreq, 10) : null,
       spec_sheet_next_review_due: editSpecReviewDue || null,
+      is_primary_packaging: editType === "packaging" ? editIsPrimary : false,
     };
 
     const { error } = isNew
@@ -557,7 +570,12 @@ export default function RawMaterialsPage() {
                             onClick={() => openEdit(ing)}
                           >
                             <td className="px-4 py-3">
-                              <p className="font-medium text-gray-900">{ing.name}</p>
+                              <p className="font-medium text-gray-900">
+                                {ing.name}
+                                {ing.type === "packaging" && ing.is_primary_packaging && (
+                                  <span className="ml-2 align-middle text-[10px] px-1.5 py-0.5 rounded-full bg-brand/30 text-brown font-semibold">Primary</span>
+                                )}
+                              </p>
                               {ing.allergens && ing.allergens.length > 0 && (
                                 <div className="flex flex-wrap items-center gap-1 mt-1.5">
                                   {ing.allergens.map(a => (
@@ -908,6 +926,21 @@ export default function RawMaterialsPage() {
                   </p>
                 )}
               </div>
+
+              {editType === "packaging" && (
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditIsPrimary(p => !p)}
+                    className="flex w-full items-start gap-3 text-left"
+                  >
+                    <span className={`mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition ${editIsPrimary ? "bg-brand justify-end" : "bg-gray-200 justify-start"}`}>
+                      <span className="h-4 w-4 rounded-full bg-white shadow" />
+                    </span>
+                    <span className="text-xs font-medium text-gray-800">Primary packaging — traced &amp; deducted from stock</span>
+                  </button>
+                </div>
+              )}
 
               {editType === "ingredient" && (
                 <div>

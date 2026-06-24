@@ -32,13 +32,21 @@ function buildIngredientMaps(
         const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
         if (!Array.isArray(rows) || rows.length === 0) continue;
         for (const row of rows) {
+          // ingredient_table lots (grams)
           for (const lot of (row.lots ?? [])) {
             if (lot.lot_id && Number(lot.weight_g) > 0) {
               reservations[lot.lot_id] = (reservations[lot.lot_id] || 0) + Number(lot.weight_g);
             }
           }
+          // packing_runs primary packaging (units)
+          if (row.jar_lot_id && Number(row.jars_used) > 0) {
+            reservations[row.jar_lot_id] = (reservations[row.jar_lot_id] || 0) + Number(row.jars_used);
+          }
+          if (row.lids_lot_id && Number(row.lids_count) > 0) {
+            reservations[row.lids_lot_id] = (reservations[row.lids_lot_id] || 0) + Number(row.lids_count);
+          }
         }
-      } catch { /* not ingredient_table format — skip */ }
+      } catch { /* not a lot-linked answer — skip */ }
     }
   }
 

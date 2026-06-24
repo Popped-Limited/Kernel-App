@@ -138,6 +138,12 @@ export default function ProductionBuilderPage() {
   // Step 5 — Packaging
   const [unitLabel, setUnitLabel] = useState("jar");
   const [closureLabel, setClosureLabel] = useState("lid");
+  // Optional links from the packing log's container/closure to a PRIMARY packaging
+  // item, so the batch field becomes a lot picker that deducts stock. Stored as the
+  // item name (the app links recipe→stock by exact name). Empty = stays free-text.
+  const [unitIngredient, setUnitIngredient] = useState("");
+  const [closureIngredient, setClosureIngredient] = useState("");
+  const [primaryPackaging, setPrimaryPackaging] = useState<Ingredient[]>([]);
   const [packingLogHint, setPackingLogHint] = useState("");
   const [includeTotalUnits, setIncludeTotalUnits] = useState(true);
   const [signOffType, setSignOffType] = useState<"signature" | "checkbox">("signature");
@@ -152,6 +158,14 @@ export default function ProductionBuilderPage() {
         setAllIngredients((data ?? []) as Ingredient[]);
         setLoadingIngs(false);
       });
+    // Primary packaging items — offered as container/closure links in Step 5
+    supabase
+      .from("ingredients")
+      .select("*")
+      .eq("type", "packaging")
+      .eq("is_primary_packaging", true)
+      .order("name")
+      .then(({ data }) => setPrimaryPackaging((data ?? []) as Ingredient[]));
   }, []);
 
   useGuidedTour({
@@ -381,9 +395,13 @@ export default function ProductionBuilderPage() {
     }
 
     // ── Packing log ──
-    const hint = packingLogHint.trim()
-      ? JSON.stringify({ unit: unitLabel.trim(), closure: closureLabel.trim(), hint: packingLogHint.trim() })
-      : JSON.stringify({ unit: unitLabel.trim(), closure: closureLabel.trim() });
+    const hint = JSON.stringify({
+      unit: unitLabel.trim(),
+      closure: closureLabel.trim(),
+      ...(unitIngredient ? { jar_ingredient: unitIngredient } : {}),
+      ...(closureIngredient ? { closure_ingredient: closureIngredient } : {}),
+      ...(packingLogHint.trim() ? { hint: packingLogHint.trim() } : {}),
+    });
     questions.push(q("Packing log", "packing_runs", true, null, hint));
 
     // ── Total units ──
@@ -706,6 +724,34 @@ export default function ProductionBuilderPage() {
               <p className="text-xs text-gray-400 mt-2">
                 Used throughout the form — e.g. &ldquo;No. of {simplePlural(unitLabel || "jars")}&rdquo;, &ldquo;{closureLabel || "Lid"} batch no.&rdquo;
               </p>
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-1">Link to stock <span className="text-gray-400 font-normal">(optional)</span></p>
+              <p className="text-xs text-gray-400 mb-3">
+                Link the container and closure to a primary packaging item, so the packing log picks the batch from stock and deducts it. Leave as &ldquo;Not linked&rdquo; to keep typing batch numbers by hand.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">{unitLabel ? unitLabel.charAt(0).toUpperCase() + unitLabel.slice(1) : "Container"} item</label>
+                  <select className="input" value={unitIngredient} onChange={(e) => setUnitIngredient(e.target.value)}>
+                    <option value="">Not linked</option>
+                    {primaryPackaging.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">{closureLabel ? closureLabel.charAt(0).toUpperCase() + closureLabel.slice(1) : "Closure"} item</label>
+                  <select className="input" value={closureIngredient} onChange={(e) => setClosureIngredient(e.target.value)}>
+                    <option value="">Not linked</option>
+                    {primaryPackaging.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              {primaryPackaging.length === 0 && (
+                <p className="text-xs text-amber-600 mt-2">
+                  No primary packaging items yet — mark jars/lids as &ldquo;Primary packaging&rdquo; in Raw Materials to link them here.
+                </p>
+              )}
             </div>
 
             <div>
