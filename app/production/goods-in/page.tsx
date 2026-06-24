@@ -111,7 +111,7 @@ export default function GoodsInPage() {
   const [complianceWarning, setComplianceWarning] = useState(false);
   const [goodsInChecklistId, setGoodsInChecklistId] = useState<string | null>(null);
   const [panelSearch, setPanelSearch] = useState("");
-  const [panelPeriod, setPanelPeriod] = useState<"week" | "month">("week");
+  const [panelPeriod, setPanelPeriod] = useState<"week" | "month" | "all">("week");
 
   const [rows, setRows] = useState<IngredientRow[]>([emptyRow()]);
   const [receivedDateTime, setReceivedDateTime] = useState(nowLocalDateTime());
@@ -591,10 +591,10 @@ function validate() {
             className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-brand"
           />
           <div className="flex gap-1">
-            {(["week", "month"] as const).map(p => (
+            {([["week", "This Week"], ["month", "This Month"], ["all", "All time"]] as const).map(([p, label]) => (
               <button key={p} onClick={() => setPanelPeriod(p)}
                 className={`flex-1 px-2 py-1.5 rounded text-xs font-medium border transition-colors ${panelPeriod === p ? "bg-brand border-brand/50 text-brown" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}>
-                {p === "week" ? "This Week" : "This Month"}
+                {label}
               </button>
             ))}
           </div>
@@ -605,15 +605,19 @@ function validate() {
           ) : recentLots.length === 0 ? (
             <div className="p-4 text-sm text-gray-400 text-center">No deliveries yet.</div>
           ) : recentLots.filter(lot => {
-              const now = new Date();
-              const lotDate = new Date(lot.received_date);
-              if (panelPeriod === "week") {
-                const daysFromMon = now.getDay() === 0 ? 6 : now.getDay() - 1;
-                const weekStart = new Date(now); weekStart.setDate(now.getDate() - daysFromMon); weekStart.setHours(0,0,0,0);
-                if (lotDate < weekStart) return false;
-              } else {
-                const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-                if (lotDate < monthStart) return false;
+              // A search spans all time so deliveries from months ago are findable;
+              // otherwise honour the period window.
+              if (!panelSearch && panelPeriod !== "all") {
+                const now = new Date();
+                const lotDate = new Date(lot.received_date);
+                if (panelPeriod === "week") {
+                  const daysFromMon = now.getDay() === 0 ? 6 : now.getDay() - 1;
+                  const weekStart = new Date(now); weekStart.setDate(now.getDate() - daysFromMon); weekStart.setHours(0,0,0,0);
+                  if (lotDate < weekStart) return false;
+                } else {
+                  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                  if (lotDate < monthStart) return false;
+                }
               }
               return !panelSearch || lot.ingredient?.name?.toLowerCase().includes(panelSearch.toLowerCase());
             }).map(lot => (
