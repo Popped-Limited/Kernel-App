@@ -180,6 +180,20 @@ export interface SOPStep {
   created_at: string;
 }
 
+export interface GoodsReturn {
+  id: string;
+  organisation_id: string;
+  return_date: string;
+  product: string;
+  customer: string;
+  quantity: number;
+  dispatch_id: string | null;
+  batch_submission_id: string | null;
+  returned_by: string;
+  notes: string | null;
+  created_at: string;
+}
+
 export interface FinishedGoodsAdjustment {
   id: string;
   organisation_id: string;

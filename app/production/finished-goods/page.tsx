@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
-import type { Dispatch, FinishedGoodsAdjustment } from "@/lib/types";
+import type { Dispatch, FinishedGoodsAdjustment, GoodsReturn } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -62,6 +62,7 @@ export default function FinishedGoodsPage() {
   // Data
   const [productions,   setProductions]   = useState<ProductionRecord[]>([]);
   const [dispatches,    setDispatches]     = useState<Dispatch[]>([]);
+  const [returns,       setReturns]       = useState<GoodsReturn[]>([]);
   const [adjustments,   setAdjustments]   = useState<FinishedGoodsAdjustment[]>([]);
   const [allChecklists, setAllChecklists] = useState<string[]>([]); // all active product names
   const [loading,       setLoading]       = useState(true);
@@ -91,7 +92,7 @@ export default function FinishedGoodsPage() {
   async function load() {
     setLoading(true);
 
-    const [subRes, dispRes, adjRes, clRes] = await Promise.all([
+    const [subRes, dispRes, retRes, adjRes, clRes] = await Promise.all([
       supabase
         .from("submissions")
         .select("id, submitted_at, submitted_by, checklist:checklists(name, category), answers(value, question:questions(type, label))")
@@ -100,6 +101,10 @@ export default function FinishedGoodsPage() {
         .from("dispatches")
         .select("*")
         .order("dispatch_date", { ascending: false }),
+      supabase
+        .from("goods_returns")
+        .select("*")
+        .order("return_date", { ascending: false }),
       supabase
         .from("finished_goods_adjustments")
         .select("*")
@@ -156,6 +161,7 @@ export default function FinishedGoodsPage() {
 
     setProductions(prods);
     setDispatches((dispRes.data ?? []) as Dispatch[]);
+    setReturns((retRes.data ?? []) as GoodsReturn[]);
     setAdjustments((adjRes.data ?? []) as FinishedGoodsAdjustment[]);
     setAllChecklists(clProducts);
     setLoading(false);
@@ -167,10 +173,11 @@ export default function FinishedGoodsPage() {
     const set = new Set<string>([
       ...allChecklists,
       ...dispatches.map(d => d.product),
+      ...returns.map(r => r.product),
       ...adjustments.map(a => a.product),
     ]);
     return [...set].sort();
-  }, [allChecklists, dispatches, adjustments]);
+  }, [allChecklists, dispatches, returns, adjustments]);
 
   // ── Per-product stats ─────────────────────────────────────────────────────
 
@@ -200,8 +207,9 @@ export default function FinishedGoodsPage() {
   function stockFor(product: string) {
     const produced   = producedAllTime(product);
     const dispatched = dispatches.filter(d => d.product === product).reduce((s, d) => s + d.total_units, 0);
+    const returned   = returns.filter(r => r.product === product).reduce((s, r) => s + r.quantity, 0);
     const adjusted   = adjustments.filter(a => a.product === product).reduce((s, a) => s + a.quantity, 0);
-    return Math.max(0, produced + adjusted - dispatched);
+    return Math.max(0, produced + adjusted + returned - dispatched);
   }
 
   // ── Sorted product rows ───────────────────────────────────────────────────
@@ -263,23 +271,30 @@ export default function FinishedGoodsPage() {
       }
     }
 
-    // Dispatches are linked to a production batch via batch_submission_id
-    const dispatchedByCode: Record<string, number> = {};
+    // Dispatches are linked to a production batch via batch_submission_id; returns
+    // give units back to the same batch (net out = dispatched − returned).
+    const netOutByCode: Record<string, number> = {};
     for (const d of dispatches) {
       if (d.product !== reconProduct || !d.batch_submission_id) continue;
       const code = subToCode[d.batch_submission_id];
       if (!code) continue;
-      dispatchedByCode[code] = (dispatchedByCode[code] ?? 0) + d.total_units;
+      netOutByCode[code] = (netOutByCode[code] ?? 0) + d.total_units;
+    }
+    for (const r of returns) {
+      if (r.product !== reconProduct || !r.batch_submission_id) continue;
+      const code = subToCode[r.batch_submission_id];
+      if (!code) continue;
+      netOutByCode[code] = (netOutByCode[code] ?? 0) - r.quantity;
     }
 
     return Object.keys(producedByCode)
       .map(code => ({
         code,
         date: dateByCode[code],
-        remaining: Math.max(0, producedByCode[code] - (dispatchedByCode[code] ?? 0)),
+        remaining: Math.max(0, producedByCode[code] - (netOutByCode[code] ?? 0)),
       }))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [reconProduct, productions, dispatches]);
+  }, [reconProduct, productions, dispatches, returns]);
 
   async function saveReconcile() {
     if (!reconProduct) return;

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
-import type { Dispatch, Submission, Checklist, Question } from "@/lib/types";
+import type { Dispatch, Submission, Checklist, Question, GoodsReturn } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
 /** Returns current local datetime as YYYY-MM-DDThh:mm for datetime-local inputs */
@@ -144,8 +144,20 @@ export default function GoodsOutPage() {
   const [panelSearch, setPanelSearch] = useState("");
   const [panelPeriod, setPanelPeriod] = useState<"week" | "month">("week");
   const [goodsOutChecklistId, setGoodsOutChecklistId] = useState<string | null>(null);
-  // Units already dispatched per batch_submission_id (from saved dispatches)
+  // Net units out per batch_submission_id (dispatched − returned). Drives the
+  // "remaining" figure when allocating a batch, so returned units free up again.
   const [dispatchedPerBatch, setDispatchedPerBatch] = useState<Record<string, number>>({});
+
+  // Returns
+  const [recentReturns, setRecentReturns] = useState<GoodsReturn[]>([]);
+  const [returnedByDispatch, setReturnedByDispatch] = useState<Record<string, number>>({});
+  const [returnDispatch, setReturnDispatch] = useState<Dispatch | null>(null);
+  const [returnQty, setReturnQty]           = useState("");
+  const [returnDate, setReturnDate]         = useState("");
+  const [returnBy, setReturnBy]             = useState("");
+  const [returnNotes, setReturnNotes]       = useState("");
+  const [returnSaving, setReturnSaving]     = useState(false);
+  const [returnError, setReturnError]       = useState("");
 
   // Edit existing dispatch
   const [editingDispatch, setEditingDispatch] = useState<Dispatch | null>(null);
@@ -203,7 +215,7 @@ export default function GoodsOutPage() {
     // Use production checklist IDs to fetch only production submissions (no wasted limit)
     const productionChecklistIds = (clData ?? []).map(cl => cl.id);
 
-    const [dispRes, subRes, batchDispRes] = await Promise.all([
+    const [dispRes, subRes, batchDispRes, returnsRes] = await Promise.all([
       supabase
         .from("dispatches")
         .select("*")
@@ -220,18 +232,38 @@ export default function GoodsOutPage() {
         .from("dispatches")
         .select("batch_submission_id, total_units")
         .not("batch_submission_id", "is", null),
+      supabase
+        .from("goods_returns")
+        .select("*")
+        .order("return_date", { ascending: false }),
     ]);
 
     if (dispRes.data) setRecentDispatches(dispRes.data as Dispatch[]);
     if (subRes.data) {
       setBatchSubmissions(subRes.data as unknown as (Submission & { checklist: Checklist })[]);
     }
+
+    const returns = (returnsRes.data ?? []) as GoodsReturn[];
+    setRecentReturns(returns);
+    // Returned units per batch and per original dispatch
+    const returnedByBatch: Record<string, number> = {};
+    const returnedByDisp: Record<string, number> = {};
+    for (const r of returns) {
+      if (r.batch_submission_id) returnedByBatch[r.batch_submission_id] = (returnedByBatch[r.batch_submission_id] ?? 0) + (r.quantity ?? 0);
+      if (r.dispatch_id) returnedByDisp[r.dispatch_id] = (returnedByDisp[r.dispatch_id] ?? 0) + (r.quantity ?? 0);
+    }
+    setReturnedByDispatch(returnedByDisp);
+
     if (batchDispRes.data) {
+      // Net out per batch = dispatched − returned, so returned units become available again
       const totals: Record<string, number> = {};
       for (const d of batchDispRes.data) {
         if (d.batch_submission_id) {
           totals[d.batch_submission_id] = (totals[d.batch_submission_id] ?? 0) + (d.total_units ?? 0);
         }
+      }
+      for (const [batchId, qty] of Object.entries(returnedByBatch)) {
+        totals[batchId] = (totals[batchId] ?? 0) - qty;
       }
       setDispatchedPerBatch(totals);
     }
@@ -366,6 +398,46 @@ export default function GoodsOutPage() {
     setErrors({});
     await load();
     setTimeout(() => setSaved(false), 3000);
+  }
+
+  // Units still out for a dispatch = dispatched − already returned (the cap on a new return)
+  function returnableUnits(d: Dispatch) {
+    return Math.max(0, (d.total_units ?? 0) - (returnedByDispatch[d.id] ?? 0));
+  }
+
+  function openRecordReturn(d: Dispatch) {
+    setReturnDispatch(d);
+    setReturnQty("");
+    setReturnDate(new Date().toISOString().slice(0, 10));
+    setReturnBy("");
+    setReturnNotes("");
+    setReturnError("");
+  }
+
+  async function saveReturn() {
+    if (!returnDispatch) return;
+    const cap = returnableUnits(returnDispatch);
+    const qty = parseInt(returnQty, 10);
+    if (isNaN(qty) || qty <= 0) { setReturnError("Enter how many units came back"); return; }
+    if (qty > cap) { setReturnError(`Only ${cap} unit${cap !== 1 ? "s" : ""} from this dispatch can be returned`); return; }
+    if (!returnBy.trim()) { setReturnError("Enter who logged this return"); return; }
+    setReturnSaving(true);
+    setReturnError("");
+    const { error } = await supabase.from("goods_returns").insert({
+      organisation_id: orgId,
+      return_date: returnDate,
+      product: returnDispatch.product,
+      customer: returnDispatch.customer,
+      quantity: qty,
+      dispatch_id: returnDispatch.id,
+      batch_submission_id: returnDispatch.batch_submission_id,
+      returned_by: returnBy.trim(),
+      notes: returnNotes.trim() || null,
+    });
+    setReturnSaving(false);
+    if (error) { setReturnError(error.message); return; }
+    setReturnDispatch(null);
+    await load();
   }
 
   function openEditDispatch(d: Dispatch) {
@@ -741,7 +813,15 @@ export default function GoodsOutPage() {
                 <div className="shrink-0 text-right">
                   <p className="text-xs font-bold tabular-nums text-gray-900">{d.total_units}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{formatDate(d.dispatch_date)}</p>
-                  <button onClick={() => openEditDispatch(d)} className="text-xs text-brown/60 hover:text-brown hover:underline mt-1 block">Edit</button>
+                  {(returnedByDispatch[d.id] ?? 0) > 0 && (
+                    <p className="text-xs text-amber-600 font-medium mt-0.5">{returnedByDispatch[d.id]} returned</p>
+                  )}
+                  <div className="flex items-center justify-end gap-2 mt-1">
+                    <button onClick={() => openEditDispatch(d)} className="text-xs text-brown/60 hover:text-brown hover:underline">Edit</button>
+                    {returnableUnits(d) > 0 && (
+                      <button onClick={() => openRecordReturn(d)} className="text-xs text-brown/60 hover:text-brown hover:underline">Return</button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -837,6 +917,65 @@ export default function GoodsOutPage() {
           </div>
         </div>
       )}
+
+      {/* Record return panel */}
+      {returnDispatch && (() => {
+        const cap = returnableUnits(returnDispatch);
+        return (
+          <div className="fixed inset-0 z-40 flex">
+            <div className="flex-1 bg-black/30" onClick={() => setReturnDispatch(null)} />
+            <div className="w-full max-w-sm bg-white shadow-xl flex flex-col">
+              <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900">Record return</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">{returnDispatch.product} · {returnDispatch.customer}</p>
+                </div>
+                <button onClick={() => setReturnDispatch(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
+                  <p className="text-xs text-amber-700 font-medium">Dispatched on {formatDate(returnDispatch.dispatch_date)}</p>
+                  <p className="text-lg font-bold text-amber-900 mt-0.5">{cap} unit{cap !== 1 ? "s" : ""} available to return</p>
+                  <p className="text-xs text-amber-600 mt-0.5">Resale-fit returns go back into stock against this batch and can be dispatched again.</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Units returned</label>
+                    <input type="number" min="1" max={cap} step="1" className="input w-full" placeholder="0" value={returnQty} onChange={e => setReturnQty(e.target.value)} inputMode="numeric" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Return date</label>
+                    <input type="date" className="input w-full max-w-full" value={returnDate} onChange={e => setReturnDate(e.target.value)} />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Logged by</label>
+                  <input type="text" className="input w-full" placeholder="e.g. Head of Popping" value={returnBy} onChange={e => setReturnBy(e.target.value)} />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Notes <span className="text-gray-400">(optional)</span></label>
+                  <textarea className="input w-full" rows={2} placeholder="e.g. Wholesaler over-ordered, seals intact" value={returnNotes} onChange={e => setReturnNotes(e.target.value)} />
+                </div>
+              </div>
+
+              {returnError && (
+                <div className="mx-6 mb-2 rounded bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{returnError}</div>
+              )}
+
+              <div className="border-t border-gray-200 px-6 pt-3 pb-3 flex gap-3">
+                <button onClick={() => setReturnDispatch(null)} className="btn-ghost flex-1">Cancel</button>
+                <button onClick={saveReturn} disabled={returnSaving || returnQty === ""} className="btn-primary flex-1">
+                  {returnSaving ? "Saving…" : "Record return"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }

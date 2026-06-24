@@ -71,12 +71,25 @@ export interface DispatchInfo {
   batch_submission_id: string | null;
 }
 
+export interface ReturnInfo {
+  id: string;
+  return_date: string;
+  product: string;
+  customer: string;
+  quantity: number;
+  returned_by: string;
+  notes: string | null;
+  dispatch_id: string | null;
+  batch_submission_id: string | null;
+}
+
 export interface TraceResult {
   searchType: "lot" | "batch" | "ingredient" | "product";
   query: string;
   lots: LotInfo[];
   batches: BatchInfo[];
   dispatches: DispatchInfo[];
+  returns: ReturnInfo[];
   reconciliation?: LotReconciliation[]; // per-lot ingredient mass balance
 }
 
@@ -105,8 +118,9 @@ export function getBatchCode(batch: BatchInfo): string {
 export interface MassBalance {
   produced: number;    // total finished units produced across the traced batches
   dispatched: number;  // total units dispatched
-  remaining: number;   // produced − dispatched
-  reconciled: boolean;  // true when dispatched does not exceed produced
+  returned: number;    // total units returned to stock
+  remaining: number;   // produced − (dispatched − returned)
+  reconciled: boolean;  // true when net dispatched does not exceed produced
 }
 
 /**
@@ -125,15 +139,18 @@ export function getUnitsProduced(batch: BatchInfo): number {
   return 0;
 }
 
-/** Reconcile produced vs dispatched units for a mock-recall mass-balance check. */
+/** Reconcile produced vs net-dispatched units for a mock-recall mass-balance check. */
 export function computeMassBalance(result: TraceResult): MassBalance {
   const produced = result.batches.reduce((s, b) => s + getUnitsProduced(b), 0);
   const dispatched = result.dispatches.reduce((s, d) => s + (d.total_units ?? 0), 0);
+  const returned = (result.returns ?? []).reduce((s, r) => s + (r.quantity ?? 0), 0);
+  const netDispatched = dispatched - returned;
   return {
     produced,
     dispatched,
-    remaining: produced - dispatched,
-    reconciled: produced === 0 ? false : dispatched <= produced,
+    returned,
+    remaining: produced - netDispatched,
+    reconciled: produced === 0 ? false : netDispatched <= produced,
   };
 }
 
@@ -193,6 +210,13 @@ async function fetchDispatchesForBatches(submissionIds: string[]): Promise<Dispa
   if (submissionIds.length === 0) return [];
   const { data } = await supabase.from("dispatches").select("*").in("batch_submission_id", submissionIds);
   return (data ?? []) as DispatchInfo[];
+}
+
+/** Returns logged against the traced production batches (the "came back" leg of the chain). */
+async function fetchReturnsForBatches(submissionIds: string[]): Promise<ReturnInfo[]> {
+  if (submissionIds.length === 0) return [];
+  const { data } = await supabase.from("goods_returns").select("*").in("batch_submission_id", submissionIds);
+  return (data ?? []) as ReturnInfo[];
 }
 
 async function fetchLots(lotIds: string[]): Promise<LotInfo[]> {
@@ -317,8 +341,9 @@ export async function searchByLot(julianCode: string): Promise<TraceOutcome> {
   const submissionIds = await submissionsUsingLots(lots.map((l: LotInfo) => l.id));
   const batches = await fetchBatches(submissionIds);
   const dispatches = await fetchDispatchesForBatches(submissionIds);
+  const returns = await fetchReturnsForBatches(submissionIds);
 
-  return { result: await withReconciliation({ searchType: "lot", query: julianCode, lots: lots as LotInfo[], batches, dispatches }) };
+  return { result: await withReconciliation({ searchType: "lot", query: julianCode, lots: lots as LotInfo[], batches, dispatches, returns }) };
 }
 
 // ── Search by finished-product Julian / batch code ──────────────────────────
@@ -350,8 +375,9 @@ export async function searchByBatch(julianCode: string): Promise<TraceOutcome> {
 
   const lots = await fetchLots(Array.from(lotIdsFromBatches(batches)));
   const dispatches = await fetchDispatchesForBatches(submissionIds);
+  const returns = await fetchReturnsForBatches(submissionIds);
 
-  return { result: await withReconciliation({ searchType: "batch", query: julianCode, lots, batches, dispatches }) };
+  return { result: await withReconciliation({ searchType: "batch", query: julianCode, lots, batches, dispatches, returns }) };
 }
 
 // ── Search by ingredient name — step 1: list candidate lots ─────────────────
@@ -380,6 +406,7 @@ export async function traceFromLot(lot: LotInfo): Promise<TraceOutcome> {
   const submissionIds = await submissionsUsingLots([lot.id]);
   const batches = await fetchBatches(submissionIds);
   const dispatches = await fetchDispatchesForBatches(submissionIds);
+  const returns = await fetchReturnsForBatches(submissionIds);
 
   return {
     result: await withReconciliation({
@@ -388,6 +415,7 @@ export async function traceFromLot(lot: LotInfo): Promise<TraceOutcome> {
       lots: [lot],
       batches,
       dispatches,
+      returns,
     }),
   };
 }
@@ -430,6 +458,7 @@ export async function searchByProduct(name: string): Promise<TraceOutcome> {
   }
 
   const lots = await fetchLots(Array.from(lotIdsFromBatches(batches)));
+  const returns = await fetchReturnsForBatches(allBatchIds);
 
-  return { result: await withReconciliation({ searchType: "product", query: name, lots, batches, dispatches }) };
+  return { result: await withReconciliation({ searchType: "product", query: name, lots, batches, dispatches, returns }) };
 }

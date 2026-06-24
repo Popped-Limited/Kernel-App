@@ -82,53 +82,83 @@ export default function TraceChain({
         </Section>
       )}
 
-      {/* Dispatches */}
-      <Section title="Dispatches" count={result.dispatches.length} defaultOpen={defaultOpen}>
-        {result.dispatches.length === 0 ? (
-          <p className="text-sm text-gray-400 py-2">No dispatches linked to these batch records yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs min-w-[640px]">
-              <thead>
-                <tr className="text-gray-500">
-                  <th className="text-left py-1 font-medium">Date</th>
-                  <th className="text-left py-1 font-medium">Product</th>
-                  <th className="text-left py-1 font-medium">Customer</th>
-                  <th className="text-left py-1 font-medium">Batch code</th>
-                  <th className="text-right py-1 font-medium">×6</th>
-                  <th className="text-right py-1 font-medium">×3</th>
-                  <th className="text-right py-1 font-medium">Singles</th>
-                  <th className="text-right py-1 font-medium">Units</th>
-                  <th className="text-left py-1 font-medium pl-3">Ref</th>
-                  <th className="text-left py-1 font-medium">By</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {result.dispatches.map((d) => {
-                  const linkedBatch = d.batch_submission_id
-                    ? result.batches.find((b) => b.id === d.batch_submission_id)
-                    : null;
-                  const batchCode = linkedBatch ? getBatchCode(linkedBatch) : "";
-                  return (
-                    <tr key={d.id}>
-                      <td className="py-1.5 text-gray-600 whitespace-nowrap">{formatDate(d.dispatch_date)}</td>
-                      <td className="py-1.5 font-medium text-gray-900">{d.product}</td>
-                      <td className="py-1.5 text-gray-600">{d.customer}</td>
-                      <td className="py-1.5 font-mono text-gray-700">{batchCode || <span className="text-gray-300">—</span>}</td>
-                      <td className="py-1.5 text-right tabular-nums text-gray-600">{d.cases_of_6 || "—"}</td>
-                      <td className="py-1.5 text-right tabular-nums text-gray-600">{d.cases_of_3 || "—"}</td>
-                      <td className="py-1.5 text-right tabular-nums text-gray-600">{d.singles || "—"}</td>
-                      <td className="py-1.5 text-right tabular-nums font-bold text-gray-900">{d.total_units}</td>
-                      <td className="py-1.5 pl-3 text-gray-500">{d.reference ?? "—"}</td>
-                      <td className="py-1.5 text-gray-500">{d.dispatched_by}</td>
+      {/* Dispatches & returns — one chronological timeline so the round-trip
+          (out → back → out) reads top to bottom */}
+      {(() => {
+        type Movement = {
+          kind: "dispatch" | "return";
+          id: string;
+          date: string;
+          product: string;
+          customer: string;
+          batchId: string | null;
+          units: number;
+          by: string;
+          ref: string | null;
+        };
+        const movements: Movement[] = [
+          ...result.dispatches.map((d) => ({
+            kind: "dispatch" as const, id: d.id, date: d.dispatch_date, product: d.product,
+            customer: d.customer, batchId: d.batch_submission_id, units: d.total_units,
+            by: d.dispatched_by, ref: d.reference,
+          })),
+          ...(result.returns ?? []).map((r) => ({
+            kind: "return" as const, id: r.id, date: r.return_date, product: r.product,
+            customer: r.customer, batchId: r.batch_submission_id, units: r.quantity,
+            by: r.returned_by, ref: null,
+          })),
+        ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        return (
+          <Section title="Dispatches & returns" count={movements.length} defaultOpen={defaultOpen}>
+            {movements.length === 0 ? (
+              <p className="text-sm text-gray-400 py-2">No dispatches linked to these batch records yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs min-w-[640px]">
+                  <thead>
+                    <tr className="text-gray-500">
+                      <th className="text-left py-1 font-medium">Date</th>
+                      <th className="text-left py-1 font-medium">Movement</th>
+                      <th className="text-left py-1 font-medium">Product</th>
+                      <th className="text-left py-1 font-medium">Customer</th>
+                      <th className="text-left py-1 font-medium">Batch code</th>
+                      <th className="text-right py-1 font-medium">Units</th>
+                      <th className="text-left py-1 font-medium pl-3">Ref</th>
+                      <th className="text-left py-1 font-medium">By</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Section>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {movements.map((m) => {
+                      const linkedBatch = m.batchId ? result.batches.find((b) => b.id === m.batchId) : null;
+                      const batchCode = linkedBatch ? getBatchCode(linkedBatch) : "";
+                      const isReturn = m.kind === "return";
+                      return (
+                        <tr key={`${m.kind}-${m.id}`}>
+                          <td className="py-1.5 text-gray-600 whitespace-nowrap">{formatDate(m.date)}</td>
+                          <td className="py-1.5">
+                            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${isReturn ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-700"}`}>
+                              {isReturn ? "Returned" : "Dispatched"}
+                            </span>
+                          </td>
+                          <td className="py-1.5 font-medium text-gray-900">{m.product}</td>
+                          <td className="py-1.5 text-gray-600">{m.customer || <span className="text-gray-300">—</span>}</td>
+                          <td className="py-1.5 font-mono text-gray-700">{batchCode || <span className="text-gray-300">—</span>}</td>
+                          <td className={`py-1.5 text-right tabular-nums font-bold ${isReturn ? "text-amber-700" : "text-gray-900"}`}>
+                            {isReturn ? `+${m.units}` : m.units}
+                          </td>
+                          <td className="py-1.5 pl-3 text-gray-500">{m.ref ?? "—"}</td>
+                          <td className="py-1.5 text-gray-500">{m.by}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Section>
+        );
+      })()}
 
       {/* Summary */}
       <div className="card p-4 bg-gray-900 text-white">
@@ -143,8 +173,18 @@ export default function TraceChain({
             <p className="text-xs text-gray-400 mt-0.5">batch record{result.batches.length !== 1 ? "s" : ""}</p>
           </div>
           <div>
-            <p className="text-2xl font-bold">{result.dispatches.reduce((s, d) => s + d.total_units, 0)}</p>
-            <p className="text-xs text-gray-400 mt-0.5">units dispatched</p>
+            {(() => {
+              const dispatched = result.dispatches.reduce((s, d) => s + d.total_units, 0);
+              const returned = (result.returns ?? []).reduce((s, r) => s + (r.quantity ?? 0), 0);
+              return (
+                <>
+                  <p className="text-2xl font-bold">{dispatched - returned}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    units out{returned > 0 ? ` (${dispatched} sent − ${returned} returned)` : ""}
+                  </p>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
