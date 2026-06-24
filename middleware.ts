@@ -11,12 +11,6 @@ const PUBLIC_PREFIXES = [
   "/api/stripe-webhook",
   "/api/reminders",
   "/_next",
-  "/favicon.ico",
-  "/logo.png",
-  "/kernel.png",
-  "/kernel.svg",
-  "/popcorn.png",
-  "/tom-in-the-factory.jpg",
   "/privacy",
   "/terms",
   "/saq/",
@@ -25,10 +19,17 @@ const PUBLIC_PREFIXES = [
   "/api/accept-invite",
 ];
 
+// Static assets (images, fonts, icons) are always public — never gate them.
+const PUBLIC_FILE = /\.(?:png|jpe?g|gif|svg|webp|avif|ico|woff2?|ttf|otf)$/i;
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/" || PUBLIC_PREFIXES.some(p => pathname.startsWith(p))) {
+  if (
+    pathname === "/" ||
+    PUBLIC_FILE.test(pathname) ||
+    PUBLIC_PREFIXES.some(p => pathname.startsWith(p))
+  ) {
     return NextResponse.next();
   }
 
