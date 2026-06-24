@@ -33,6 +33,13 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   `jars_used` when it's absent. Track them in **separate accumulators** so answer order can't make the fallback win.
 - **Goods In/Out** write structured `batch_notes` that the submission view parses into tables; **production**
   batch notes render verbatim (colons in free text must not be parsed as label/value).
+- **Primary packaging** (jars/lids that touch the product) is traced/deducted like ingredients: items flagged
+  `ingredients.is_primary_packaging` (opt-in, default false). A `packing_runs` question's `hint` JSON maps its
+  container/closure to a packaging item (`jar_ingredient`/`closure_ingredient` = exact name); when mapped, the packing
+  log picks the lot (`jar_lot_id`/`lids_lot_id`) and `/api/submit` deducts `jars_used`/`lids_count` from
+  `ingredient_lots`. Traceability + draft reservation treat ingredient_table and packing_runs lot refs uniformly.
+  Secondary packaging (boxes) is never mapped — no link, no deduction. Set the mapping in the production-flow builder
+  OR the existing-checklist editor (so live records link without rebuilding).
 - **Finished-goods stock** is product-level: `produced − dispatched + adjustments`, matched by **exact product name**.
   Dispatches link to a production batch via `batch_submission_id`; per-batch "remaining" = produced − dispatched-against-that-batch.
 
@@ -70,6 +77,7 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   also grants `finished_goods_adjustments` to `service_role`) — run 21 Jun 2026.
 - `add-may-contain-and-spec-review.sql` (ingredients gain `may_contain_allergens`,
   `spec_sheet_review_frequency_years`, `spec_sheet_next_review_due`) — run 24 Jun 2026.
+- `add-primary-packaging.sql` (ingredients gain `is_primary_packaging`) — run 24 Jun 2026.
 - `scripts/clone-yep-to-demo.mjs` clones Yep Kitchen's operational data into the
   Popped demo org (dry-run by default; `--commit` to apply). Skips logins/billing
   and the tables the admin key can't write (SOPs, calendar, wastage, training_sessions).
