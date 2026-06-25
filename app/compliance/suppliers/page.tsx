@@ -76,12 +76,6 @@ function emptySupplier(): Omit<Supplier, "id" | "created_at"> {
   };
 }
 
-const TYPE_LABELS: Record<SupplierType, string> = {
-  raw_material: "Raw Material",
-  packaging: "Packaging",
-  service: "Service",
-};
-
 // Underline tabs, matching the Raw Materials page (emoji + count badge, no "All").
 const SUPPLIER_TABS: { key: SupplierType; label: string; icon: string }[] = [
   { key: "raw_material", label: "Raw Materials", icon: "🌽" },
@@ -373,6 +367,16 @@ export default function SuppliersPage() {
     service: suppliers.filter(s => s.type === "service").length,
   };
 
+  // Action-oriented headline metrics (≤60 days counts expired/overdue too).
+  const certsExpiring = suppliers.filter(s => s.cert_expiry && daysDiff(s.cert_expiry) <= 60).length;
+  const reviewsDue    = suppliers.filter(s => s.next_review_due && daysDiff(s.next_review_due) <= 60).length;
+  const highRisk      = suppliers.filter(s => s.supplier_risk === "high").length;
+  const metrics = [
+    { label: "Certs expiring", value: certsExpiring },
+    { label: "Reviews due",    value: reviewsDue },
+    { label: "High-risk suppliers", value: highRisk },
+  ];
+
   const panelOpen = isNew || !!editing;
 
   // ── Live risk derivation for the edit panel ────────────────────────────────
@@ -420,12 +424,12 @@ export default function SuppliersPage() {
           </div>
           <button data-tour="add-supplier" onClick={openNew} className="btn-primary text-sm">+ Add Supplier</button>
         </div>
-        {/* Summary */}
+        {/* Summary — action-oriented metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          {(["raw_material", "packaging", "service"] as SupplierType[]).map(t => (
-            <div key={t} className="card p-4">
-              <p className="text-xs text-gray-500">{TYPE_LABELS[t]} Suppliers</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{counts[t]}</p>
+          {metrics.map(m => (
+            <div key={m.label} className={`card p-4 ${m.value > 0 ? "border-brand/50 bg-brand-light" : ""}`}>
+              <p className={`text-xs font-medium uppercase tracking-wide ${m.value > 0 ? "text-brown/70" : "text-gray-500"}`}>{m.label}</p>
+              <p className={`mt-1 text-2xl font-bold ${m.value > 0 ? "text-brown" : "text-gray-900"}`}>{m.value}</p>
             </div>
           ))}
         </div>
