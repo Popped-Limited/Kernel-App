@@ -427,9 +427,9 @@ export default function SuppliersPage() {
         {/* Summary — action-oriented metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {metrics.map(m => (
-            <div key={m.label} className={`card p-4 ${m.value > 0 ? "border-brand/50 bg-brand-light" : ""}`}>
-              <p className={`text-xs font-medium uppercase tracking-wide ${m.value > 0 ? "text-brown/70" : "text-gray-500"}`}>{m.label}</p>
-              <p className={`mt-1 text-2xl font-bold ${m.value > 0 ? "text-brown" : "text-gray-900"}`}>{m.value}</p>
+            <div key={m.label} className="card p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{m.label}</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">{m.value}</p>
             </div>
           ))}
         </div>
