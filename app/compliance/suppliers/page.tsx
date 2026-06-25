@@ -82,6 +82,13 @@ const TYPE_LABELS: Record<SupplierType, string> = {
   service: "Service",
 };
 
+// Underline tabs, matching the Raw Materials page (emoji + count badge, no "All").
+const SUPPLIER_TABS: { key: SupplierType; label: string; icon: string }[] = [
+  { key: "raw_material", label: "Raw Materials", icon: "🌽" },
+  { key: "packaging",    label: "Packaging",     icon: "📦" },
+  { key: "service",      label: "Services",      icon: "🛠️" },
+];
+
 const RISK_COLORS: Record<SupplierRisk, string> = {
   low: "bg-brand/30 text-brown",
   medium: "bg-amber-100 text-amber-800",
@@ -121,7 +128,7 @@ export default function SuppliersPage() {
   const { orgId } = useOrganisation();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<SupplierType | "all">("all");
+  const [filter, setFilter] = useState<SupplierType>("raw_material");
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -333,7 +340,7 @@ export default function SuppliersPage() {
     await load();
   }
 
-  const filtered = filter === "all" ? suppliers : suppliers.filter(s => s.type === filter);
+  const filtered = suppliers.filter(s => s.type === filter);
 
   const RISK_ORDER: Record<SupplierRisk, number> = { low: 1, medium: 2, high: 3 };
   function sortVal(s: Supplier, key: string): string | number {
@@ -423,15 +430,25 @@ export default function SuppliersPage() {
           ))}
         </div>
 
-        {/* Filter tabs */}
-        <div className="flex gap-2 mb-4">
-          {([["all", "All"], ["raw_material", "Raw Materials"], ["packaging", "Packaging"], ["service", "Services"]] as const).map(([val, label]) => (
+        {/* Filter tabs — underline style, matching Raw Materials */}
+        <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
+          {SUPPLIER_TABS.map(tab => (
             <button
-              key={val}
-              onClick={() => setFilter(val)}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition ${filter === val ? "bg-brand text-brown" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+              key={tab.key}
+              onClick={() => setFilter(tab.key)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                filter === tab.key
+                  ? "border-brand text-gray-900"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
             >
-              {label}
+              <span>{tab.icon}</span>
+              {tab.label}
+              <span className={`text-xs rounded-full px-1.5 py-0.5 font-semibold ${
+                filter === tab.key ? "bg-brand text-gray-900" : "bg-gray-100 text-gray-500"
+              }`}>
+                {counts[tab.key]}
+              </span>
             </button>
           ))}
         </div>
