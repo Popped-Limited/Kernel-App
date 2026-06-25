@@ -17,6 +17,8 @@ interface Props {
   orgId: string | null;
   docType: "spec_sheet" | "coshh" | "accreditation" | "other";
   label: string;
+  /** Notified with the current document count whenever the list loads/changes. */
+  onCountChange?: (count: number) => void;
 }
 
 function PdfIcon() {
@@ -29,7 +31,7 @@ function PdfIcon() {
   );
 }
 
-export default function DocUploader({ entityType, entityId, orgId, docType, label }: Props) {
+export default function DocUploader({ entityType, entityId, orgId, docType, label, onCountChange }: Props) {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -46,7 +48,10 @@ export default function DocUploader({ entityType, entityId, orgId, docType, labe
       .eq("entity_id", entityId)
       .eq("doc_type", docType)
       .order("uploaded_at", { ascending: false });
-    if (data) setDocs(data as Doc[]);
+    if (data) {
+      setDocs(data as Doc[]);
+      onCountChange?.(data.length);
+    }
   }
 
   function getPublicUrl(path: string) {
@@ -98,7 +103,11 @@ export default function DocUploader({ entityType, entityId, orgId, docType, labe
     if (!confirm(`Delete "${doc.file_name}"? This cannot be undone.`)) return;
     await supabase.storage.from("compliance-docs").remove([doc.file_path]);
     await supabase.from("documents").delete().eq("id", doc.id);
-    setDocs(prev => prev.filter(d => d.id !== doc.id));
+    setDocs(prev => {
+      const next = prev.filter(d => d.id !== doc.id);
+      onCountChange?.(next.length);
+      return next;
+    });
   }
 
   return (

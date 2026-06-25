@@ -7,9 +7,19 @@ import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import DocUploader from "@/components/DocUploader";
 import RiskCalculator from "@/components/RiskCalculator";
+import SupplierRiskMatrix from "@/components/SupplierRiskMatrix";
 import SAQResponsesViewer from "@/components/SAQResponsesViewer";
 import SortableTh, { type SortDir } from "@/components/SortableTh";
 import { useGuidedTour } from "@/lib/useGuidedTour";
+import {
+  calcSupplierRisk,
+  calcReviewFrequency,
+  certIsValid,
+  reviewDueDate,
+  RISK_STYLES,
+  type Risk,
+  type RiskAssessmentData,
+} from "@/lib/supplierRisk";
 
 type SupplierType = "raw_material" | "packaging" | "service";
 type SupplierRisk = "low" | "medium" | "high";
@@ -36,6 +46,8 @@ interface Supplier {
   next_review_due: string | null;
   status: SupplierStatus;
   notes: string | null;
+  risk_override_reason: string | null;
+  risk_assessment_data: RiskAssessmentData | null;
   created_at: string;
 }
 
@@ -59,6 +71,8 @@ function emptySupplier(): Omit<Supplier, "id" | "created_at"> {
     next_review_due: null,
     status: "approved",
     notes: null,
+    risk_override_reason: null,
+    risk_assessment_data: null,
   };
 }
 
@@ -115,6 +129,9 @@ export default function SuppliersPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [riskCalcOpen, setRiskCalcOpen] = useState(false);
+  const [matrixOpen, setMatrixOpen] = useState(false);
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [hasAccreditationDoc, setHasAccreditationDoc] = useState(false);
   const [saqViewerOpen, setSaqViewerOpen] = useState(false);
   const [sortKey, setSortKey] = useState<string>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -207,6 +224,8 @@ export default function SuppliersPage() {
     setForm({ ...emptySupplier(), saq_token: token });
     setEditing(null);
     setIsNew(true);
+    setHasAccreditationDoc(false);
+    setOverrideOpen(false);
   }
 
   function openEdit(s: Supplier) {
@@ -229,9 +248,13 @@ export default function SuppliersPage() {
       next_review_due: s.next_review_due,
       status: s.status,
       notes: s.notes,
+      risk_override_reason: s.risk_override_reason,
+      risk_assessment_data: s.risk_assessment_data,
     });
     setEditing(s);
     setIsNew(false);
+    setHasAccreditationDoc(false); // refreshed by DocUploader's onCountChange once mounted
+    setOverrideOpen(!!s.risk_override_reason);
   }
 
   function closePanel() {
@@ -245,9 +268,28 @@ export default function SuppliersPage() {
 
   async function save() {
     if (!form.name.trim() || !form.supplies.trim()) return;
+    if (form.type !== "service" && overrideOpen && !form.risk_override_reason?.trim()) {
+      alert("Please enter a reason for the manual override, or revert to auto.");
+      return;
+    }
     setSaving(true);
 
     const saqToken = form.saq_token || (isNew ? crypto.randomUUID() : null);
+
+    // Resolve the effective risk figures (auto-derived unless manually overridden)
+    // so the stored columns — used by the list view and sorting — stay accurate.
+    const overridden = !!form.risk_override_reason;
+    const effSupplierRisk = form.type === "service"
+      ? null
+      : overridden
+        ? form.supplier_risk
+        : calcSupplierRisk(form.saq_completed, certIsValid(hasAccreditationDoc, form.cert_expiry));
+    const effRmRisk = form.type === "service" ? null : form.raw_material_risk;
+    const effReviewYears = effSupplierRisk && effRmRisk
+      ? calcReviewFrequency(effSupplierRisk, effRmRisk)
+      : (form.review_frequency_years || null);
+    const effNextReview = form.next_review_due
+      || (effReviewYears && effSupplierRisk && effRmRisk ? reviewDueDate(effReviewYears) : null);
 
     const payload = {
       ...form,
@@ -259,9 +301,12 @@ export default function SuppliersPage() {
       saq_token: saqToken,
       cert_expiry: form.cert_expiry || null,
       saq_date: form.saq_date || null,
-      next_review_due: form.next_review_due || null,
       hygiene_rating: form.hygiene_rating || null,
-      review_frequency_years: form.review_frequency_years || null,
+      supplier_risk: effSupplierRisk,
+      raw_material_risk: effRmRisk,
+      review_frequency_years: effReviewYears,
+      next_review_due: effNextReview,
+      risk_override_reason: form.risk_override_reason?.trim() || null,
       notes: form.notes?.trim() || null,
     };
 
@@ -322,6 +367,35 @@ export default function SuppliersPage() {
   };
 
   const panelOpen = isNew || !!editing;
+
+  // ── Live risk derivation for the edit panel ────────────────────────────────
+  // Supplier risk is auto-derived from SAQ status + a valid (uploaded, non-expired)
+  // certificate, unless a manual override (with reason) is in force. Raw-material
+  // risk comes only from running the calculator. Review frequency follows the SALSA
+  // matrix once both are known.
+  const certValid = certIsValid(hasAccreditationDoc, form.cert_expiry);
+  const isOverridden = !!form.risk_override_reason;
+  const autoSupplierRisk = calcSupplierRisk(form.saq_completed, certValid);
+  const shownSupplierRisk: Risk | null = isOverridden ? form.supplier_risk : autoSupplierRisk;
+  const shownRmRisk: Risk | null = form.raw_material_risk;
+  const shownReviewYears = shownSupplierRisk && shownRmRisk
+    ? calcReviewFrequency(shownSupplierRisk, shownRmRisk)
+    : null;
+
+  function startOverride() {
+    setOverrideOpen(true);
+    // Seed the override with the current auto values so the user edits from there.
+    setForm(prev => ({
+      ...prev,
+      supplier_risk: prev.supplier_risk ?? autoSupplierRisk,
+      risk_override_reason: prev.risk_override_reason ?? "",
+    }));
+  }
+
+  function clearOverride() {
+    setOverrideOpen(false);
+    setForm(prev => ({ ...prev, risk_override_reason: null }));
+  }
 
   return (
     <>
@@ -555,49 +629,97 @@ export default function SuppliersPage() {
               {/* Risk + review — not applicable for services */}
               {form.type !== "service" && (
                 <>
-                  <div data-tour="supplier-risk" className="space-y-2">
+                  <div data-tour="supplier-risk" className="space-y-3">
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-medium text-gray-700">Risk Assessment</p>
-                      <button
-                        type="button"
-                        onClick={() => setRiskCalcOpen(true)}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-brown hover:underline"
-                      >
-                        <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                          <rect x="1" y="1" width="10" height="10" rx="1.5"/>
-                          <path d="M3.5 4h5M3.5 6h5M3.5 8h3"/>
-                        </svg>
-                        Run calculator
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button type="button" onClick={() => setMatrixOpen(true)} className="text-xs font-medium text-gray-500 hover:text-brown hover:underline">
+                          How is this calculated?
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRiskCalcOpen(true)}
+                          className="inline-flex items-center gap-1.5 rounded-md bg-brand px-2.5 py-1.5 text-xs font-semibold text-brown hover:bg-brand-dark transition"
+                        >
+                          <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                            <rect x="1" y="1" width="10" height="10" rx="1.5"/>
+                            <path d="M3.5 4h5M3.5 6h5M3.5 8h3"/>
+                          </svg>
+                          Run calculator
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Auto-derived risk badges */}
                     <div className="grid grid-cols-2 gap-3">
-                      <Field label="Supplier risk">
-                        <select className="input w-full" value={form.supplier_risk ?? ""} onChange={e => setF("supplier_risk", (e.target.value || null) as SupplierRisk | null)}>
-                          <option value="">— Select —</option>
-                          <option value="low">Low</option>
-                          <option value="medium">Medium</option>
-                          <option value="high">High</option>
-                        </select>
-                      </Field>
-                      <Field label="Raw material risk">
-                        <select className="input w-full" value={form.raw_material_risk ?? ""} onChange={e => setF("raw_material_risk", (e.target.value || null) as SupplierRisk | null)}>
-                          <option value="">— Select —</option>
-                          <option value="low">Low</option>
-                          <option value="medium">Medium</option>
-                          <option value="high">High</option>
-                        </select>
-                      </Field>
+                      <div>
+                        <p className="text-xs font-medium text-gray-700 mb-1">Supplier risk</p>
+                        <RiskBadge risk={shownSupplierRisk} />
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          {isOverridden
+                            ? "Manually overridden"
+                            : `SAQ ${form.saq_completed ? "✓" : "✗"} · Valid cert ${certValid ? "✓" : "✗"}`}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-700 mb-1">Raw material risk</p>
+                        <RiskBadge risk={shownRmRisk} fallback="Not assessed" />
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          {shownRmRisk ? (isOverridden ? "Manually overridden" : "From risk calculator") : "Run the calculator to assess"}
+                        </p>
+                      </div>
                     </div>
+
+                    {/* Manual override */}
+                    {!overrideOpen ? (
+                      <button type="button" onClick={startOverride} className="text-xs text-gray-500 hover:text-brown hover:underline">
+                        Override manually…
+                      </button>
+                    ) : (
+                      <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-amber-800">Manual override</p>
+                          <button type="button" onClick={clearOverride} className="text-xs text-amber-700 hover:underline">Revert to auto</button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Field label="Supplier risk">
+                            <select className="input w-full" value={form.supplier_risk ?? ""} onChange={e => setF("supplier_risk", (e.target.value || null) as SupplierRisk | null)}>
+                              <option value="">— Select —</option>
+                              <option value="low">Low</option>
+                              <option value="medium">Medium</option>
+                              <option value="high">High</option>
+                            </select>
+                          </Field>
+                          <Field label="Raw material risk">
+                            <select className="input w-full" value={form.raw_material_risk ?? ""} onChange={e => setF("raw_material_risk", (e.target.value || null) as SupplierRisk | null)}>
+                              <option value="">— Select —</option>
+                              <option value="low">Low</option>
+                              <option value="medium">Medium</option>
+                              <option value="high">High</option>
+                            </select>
+                          </Field>
+                        </div>
+                        <Field label="Reason for override *">
+                          <textarea
+                            className="input w-full"
+                            rows={2}
+                            value={form.risk_override_reason ?? ""}
+                            onChange={e => setF("risk_override_reason", e.target.value)}
+                            placeholder="e.g. Long-standing supplier with 10-year clean history; cert renewal in progress."
+                          />
+                        </Field>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Review schedule — frequency auto-derived, review date editable */}
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="Review frequency">
-                      <select className="input w-full" value={form.review_frequency_years ?? ""} onChange={e => setF("review_frequency_years", e.target.value ? Number(e.target.value) : null)}>
-                        <option value="">— Select —</option>
-                        <option value={1}>Every year</option>
-                        <option value={2}>Every 2 years</option>
-                        <option value={3}>Every 3 years</option>
-                      </select>
-                    </Field>
+                    <div>
+                      <p className="text-xs font-medium text-gray-700 mb-1">Review frequency</p>
+                      <div className="input w-full bg-gray-50 text-gray-700 flex items-center">
+                        {shownReviewYears ? `Every ${shownReviewYears} year${shownReviewYears !== 1 ? "s" : ""}` : <span className="text-gray-400">— derived from both risks —</span>}
+                      </div>
+                    </div>
                     <Field label="Next review due">
                       <input className="input w-full" type="date" value={form.next_review_due ?? ""} onChange={e => setF("next_review_due", e.target.value || null)} />
                     </Field>
@@ -625,6 +747,7 @@ export default function SuppliersPage() {
                   orgId={orgId}
                   docType="accreditation"
                   label="Accreditation & Certificates"
+                  onCountChange={n => setHasAccreditationDoc(n > 0)}
                 />
               )}
 
@@ -671,14 +794,24 @@ export default function SuppliersPage() {
         onClose={() => setRiskCalcOpen(false)}
         supplierType={form.type}
         saqCompleted={form.saq_completed}
-        hasCertification={!!form.certification && form.certification !== "None"}
-        onApply={({ raw_material_risk, supplier_risk, review_frequency_years, next_review_due }) => {
-          setF("raw_material_risk", raw_material_risk);
-          setF("supplier_risk", supplier_risk);
-          setF("review_frequency_years", review_frequency_years);
-          setF("next_review_due", next_review_due);
+        hasValidCert={certValid}
+        onApply={({ raw_material_risk, supplier_risk, review_frequency_years, next_review_due, risk_assessment_data }) => {
+          // Running the calculator is a fresh auto-assessment — clears any override.
+          setForm(prev => ({
+            ...prev,
+            raw_material_risk,
+            supplier_risk,
+            review_frequency_years,
+            next_review_due,
+            risk_assessment_data,
+            risk_override_reason: null,
+          }));
+          setOverrideOpen(false);
         }}
       />
+
+      {/* SALSA scoring-basis reference */}
+      <SupplierRiskMatrix open={matrixOpen} onClose={() => setMatrixOpen(false)} />
     </>
   );
 }
@@ -690,4 +823,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </div>
   );
+}
+
+function RiskBadge({ risk, fallback = "—" }: { risk: Risk | null; fallback?: string }) {
+  if (!risk) return <span className="inline-block rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-400">{fallback}</span>;
+  const s = RISK_STYLES[risk];
+  return <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${s.bg} ${s.text}`}>{s.label}</span>;
 }

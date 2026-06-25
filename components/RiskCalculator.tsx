@@ -1,204 +1,50 @@
 "use client";
 
 import { useState } from "react";
-
-// ─── Scoring Definitions ─────────────────────────────────────────────────────
-
-type Risk = "low" | "medium" | "high";
-
-interface ScoreOption { label: string; value: number }
-interface ScoreQuestion { id: string; label: string; options: ScoreOption[] }
-
-const RAW_MATERIAL_QUESTIONS: ScoreQuestion[] = [
-  {
-    id: "temperature",
-    label: "Temperature / storage condition",
-    options: [
-      { label: "Ambient", value: 1 },
-      { label: "Frozen", value: 2 },
-      { label: "Chilled", value: 3 },
-    ],
-  },
-  {
-    id: "packaging",
-    label: "How is the raw material packaged on delivery?",
-    options: [
-      { label: "Enclosed / sealed", value: 1 },
-      { label: "Open / unsealed", value: 3 },
-    ],
-  },
-  {
-    id: "ips",
-    label: "Identity Preserved Status – end product legal declaration",
-    options: [
-      { label: "No legal declaration (standard product)", value: 1 },
-      { label: "Legal declaration present (e.g. Gluten Free, RSPO, Free Range)", value: 3 },
-    ],
-  },
-  {
-    id: "micro_results",
-    label: "Historic microbiological test results",
-    options: [
-      { label: "Within target", value: 1 },
-      { label: "Acceptable", value: 2 },
-      { label: "Unsatisfactory", value: 3 },
-    ],
-  },
-  {
-    id: "quality",
-    label: "Historic quality of supply",
-    options: [
-      { label: "Good", value: 1 },
-      { label: "Fair", value: 2 },
-      { label: "Poor", value: 3 },
-    ],
-  },
-  {
-    id: "allergen",
-    label: "Allergen risk of the raw material",
-    options: [
-      { label: "Low – allergen absent from raw material", value: 1 },
-      { label: "Medium – may contain allergens", value: 2 },
-      { label: "High – allergen present in raw material", value: 3 },
-    ],
-  },
-  {
-    id: "foreign_body",
-    label: "Foreign body risk",
-    options: [
-      { label: "Low", value: 1 },
-      { label: "Medium", value: 2 },
-      { label: "High", value: 3 },
-    ],
-  },
-  {
-    id: "micro_risk",
-    label: "Microbiological contamination risk",
-    options: [
-      { label: "Low", value: 1 },
-      { label: "Medium", value: 2 },
-      { label: "High", value: 3 },
-    ],
-  },
-  {
-    id: "chemical",
-    label: "Chemical contamination risk",
-    options: [
-      { label: "Low", value: 1 },
-      { label: "Medium", value: 2 },
-      { label: "High", value: 3 },
-    ],
-  },
-];
-
-const PACKAGING_QUESTIONS: ScoreQuestion[] = [
-  {
-    id: "pkg_type",
-    label: "Type of packaging",
-    options: [
-      { label: "Secondary – non-food contact (e.g. outer case)", value: 1 },
-      { label: "Primary – unprinted, food contact (e.g. plain jars / lids)", value: 2 },
-      { label: "Primary – printed, food contact (e.g. labels, printed film)", value: 3 },
-    ],
-  },
-  {
-    id: "mandatory_info",
-    label: "Does the packaging carry mandatory information that could cause illness if incorrect? (e.g. allergens, cooking instructions)",
-    options: [
-      { label: "None – no mandatory safety information", value: 1 },
-      { label: "Present – carries mandatory safety information", value: 3 },
-    ],
-  },
-  {
-    id: "quality",
-    label: "Historic quality of supply",
-    options: [
-      { label: "Good", value: 1 },
-      { label: "Fair", value: 2 },
-      { label: "Poor or new supplier", value: 3 },
-    ],
-  },
-];
-
-// ─── Scoring Logic ────────────────────────────────────────────────────────────
-
-function calcMaterialRisk(scores: Record<string, number>, type: "raw_material" | "packaging"): Risk | null {
-  const questions = type === "raw_material" ? RAW_MATERIAL_QUESTIONS : PACKAGING_QUESTIONS;
-  const vals = questions.map(q => scores[q.id]).filter(v => v !== undefined);
-  if (vals.length < questions.length) return null;
-  const total = vals.reduce((a, b) => a + b, 0);
-  if (type === "raw_material") {
-    if (total < 10) return "low";
-    if (total <= 15) return "medium";
-    return "high";
-  } else {
-    if (total < 6) return "low";
-    if (total <= 7) return "medium";
-    return "high";
-  }
-}
-
-function calcSupplierRisk(saqCompleted: boolean, hasCert: boolean): Risk {
-  if (saqCompleted && hasCert) return "low";
-  if (saqCompleted || hasCert) return "medium";
-  return "high";
-}
-
-function calcReviewFrequency(supplierRisk: Risk, materialRisk: Risk): number {
-  if (supplierRisk === "high") return 1;
-  if (supplierRisk === "medium" && materialRisk === "high") return 1;
-  if (supplierRisk === "low" && materialRisk === "high") return 2;
-  if (supplierRisk === "medium" && materialRisk === "medium") return 2;
-  return 3;
-}
-
-function calcTotal(scores: Record<string, number>, type: "raw_material" | "packaging"): number {
-  const questions = type === "raw_material" ? RAW_MATERIAL_QUESTIONS : PACKAGING_QUESTIONS;
-  return questions.reduce((sum, q) => sum + (scores[q.id] ?? 0), 0);
-}
-
-const RISK_STYLES: Record<Risk, { bg: string; text: string; label: string }> = {
-  low:    { bg: "bg-brand/30",  text: "text-brown",     label: "Low" },
-  medium: { bg: "bg-amber-100", text: "text-amber-800", label: "Medium" },
-  high:   { bg: "bg-red-100",   text: "text-red-800",   label: "High" },
-};
-
-// ─── Component ────────────────────────────────────────────────────────────────
+import {
+  materialQuestions,
+  materialTotal,
+  calcMaterialRisk,
+  calcSupplierRisk,
+  calcReviewFrequency,
+  reviewDueDate,
+  THRESHOLD_LABELS,
+  RISK_STYLES,
+  type Risk,
+  type RiskAssessmentData,
+} from "@/lib/supplierRisk";
+import SupplierRiskMatrix from "@/components/SupplierRiskMatrix";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   supplierType: "raw_material" | "packaging" | "service";
   saqCompleted: boolean;
-  hasCertification: boolean;
+  /** Whether the supplier has a valid (uploaded, non-expired) certificate. */
+  hasValidCert: boolean;
   onApply: (result: {
     raw_material_risk: Risk;
     supplier_risk: Risk;
     review_frequency_years: number;
     next_review_due: string;
+    risk_assessment_data: RiskAssessmentData;
   }) => void;
 }
 
-export default function RiskCalculator({ open, onClose, supplierType, saqCompleted, hasCertification, onApply }: Props) {
+export default function RiskCalculator({ open, onClose, supplierType, saqCompleted, hasValidCert, onApply }: Props) {
   const [scores, setScores] = useState<Record<string, number>>({});
+  const [matrixOpen, setMatrixOpen] = useState(false);
 
   if (!open || supplierType === "service") return null;
 
-  const questions = supplierType === "raw_material" ? RAW_MATERIAL_QUESTIONS : PACKAGING_QUESTIONS;
+  const questions = materialQuestions(supplierType);
   const answered = questions.filter(q => scores[q.id] !== undefined).length;
   const allAnswered = answered === questions.length;
-  const total = calcTotal(scores, supplierType);
+  const total = materialTotal(scores, supplierType);
   const materialRisk = calcMaterialRisk(scores, supplierType);
-  const supplierRisk = calcSupplierRisk(saqCompleted, hasCertification);
+  const supplierRisk = calcSupplierRisk(saqCompleted, hasValidCert);
   const reviewYears = materialRisk ? calcReviewFrequency(supplierRisk, materialRisk) : null;
-
-  const nextReviewDate = reviewYears
-    ? (() => {
-        const d = new Date();
-        d.setFullYear(d.getFullYear() + reviewYears);
-        return d.toISOString().split("T")[0];
-      })()
-    : null;
+  const nextReviewDate = reviewYears ? reviewDueDate(reviewYears) : null;
 
   function setScore(id: string, val: number) {
     setScores(prev => ({ ...prev, [id]: val }));
@@ -206,15 +52,42 @@ export default function RiskCalculator({ open, onClose, supplierType, saqComplet
 
   function handleApply() {
     if (!materialRisk || !reviewYears || !nextReviewDate) return;
-    onApply({ raw_material_risk: materialRisk, supplier_risk: supplierRisk, review_frequency_years: reviewYears, next_review_due: nextReviewDate });
+    onApply({
+      raw_material_risk: materialRisk,
+      supplier_risk: supplierRisk,
+      review_frequency_years: reviewYears,
+      next_review_due: nextReviewDate,
+      risk_assessment_data: {
+        material_type: supplierType as "raw_material" | "packaging",
+        material_scores: scores,
+        material_total: total,
+        material_band: materialRisk,
+        saq_completed: saqCompleted,
+        has_valid_cert: hasValidCert,
+        supplier_risk: supplierRisk,
+        review_frequency_years: reviewYears,
+        assessed_at: new Date().toISOString().split("T")[0],
+      },
+    });
     onClose();
   }
 
   const srStyle = RISK_STYLES[supplierRisk];
   const mrStyle = materialRisk ? RISK_STYLES[materialRisk] : null;
-  const thresholdLabel = supplierType === "raw_material"
-    ? "< 10 = Low  ·  10–15 = Medium  ·  > 15 = High"
-    : "< 6 = Low  ·  6–7 = Medium  ·  > 7 = High";
+  const thresholdLabel = THRESHOLD_LABELS[supplierType];
+
+  // Always-on colour tint per score value (green/amber/red), heavier ring when selected.
+  const valueClass = (val: number, selected: boolean) => {
+    const base =
+      val === 1 ? "bg-brand/20 border-brown/20 text-brown"
+      : val === 2 ? "bg-amber-50 border-amber-300 text-amber-800"
+      : "bg-red-50 border-red-300 text-red-800";
+    const sel =
+      val === 1 ? "ring-2 ring-brown/40 bg-brand"
+      : val === 2 ? "ring-2 ring-amber-400 bg-amber-100"
+      : "ring-2 ring-red-400 bg-red-100";
+    return `${base} ${selected ? sel : "hover:brightness-95"}`;
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -243,8 +116,8 @@ export default function RiskCalculator({ open, onClose, supplierType, saqComplet
                 SAQ: <strong>{saqCompleted ? "Completed" : "Not completed"}</strong>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${hasCertification ? "bg-green-500" : "bg-red-400"}`} />
-                Accreditation: <strong>{hasCertification ? "Held" : "None"}</strong>
+                <span className={`w-2 h-2 rounded-full ${hasValidCert ? "bg-green-500" : "bg-red-400"}`} />
+                Valid cert: <strong>{hasValidCert ? "Yes" : "No"}</strong>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -258,9 +131,18 @@ export default function RiskCalculator({ open, onClose, supplierType, saqComplet
 
           {/* Scoring questions */}
           <div>
-            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3">
-              {supplierType === "raw_material" ? "Raw Material" : "Packaging Material"} Risk Factors
-            </p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                {supplierType === "raw_material" ? "Raw Material" : "Packaging Material"} Risk Factors
+              </p>
+              <button
+                type="button"
+                onClick={() => setMatrixOpen(true)}
+                className="text-xs font-medium text-brown hover:underline"
+              >
+                How is this calculated?
+              </button>
+            </div>
             <div className="space-y-3">
               {questions.map((q, i) => (
                 <div key={q.id} className="rounded-lg border border-gray-200 p-3">
@@ -270,17 +152,12 @@ export default function RiskCalculator({ open, onClose, supplierType, saqComplet
                   <div className="flex flex-wrap gap-2">
                     {q.options.map(opt => {
                       const selected = scores[q.id] === opt.value;
-                      const selClass = opt.value === 1
-                        ? "bg-brand border-brown/20 text-brown"
-                        : opt.value === 2
-                        ? "bg-amber-100 border-amber-300 text-amber-800"
-                        : "bg-red-100 border-red-300 text-red-800";
                       return (
                         <button
                           key={opt.value}
                           type="button"
                           onClick={() => setScore(q.id, opt.value)}
-                          className={`px-3 py-1.5 rounded text-xs font-medium border transition ${selected ? selClass : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
+                          className={`px-3 py-1.5 rounded text-xs font-medium border transition ${valueClass(opt.value, selected)}`}
                         >
                           <span className="text-[10px] font-bold mr-1 opacity-50">{opt.value}</span>
                           {opt.label}
@@ -337,6 +214,8 @@ export default function RiskCalculator({ open, onClose, supplierType, saqComplet
         </div>
 
       </div>
+
+      <SupplierRiskMatrix open={matrixOpen} onClose={() => setMatrixOpen(false)} />
     </div>
   );
 }
