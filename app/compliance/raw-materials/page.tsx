@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Ingredient, IngredientLot } from "@/lib/types";
@@ -19,6 +18,17 @@ const TABS: { key: ItemType; label: string; icon: string }[] = [
   { key: "packaging",  label: "Packaging",    icon: "📦" },
   { key: "supplies",   label: "Supplies",     icon: "🧴" },
 ];
+
+// Singular noun for the per-tab "+ Add" button (mirrors "+ Add Supplier").
+const ADD_LABELS: Record<ItemType, string> = {
+  ingredient: "Ingredient",
+  packaging:  "Packaging",
+  supplies:   "Supply",
+};
+
+// The "Recalculate stock" button was a stop-gap for stock bugs that are now fixed.
+// Hidden until a customer needs it; the handler is kept intact behind this flag.
+const SHOW_RECALCULATE = false;
 
 function fmtQty(qty: number, unit: "g" | "units") {
   return unit === "units" ? `${qty} units` : `${(qty / 1000).toFixed(2)} kg`;
@@ -455,15 +465,21 @@ export default function RawMaterialsPage() {
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-gray-900">Raw Materials</h1>
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleRecalculate}
-                disabled={recalculating}
-                className="btn-secondary text-sm"
-                title="Recount all stock by replaying every production record from scratch"
-              >
-                {recalculating ? "Recalculating…" : "Recalculate stock"}
+              {/* Recalculate stock: kept for support use but hidden — the bugs that
+                  required it are fixed. Flip SHOW_RECALCULATE to re-expose it. */}
+              {SHOW_RECALCULATE && (
+                <button
+                  onClick={handleRecalculate}
+                  disabled={recalculating}
+                  className="btn-secondary text-sm"
+                  title="Recount all stock by replaying every production record from scratch"
+                >
+                  {recalculating ? "Recalculating…" : "Recalculate stock"}
+                </button>
+              )}
+              <button data-tour="add-ingredient" onClick={openCreate} className="btn-primary text-sm">
+                + Add {ADD_LABELS[activeTab]}
               </button>
-              <Link href="/production/goods-in" className="btn-primary text-sm">Log Delivery</Link>
             </div>
           </div>
           {recalcResult && (
@@ -528,10 +544,6 @@ export default function RawMaterialsPage() {
                   {TABS.find(t => t.key === activeTab)?.label}
                   <span className="ml-2 text-gray-400 font-normal">({tabItems.length})</span>
                 </h2>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-400 hidden sm:block">Click a row to edit</span>
-                  <button data-tour="add-ingredient" onClick={openCreate} className="btn-primary text-xs py-1 px-3">+ Add</button>
-                </div>
               </div>
 
               {tabItems.length === 0 ? (
@@ -548,7 +560,7 @@ export default function RawMaterialsPage() {
                       <SortableTh label={activeTab === "ingredient" ? "Price / kg" : "Price / unit"} col="price" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell" />
                       <SortableTh label={activeTab === "supplies" ? "COSHH" : "Spec Sheet"} col="doc" align="center" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell" />
                       <SortableTh label="In stock" col="stock" align="right" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide" />
-                      <th className="w-8 px-2" />
+                      <th className="px-2" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -565,10 +577,7 @@ export default function RawMaterialsPage() {
 
                       return (
                         <React.Fragment key={ing.id}>
-                          <tr
-                            className="hover:bg-gray-50 transition-colors cursor-pointer"
-                            onClick={() => openEdit(ing)}
-                          >
+                          <tr className="hover:bg-gray-50 transition-colors">
                             <td className="px-4 py-3">
                               <p className="font-medium text-gray-900">
                                 {ing.name}
@@ -639,18 +648,22 @@ export default function RawMaterialsPage() {
                                 </div>
                               )}
                             </td>
-                            <td className="px-2 py-3" onClick={e => e.stopPropagation()}>
-                              {!noLots && (
-                                <button
-                                  onClick={() => setExpanded(p => ({ ...p, [ing.id]: !p[ing.id] }))}
-                                  className="p-1 rounded hover:bg-gray-200 transition"
-                                >
-                                  <svg className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                                    viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                    <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
-                                </button>
-                              )}
+                            <td className="px-2 py-3">
+                              <div className="flex items-center justify-end gap-1">
+                                <button onClick={() => openEdit(ing)} className="btn-ghost text-xs px-2">Edit</button>
+                                {!noLots && (
+                                  <button
+                                    onClick={() => setExpanded(p => ({ ...p, [ing.id]: !p[ing.id] }))}
+                                    className="p-1 rounded hover:bg-gray-200 transition"
+                                    title={isOpen ? "Hide lots" : "Show lots"}
+                                  >
+                                    <svg className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                                      viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                      <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
 
