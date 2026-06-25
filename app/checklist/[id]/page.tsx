@@ -171,8 +171,12 @@ function ChecklistPageInner() {
   const allDraftsRef = useRef<BatchDraft[]>([]);
   // Tracks which fields have been edited locally since the last successful save.
   // Used during real-time merges to prevent another device's update from overwriting
-  // something the current user is actively typing.
+  // something the current user is actively typing, and to build the save patch.
   const dirtyFieldsRef = useRef<Set<string>>(new Set());
+  // Live mirrors of answers + batch notes so the debounced save (which fires ~2s
+  // later) always reads the freshest values, not a stale captured snapshot.
+  const answersRef = useRef<AnswerMap>({});
+  const batchNotesRef = useRef("");
 
   const isProduction = checklist?.category === "Production";
   // Both production records and inductions auto-save as a draft and submit a
@@ -277,6 +281,9 @@ function ChecklistPageInner() {
 
   // Keep draftIdRef in sync so the save closure always has the current id
   useEffect(() => { draftIdRef.current = draftId; }, [draftId]);
+  // Keep the answer/batch-note mirrors in sync for the debounced save closure
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+  useEffect(() => { batchNotesRef.current = batchNotes; }, [batchNotes]);
 
   // Poll for draft changes from other active production runs every 10 seconds so
   // lot availability stays accurate when multiple batches are running simultaneously.
@@ -340,7 +347,12 @@ function ChecklistPageInner() {
     return () => { supabase.removeChannel(channel); };
   }, [draftId, isProduction]);
 
-  const scheduleDraftSave = useCallback((newAnswers: AnswerMap, by: string) => {
+  // Persist ONLY the fields this device has changed since the last save, and let
+  // the database merge them into the shared draft atomically (answers || patch).
+  // This is what makes concurrent multi-device editing safe: two people editing
+  // different fields can no longer overwrite each other (the old whole-blob upsert
+  // was last-write-wins, which silently dropped the other person's entries).
+  const scheduleDraftSave = useCallback((by: string) => {
     if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
     setDraftStatus("saving");
     draftSaveTimer.current = setTimeout(async () => {
@@ -350,18 +362,43 @@ function ChecklistPageInner() {
         setDraftId(currentId);
         draftIdRef.current = currentId;
       }
-      await supabase.from("batch_drafts").upsert({
-        id: currentId,
-        checklist_id: id,
-        organisation_id: checklist?.organisation_id ?? null,
-        // Only inductions carry a team member — omit the column entirely for
-        // production so those drafts never depend on the column existing.
-        ...(memberId ? { team_member_id: memberId } : {}),
-        started_by: by || "Unknown",
-        last_saved_at: new Date().toISOString(),
-        answers: newAnswers,
+
+      // Snapshot the dirty fields and build the patch from the freshest values.
+      const savedFields = [...dirtyFieldsRef.current];
+      if (savedFields.length === 0) { setDraftStatus("saved"); return; }
+      const patch: AnswerMap = {};
+      for (const field of savedFields) {
+        patch[field] = field === "__batch_notes__"
+          ? batchNotesRef.current
+          : (answersRef.current[field] ?? "");
+      }
+
+      const { error } = await supabase.rpc("merge_batch_draft", {
+        p_id: currentId,
+        p_checklist_id: id,
+        p_organisation_id: checklist?.organisation_id ?? null,
+        // Only inductions carry a team member; production drafts pass null.
+        p_team_member_id: memberId ?? null,
+        p_started_by: by || "Unknown",
+        p_patch: patch,
       });
-      dirtyFieldsRef.current.clear(); // local edits are now persisted — safe to accept remote updates
+
+      if (error) {
+        // Leave the fields dirty so the next edit/save retries them — never drop data.
+        console.error("Draft save failed:", error);
+        setDraftStatus("idle");
+        return;
+      }
+
+      // Clear only the fields we actually saved AND that haven't changed since the
+      // snapshot — anything the user re-typed during the await stays dirty (and
+      // protected from incoming real-time updates) until its own save lands.
+      for (const field of savedFields) {
+        const current = field === "__batch_notes__"
+          ? batchNotesRef.current
+          : (answersRef.current[field] ?? "");
+        if (current === patch[field]) dirtyFieldsRef.current.delete(field);
+      }
       setDraftStatus("saved");
     }, 2000);
   }, [id, memberId, checklist?.organisation_id]);
@@ -370,10 +407,9 @@ function ChecklistPageInner() {
     dirtyFieldsRef.current.add(questionId);
     setAnswers((prev) => {
       const next = { ...prev, [questionId]: val };
+      answersRef.current = next; // keep the save mirror current within this tick
       if (isDraftable && !showResumePrompt) {
-        // Persist batch notes alongside question answers so the whole form survives draft save/resume
-        const draftAnswers = batchNotes.trim() ? { ...next, __batch_notes__: batchNotes } : next;
-        scheduleDraftSave(draftAnswers, getSubmittedBy(questions, next));
+        scheduleDraftSave(getSubmittedBy(questions, next));
       }
       return next;
     });
@@ -769,10 +805,10 @@ function ChecklistPageInner() {
                 onChange={e => {
                   const newNotes = e.target.value;
                   dirtyFieldsRef.current.add("__batch_notes__");
+                  batchNotesRef.current = newNotes; // keep the save mirror current within this tick
                   setBatchNotes(newNotes);
                   if (isProduction && !showResumePrompt) {
-                    const draftAnswers = newNotes.trim() ? { ...answers, __batch_notes__: newNotes } : answers;
-                    scheduleDraftSave(draftAnswers, getSubmittedBy(questions, answers));
+                    scheduleDraftSave(getSubmittedBy(questions, answers));
                   }
                 }}
                 rows={3}
