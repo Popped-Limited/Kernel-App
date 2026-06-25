@@ -57,7 +57,7 @@ function resolveKey(keys: string[], name: string): string | null {
   return keys.find(k => k.trim().toLowerCase() === lc) ?? null;
 }
 
-function findLots(ingredientLots: Record<string, IngredientLot[]>, name: string): IngredientLot[] {
+export function findLots(ingredientLots: Record<string, IngredientLot[]>, name: string): IngredientLot[] {
   const key = resolveKey(Object.keys(ingredientLots), name);
   return key ? ingredientLots[key] : [];
 }

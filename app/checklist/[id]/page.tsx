@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { Checklist, Question, IngredientLot } from "@/lib/types";
-import QuestionField from "@/components/QuestionField";
+import QuestionField, { findLots } from "@/components/QuestionField";
 import { frequencyLabel } from "@/lib/utils";
 
 type AnswerMap = Record<string, string>;
@@ -448,20 +448,51 @@ function ChecklistPageInner() {
     return { filled: filledCount, total: required.length };
   }
 
-  function validate(): boolean {
+  // Traceability gate for ingredient_table questions. Every ingredient that has
+  // goods-in lots MUST reference a real lot picked from the dropdown — a typed or
+  // defaulted Julian code is not traceable to stock. Two modes:
+  //  • "full" — every ingredient needs a lot + weight (a completed batch used them all).
+  //  • "used" — only ingredients with a weight entered need a lot. Used for a FAILED
+  //    batch, where some ingredients may never have been added, but whatever WAS used
+  //    (and now goes to waste) must still be traceable to a goods-in lot.
+  function ingredientLotErrors(mode: "full" | "used"): Record<string, string> {
     const errs: Record<string, string> = {};
+    for (const q of questions) {
+      if (q.type !== "ingredient_table" || !q.required) continue;
+      const val = answers[q.id] ?? "";
+      try {
+        const parsed = JSON.parse(val);
+        const rows = (Array.isArray(parsed) ? parsed : (parsed?.rows ?? [])) as Array<{ name?: string; lots: Array<{ lot_id?: string; julian_code: string; weight_g: string }> }>;
+        // Ingredient names by row position, for resolving available goods-in lots.
+        const names = (q.options ?? []).map((o) => String(o).split("|")[0]);
+        const lotRefOk = (hasLots: boolean, l: { lot_id?: string; julian_code: string }) =>
+          !!(hasLots ? l.lot_id?.trim() : l.julian_code?.trim());
+        const ok = mode === "full"
+          ? rows.length > 0 && rows.every((r, i) => {
+              if (!(r.lots?.length > 0)) return false;
+              const hasLots = findLots(ingredientLots, r.name || names[i] || "").length > 0;
+              return r.lots.every((l) => lotRefOk(hasLots, l) && l.weight_g?.trim());
+            })
+          : rows.every((r, i) => {
+              const hasLots = findLots(ingredientLots, r.name || names[i] || "").length > 0;
+              // Only lots with a weight count as "used" and must be traceable.
+              return (r.lots ?? []).every((l) => !l.weight_g?.trim() || lotRefOk(hasLots, l));
+            });
+        if (!ok) errs[q.id] = mode === "full"
+          ? "Select a goods-in lot and weight for every ingredient (including any split rows)"
+          : "Every ingredient you used must have a goods-in lot selected — these go to waste and must stay traceable";
+      } catch { errs[q.id] = "Please complete the ingredient table"; }
+    }
+    return errs;
+  }
+
+  function validate(): boolean {
+    const errs: Record<string, string> = { ...ingredientLotErrors("full") };
     for (const q of questions) {
       if (!q.required) continue;
       const val = answers[q.id] ?? "";
       if (q.type === "ingredient_table") {
-        try {
-          const parsed = JSON.parse(val);
-          const rows = (Array.isArray(parsed) ? parsed : (parsed?.rows ?? [])) as Array<{ lots: Array<{ lot_id?: string; julian_code: string; weight_g: string }> }>;
-          const allFilled = rows.every((r) =>
-            r.lots?.length > 0 && r.lots.every((l) => (l.lot_id || l.julian_code)?.trim() && l.weight_g?.trim())
-          );
-          if (!allFilled) errs[q.id] = "Please fill in a Julian code and weight for all ingredients";
-        } catch { errs[q.id] = "Please complete the ingredient table"; }
+        continue; // handled by ingredientLotErrors above
       } else if (q.type === "packing_runs") {
         try {
           const runs = JSON.parse(val) as Array<{ pack_weight: string; jars_used: string }>;
@@ -572,6 +603,15 @@ function ChecklistPageInner() {
   // End a failed batch: save the record + inventory/traceability (no required-field
   // check), then open a Corrective Action Report with the affected recipe pre-linked.
   async function handleBatchFailed() {
+    // A failed batch still consumes ingredients — they go to waste and must stay
+    // traceable. Block if any ingredient that was used lacks a real goods-in lot.
+    const lotErrs = ingredientLotErrors("used");
+    if (Object.keys(lotErrs).length > 0) {
+      setErrors(lotErrs);
+      alert("Before ending a failed batch, select a goods-in lot for every ingredient you used. They went to waste and still need to be traceable to stock.");
+      return;
+    }
+
     const ok = window.confirm(
       "Mark this batch as FAILED?\n\nThis ends and saves the batch now — recording the ingredients used and traceability entered so far — then opens a Corrective Action Report for it. This can't be undone."
     );
