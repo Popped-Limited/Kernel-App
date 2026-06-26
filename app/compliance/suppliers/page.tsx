@@ -379,6 +379,13 @@ export default function SuppliersPage() {
 
   const panelOpen = isNew || !!editing;
 
+  // Required fields that are still blank — drives the Save button + an explanatory hint
+  // so a disabled Save is never a silent dead-end (some legacy suppliers had no "supplies").
+  const missingRequired = [
+    !form.name.trim() && "a name",
+    !form.supplies.trim() && "what they supply",
+  ].filter(Boolean) as string[];
+
   // ── Live risk derivation for the edit panel ────────────────────────────────
   // Supplier risk is auto-derived from SAQ status + a valid (uploaded, non-expired)
   // certificate, unless a manual override (with reason) is in force. Raw-material
@@ -780,11 +787,18 @@ export default function SuppliersPage() {
               )}
             </div>
 
-            <div className="border-t border-gray-200 px-6 py-4 flex gap-3 shrink-0">
-              <button onClick={closePanel} className="btn-ghost flex-1">Cancel</button>
-              <button data-tour="supplier-save" onClick={save} disabled={saving || !form.name.trim() || !form.supplies.trim()} className="btn-primary flex-1">
-                {saving ? "Saving…" : isNew ? "Add Supplier" : "Save Changes"}
-              </button>
+            <div className="border-t border-gray-200 px-6 py-4 shrink-0 space-y-2">
+              {missingRequired.length > 0 && (
+                <p className="text-xs text-amber-600 text-center">
+                  Add {missingRequired.join(" and ")} to save.
+                </p>
+              )}
+              <div className="flex gap-3">
+                <button onClick={closePanel} className="btn-ghost flex-1">Cancel</button>
+                <button data-tour="supplier-save" onClick={save} disabled={saving || missingRequired.length > 0} className="btn-primary flex-1">
+                  {saving ? "Saving…" : isNew ? "Add Supplier" : "Save Changes"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
