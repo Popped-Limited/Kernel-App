@@ -299,6 +299,20 @@ export default function GoodsOutPage() {
     return totals;
   }, [rows]);
 
+  // Units still available to dispatch from a batch for a given form row:
+  // produced − already-dispatched(net of returns) − what OTHER rows allocate to it.
+  // Returns null when we can't determine the batch's produced quantity (then no guard).
+  function batchAvailableForRow(row: ProductRow): number | null {
+    if (!row.batchSubmissionId) return null;
+    const s = batchSubmissions.find(b => b.id === row.batchSubmissionId);
+    if (!s) return null;
+    const { totalJars } = batchSummary((s as any).answers ?? []);
+    if (!(totalJars > 0)) return null;
+    const alreadyDispatched = dispatchedPerBatch[row.batchSubmissionId] ?? 0;
+    const otherRowsAlloc = (formAllocatedPerBatch[row.batchSubmissionId] ?? 0) - rowTotal(row);
+    return totalJars - alreadyDispatched - otherRowsAlloc;
+  }
+
   function validate() {
     const errs: Record<string, string> = {};
     if (!customer.trim()) errs.customer = "Required";
@@ -307,6 +321,12 @@ export default function GoodsOutPage() {
       if (!row.product) errs[`product_${i}`] = "Required";
       if (rowTotal(row) <= 0) errs[`units_${i}`] = "Enter at least one unit";
       if (!row.batchSubmissionId) errs[`batch_${i}`] = "A batch record must be linked for traceability";
+      // Hard block: never dispatch more than a batch produced. Over-dispatching
+      // silently corrupts per-batch traceability and can't be reconstructed later.
+      const available = batchAvailableForRow(row);
+      if (available !== null && rowTotal(row) > available) {
+        errs[`units_${i}`] = `Only ${Math.max(0, available).toLocaleString()} unit${available === 1 ? "" : "s"} left in this batch. If it really made more, correct the production record's units produced.`;
+      }
     });
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -461,6 +481,23 @@ export default function GoodsOutPage() {
     if (!editDispatchedBy.trim()) { setEditError("Dispatched by is required"); return; }
     const total = Number(editCasesOf6) * 6 + Number(editCasesOf3) * 3 + Number(editSingles);
     if (total <= 0) { setEditError("Enter at least one unit"); return; }
+    // Hard block: editing must not push the batch over what it produced.
+    // Cap = produced − (net dispatched/returned for the batch EXCLUDING this dispatch).
+    const batchId = editingDispatch.batch_submission_id;
+    if (batchId) {
+      const s = batchSubmissions.find(b => b.id === batchId);
+      if (s) {
+        const { totalJars } = batchSummary((s as any).answers ?? []);
+        if (totalJars > 0) {
+          const netOthers = (dispatchedPerBatch[batchId] ?? 0) - (editingDispatch.total_units ?? 0);
+          const cap = totalJars - netOthers;
+          if (total > cap) {
+            setEditError(`Only ${Math.max(0, cap).toLocaleString()} unit${cap === 1 ? "" : "s"} left in this batch — can't set ${total.toLocaleString()}. If the batch made more, correct the production record's units produced.`);
+            return;
+          }
+        }
+      }
+    }
     setEditSaving(true);
     const { error } = await supabase.from("dispatches").update({
       dispatch_date: editDate,
@@ -664,10 +701,11 @@ export default function GoodsOutPage() {
                         {row.batchSubmissionId && (() => {
                           const s = batchSubmissions.find(b => b.id === row.batchSubmissionId);
                           if (!s) return null;
-                          const { batchCode, bbeDate, totalJars } = batchSummary((s as any).answers ?? []);
-                          const alreadyDispatched = dispatchedPerBatch[s.id] ?? 0;
-                          const otherRowsAlloc = (formAllocatedPerBatch[s.id] ?? 0) - total;
-                          const remaining = totalJars - alreadyDispatched - otherRowsAlloc;
+                          const { batchCode, bbeDate } = batchSummary((s as any).answers ?? []);
+                          // Available for THIS row (excludes this row's own allocation).
+                          // over = how much this row exceeds what the batch has left.
+                          const available = batchAvailableForRow(row);
+                          const over = available !== null ? total - available : 0;
                           return (
                             <>
                               {(batchCode || bbeDate) && (
@@ -676,9 +714,9 @@ export default function GoodsOutPage() {
                                   {bbeDate && <span><span className="font-medium text-gray-500">BBE:</span> {bbeDate}</span>}
                                 </div>
                               )}
-                              {remaining < 0 && (
+                              {over > 0 && (
                                 <p className="mt-1 text-xs text-red-600 font-medium">
-                                  Over-allocated by {Math.abs(remaining)} units
+                                  Over-allocated by {over.toLocaleString()} unit{over === 1 ? "" : "s"} — only {Math.max(0, available!).toLocaleString()} left in this batch. Pick the correct batch, or split across batches.
                                 </p>
                               )}
                             </>
