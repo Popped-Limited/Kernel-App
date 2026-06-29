@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Fragment } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { fetchAll } from "@/lib/fetchAll";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Dispatch, FinishedGoodsAdjustment, GoodsReturn } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
@@ -29,22 +30,48 @@ interface HistoryRow {
   submissionId?: string;
 }
 
+interface BatchRow {
+  code: string;
+  date: string;
+  produced: number;
+  remaining: number;
+}
+
 type SortMode = "alpha" | "stock";
-type Period = "week" | "month";
+type Period = "this_week" | "last_week" | "this_month" | "last_month" | "all";
+
+const PERIODS: [Period, string][] = [
+  ["this_week",  "This week"],
+  ["last_week",  "Last week"],
+  ["this_month", "This month"],
+  ["last_month", "Last month"],
+  ["all",        "All time"],
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function parsePeriodStart(period: Period): Date | null {
+// [start, end) — end is exclusive (start of the day after the range ends).
+// null means "all time" (no bounds).
+function periodBounds(period: Period): [Date, Date] | null {
+  if (period === "all") return null;
   const now = new Date();
-  if (period === "week") {
-    const daysFromMon = now.getDay() === 0 ? 6 : now.getDay() - 1;
-    const d = new Date(now);
-    d.setDate(now.getDate() - daysFromMon);
-    d.setHours(0, 0, 0, 0);
-    return d;
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  // Week starts Monday
+  const dow = (now.getDay() + 6) % 7;
+  const monday = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow));
+  if (period === "this_week") {
+    const end = new Date(monday); end.setDate(end.getDate() + 7);
+    return [monday, end];
   }
-  if (period === "month") return new Date(now.getFullYear(), now.getMonth(), 1);
-  return null;
+  if (period === "last_week") {
+    const start = new Date(monday); start.setDate(start.getDate() - 7);
+    return [start, monday];
+  }
+  if (period === "this_month") {
+    return [new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 1)];
+  }
+  // last_month
+  return [new Date(now.getFullYear(), now.getMonth() - 1, 1), new Date(now.getFullYear(), now.getMonth(), 1)];
 }
 
 const REASON_LABELS: Record<string, string> = {
@@ -69,13 +96,11 @@ export default function FinishedGoodsPage() {
 
   // Table controls
   const [sortMode,    setSortMode]    = useState<SortMode>("alpha");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [expanded,    setExpanded]    = useState<Set<string>>(new Set());
+  const [period,      setPeriod]      = useState<Period>("this_week");
 
   // History filter bar
-  const [search,   setSearch]   = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo,   setDateTo]   = useState("");
-  const [period,   setPeriod]   = useState<Period>("week");
+  const [search, setSearch] = useState("");
 
   // Reconcile panel
   const [reconProduct, setReconProduct] = useState<string | null>(null);
@@ -92,36 +117,44 @@ export default function FinishedGoodsPage() {
   async function load() {
     setLoading(true);
 
-    const [subRes, dispRes, retRes, adjRes, clRes] = await Promise.all([
-      supabase
+    // Every query is paginated past PostgREST's 1000-row cap — an un-ranged
+    // select stops at 1000 rows, which would silently drop older production
+    // runs, dispatches or reconciliations and corrupt the stock figures.
+    const [subData, dispData, retData, adjData, clData] = await Promise.all([
+      fetchAll<any>((from, to) => supabase
         .from("submissions")
         .select("id, submitted_at, submitted_by, checklist:checklists(name, category), answers(value, question:questions(type, label))")
-        .order("submitted_at", { ascending: false }),
-      supabase
+        .order("submitted_at", { ascending: false })
+        .range(from, to)),
+      fetchAll<Dispatch>((from, to) => supabase
         .from("dispatches")
         .select("*")
-        .order("dispatch_date", { ascending: false }),
-      supabase
+        .order("dispatch_date", { ascending: false })
+        .range(from, to)),
+      fetchAll<GoodsReturn>((from, to) => supabase
         .from("goods_returns")
         .select("*")
-        .order("return_date", { ascending: false }),
-      supabase
+        .order("return_date", { ascending: false })
+        .range(from, to)),
+      fetchAll<FinishedGoodsAdjustment>((from, to) => supabase
         .from("finished_goods_adjustments")
         .select("*")
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .range(from, to)),
       // Fetch all active production checklists so every product has a row
       // even before its first production run
-      supabase
+      fetchAll<{ name: string }>((from, to) => supabase
         .from("checklists")
         .select("name")
         .eq("category", "Production")
         .eq("active", true)
-        .order("name"),
+        .order("name")
+        .range(from, to)),
     ]);
 
     // Parse production submissions → prefer "Total units produced" field, fall back to jars_used
     const prods: ProductionRecord[] = [];
-    for (const sub of ((subRes.data ?? []) as any[])) {
+    for (const sub of (subData as any[])) {
       const cl = sub.checklist as { name: string; category: string } | null;
       if (!cl || cl.category !== "Production") continue;
       const product = cl.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
@@ -155,14 +188,14 @@ export default function FinishedGoodsPage() {
     }
 
     // All active product names from checklists
-    const clProducts = (clRes.data ?? []).map((c: { name: string }) =>
+    const clProducts = clData.map((c: { name: string }) =>
       c.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim()
     );
 
     setProductions(prods);
-    setDispatches((dispRes.data ?? []) as Dispatch[]);
-    setReturns((retRes.data ?? []) as GoodsReturn[]);
-    setAdjustments((adjRes.data ?? []) as FinishedGoodsAdjustment[]);
+    setDispatches(dispData);
+    setReturns(retData);
+    setAdjustments(adjData);
     setAllChecklists(clProducts);
     setLoading(false);
   }
@@ -181,26 +214,26 @@ export default function FinishedGoodsPage() {
 
   // ── Per-product stats ─────────────────────────────────────────────────────
 
-  const thirtyDaysAgo = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
+  const bounds = useMemo(() => periodBounds(period), [period]);
+  const inBounds = (iso: string) => {
+    if (!bounds) return true;
+    const t = new Date(iso).getTime();
+    return t >= bounds[0].getTime() && t < bounds[1].getTime();
+  };
 
   function producedAllTime(product: string) {
     return productions.filter(p => p.product === product).reduce((s, p) => s + p.jars, 0);
   }
 
-  function producedLast30(product: string) {
+  function producedInPeriod(product: string) {
     return productions
-      .filter(p => p.product === product && new Date(p.submitted_at) >= thirtyDaysAgo)
+      .filter(p => p.product === product && inBounds(p.submitted_at))
       .reduce((s, p) => s + p.jars, 0);
   }
 
-  function dispatchedLast30(product: string) {
+  function dispatchedInPeriod(product: string) {
     return dispatches
-      .filter(d => d.product === product && new Date(d.dispatch_date) >= thirtyDaysAgo)
+      .filter(d => d.product === product && inBounds(d.dispatch_date))
       .reduce((s, d) => s + d.total_units, 0);
   }
 
@@ -212,6 +245,60 @@ export default function FinishedGoodsPage() {
     return Math.max(0, produced + adjusted + returned - dispatched);
   }
 
+  // ── Per-batch breakdown ─────────────────────────────────────────────────────
+  // Stock remaining for each batch of a product: produced − dispatched + returns
+  // + batch-tagged adjustments. Dispatches/returns link to a production batch via
+  // batch_submission_id; adjustments (samples, wastage, count corrections) link by
+  // batch_code. Used by both the expandable per-product breakdown and the reconcile
+  // batch picker so the two never disagree.
+  function batchBreakdown(product: string): BatchRow[] {
+    const prodList = productions.filter(p => p.product === product && p.batchCode);
+
+    const subToCode: Record<string, string> = {};
+    const producedByCode: Record<string, number> = {};
+    const dateByCode: Record<string, string> = {};
+    for (const p of prodList) {
+      const code = p.batchCode!;
+      subToCode[p.id] = code;
+      producedByCode[code] = (producedByCode[code] ?? 0) + p.jars;
+      if (!dateByCode[code] || new Date(p.submitted_at) > new Date(dateByCode[code])) {
+        dateByCode[code] = p.submitted_at;
+      }
+    }
+
+    // net OUT of each batch (positive = left stock)
+    const netOutByCode: Record<string, number> = {};
+    for (const d of dispatches) {
+      if (d.product !== product || !d.batch_submission_id) continue;
+      const code = subToCode[d.batch_submission_id];
+      if (!code) continue;
+      netOutByCode[code] = (netOutByCode[code] ?? 0) + d.total_units;
+    }
+    for (const r of returns) {
+      if (r.product !== product || !r.batch_submission_id) continue;
+      const code = subToCode[r.batch_submission_id];
+      if (!code) continue;
+      netOutByCode[code] = (netOutByCode[code] ?? 0) - r.quantity;
+    }
+    // Batch-tagged adjustments: negative quantity (e.g. a sample taken) reduces the
+    // batch; positive (a count correction up) increases it. Only apply to batches we
+    // actually produced — an untagged/opening-stock adjustment stays product-level.
+    for (const a of adjustments) {
+      if (a.product !== product || !a.batch_code) continue;
+      if (!(a.batch_code in producedByCode)) continue;
+      netOutByCode[a.batch_code] = (netOutByCode[a.batch_code] ?? 0) - a.quantity;
+    }
+
+    return Object.keys(producedByCode)
+      .map(code => ({
+        code,
+        date: dateByCode[code],
+        produced: producedByCode[code],
+        remaining: Math.max(0, producedByCode[code] - (netOutByCode[code] ?? 0)),
+      }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
   // ── Sorted product rows ───────────────────────────────────────────────────
 
   const sortedProducts = useMemo(() => {
@@ -219,7 +306,15 @@ export default function FinishedGoodsPage() {
     if (sortMode === "alpha") return list; // already sorted a-z
     return list.sort((a, b) => stockFor(b) - stockFor(a)); // highest stock first
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allProducts, sortMode, productions, dispatches, adjustments]);
+  }, [allProducts, sortMode, productions, dispatches, adjustments, returns]);
+
+  function toggleExpanded(product: string) {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(product)) next.delete(product); else next.add(product);
+      return next;
+    });
+  }
 
   // ── History rows ──────────────────────────────────────────────────────────
 
@@ -229,14 +324,10 @@ export default function FinishedGoodsPage() {
     ...adjustments.map(a => ({ date: a.created_at, product: a.product, event: "adjustment" as EventType, units: a.quantity, by: a.batch_code ? `${a.created_by} · Batch ${a.batch_code}` : a.created_by })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [productions, dispatches, adjustments]);
 
-  const periodStart = !dateFrom ? parsePeriodStart(period) : null;
   const filteredHistory = allHistory.filter(row => {
     if (row.event !== "produced") return false; // production panel only
-    const rowDate = new Date(row.date);
     if (search && !row.product.toLowerCase().includes(search.toLowerCase())) return false;
-    if (dateFrom && rowDate < new Date(dateFrom)) return false;
-    if (dateTo && rowDate > new Date(dateTo + "T23:59:59")) return false;
-    if (periodStart && rowDate < periodStart) return false;
+    if (!inBounds(row.date)) return false;
     return true;
   });
 
@@ -252,49 +343,14 @@ export default function FinishedGoodsPage() {
     setReconError("");
   }
 
-  // Batches for the product being reconciled, with the amount REMAINING for each
-  // (produced − dispatched against that batch), mirroring the Goods Out figure.
-  // Grouped by batch code, newest first.
-  const batchesForReconProduct = useMemo(() => {
-    if (!reconProduct) return [] as { code: string; date: string; remaining: number }[];
-    const prodList = productions.filter(p => p.product === reconProduct && p.batchCode);
-
-    const subToCode: Record<string, string> = {};
-    const producedByCode: Record<string, number> = {};
-    const dateByCode: Record<string, string> = {};
-    for (const p of prodList) {
-      const code = p.batchCode!;
-      subToCode[p.id] = code;
-      producedByCode[code] = (producedByCode[code] ?? 0) + p.jars;
-      if (!dateByCode[code] || new Date(p.submitted_at) > new Date(dateByCode[code])) {
-        dateByCode[code] = p.submitted_at;
-      }
-    }
-
-    // Dispatches are linked to a production batch via batch_submission_id; returns
-    // give units back to the same batch (net out = dispatched − returned).
-    const netOutByCode: Record<string, number> = {};
-    for (const d of dispatches) {
-      if (d.product !== reconProduct || !d.batch_submission_id) continue;
-      const code = subToCode[d.batch_submission_id];
-      if (!code) continue;
-      netOutByCode[code] = (netOutByCode[code] ?? 0) + d.total_units;
-    }
-    for (const r of returns) {
-      if (r.product !== reconProduct || !r.batch_submission_id) continue;
-      const code = subToCode[r.batch_submission_id];
-      if (!code) continue;
-      netOutByCode[code] = (netOutByCode[code] ?? 0) - r.quantity;
-    }
-
-    return Object.keys(producedByCode)
-      .map(code => ({
-        code,
-        date: dateByCode[code],
-        remaining: Math.max(0, producedByCode[code] - (netOutByCode[code] ?? 0)),
-      }))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [reconProduct, productions, dispatches, returns]);
+  // Batches the user can reconcile against — only those with stock remaining.
+  // A batch that's sold out (0 remaining) can't have stock taken off it, so it's
+  // hidden from the picker.
+  const reconBatches = useMemo(
+    () => (reconProduct ? batchBreakdown(reconProduct).filter(b => b.remaining > 0) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [reconProduct, productions, dispatches, returns, adjustments],
+  );
 
   async function saveReconcile() {
     if (!reconProduct) return;
@@ -319,6 +375,8 @@ export default function FinishedGoodsPage() {
     await load();
   }
 
+  const periodLabel = PERIODS.find(([p]) => p === period)?.[1] ?? "";
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -331,6 +389,23 @@ export default function FinishedGoodsPage() {
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h1 className="text-xl font-bold text-gray-900">Finished Goods</h1>
           <Link href="/production/goods-out" className="btn-primary text-sm">Log Dispatch →</Link>
+        </div>
+
+        {/* Period toggle — drives the Produced / Dispatched columns and the side panel */}
+        <div className="flex flex-wrap gap-2">
+          {PERIODS.map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setPeriod(key)}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                period === key
+                  ? "bg-brand text-brown"
+                  : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Products table */}
@@ -365,32 +440,50 @@ export default function FinishedGoodsPage() {
               <thead className="border-b border-gray-200 bg-gray-50/50">
                 <tr>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Product</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Produced (30 days)</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Dispatched (30 days)</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Produced</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Dispatched</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">In Stock</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {sortedProducts.map(product => {
-                  const p30  = producedLast30(product);
-                  const d30  = dispatchedLast30(product);
-                  const stock = stockFor(product);
+                  const pPeriod = producedInPeriod(product);
+                  const dPeriod = dispatchedInPeriod(product);
+                  const stock   = stockFor(product);
+                  const isOpen  = expanded.has(product);
+                  const batches = isOpen ? batchBreakdown(product) : [];
                   return (
-                    <tr key={product} className="hover:bg-gray-50 transition-colors">
+                    <Fragment key={product}>
+                    <tr className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
-                        <Link
-                          href={`/production/finished-goods/${encodeURIComponent(product)}`}
-                          className="font-medium text-gray-900 hover:text-brown hover:underline"
-                        >
-                          {product}
-                        </Link>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => toggleExpanded(product)}
+                            aria-label={isOpen ? "Hide batches" : "Show batches"}
+                            aria-expanded={isOpen}
+                            className="shrink-0 text-gray-400 hover:text-brown p-0.5 -ml-0.5"
+                          >
+                            <svg
+                              className={`h-4 w-4 transition-transform ${isOpen ? "rotate-90" : ""}`}
+                              viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"
+                            >
+                              <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          <Link
+                            href={`/production/finished-goods/${encodeURIComponent(product)}`}
+                            className="font-medium text-gray-900 hover:text-brown hover:underline"
+                          >
+                            {product}
+                          </Link>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-gray-700">
-                        {p30 > 0 ? p30.toLocaleString() : <span className="text-gray-300">—</span>}
+                        {pPeriod > 0 ? pPeriod.toLocaleString() : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-gray-700">
-                        {d30 > 0 ? d30.toLocaleString() : <span className="text-gray-300">—</span>}
+                        {dPeriod > 0 ? dPeriod.toLocaleString() : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         <span className={`text-base font-bold ${stock === 0 ? "text-gray-300" : "text-gray-900"}`}>
@@ -406,6 +499,43 @@ export default function FinishedGoodsPage() {
                         </button>
                       </td>
                     </tr>
+                    {isOpen && (
+                      <tr className="bg-gray-50/60">
+                        <td colSpan={5} className="px-4 py-3">
+                          {batches.length === 0 ? (
+                            <p className="text-xs text-gray-400 pl-6">No batch codes recorded for this product yet.</p>
+                          ) : (
+                            <div className="ml-6 rounded-lg border border-gray-200 overflow-hidden bg-white">
+                              <table className="w-full text-xs">
+                                <thead className="bg-gray-100/70 text-gray-500">
+                                  <tr>
+                                    <th className="text-left px-3 py-2 font-semibold uppercase tracking-wide">Batch</th>
+                                    <th className="text-left px-3 py-2 font-semibold uppercase tracking-wide">Produced on</th>
+                                    <th className="text-right px-3 py-2 font-semibold uppercase tracking-wide">Produced</th>
+                                    <th className="text-right px-3 py-2 font-semibold uppercase tracking-wide">In stock</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {batches.map(b => (
+                                    <tr key={b.code}>
+                                      <td className="px-3 py-2 font-mono text-gray-700">{b.code}</td>
+                                      <td className="px-3 py-2 text-gray-500">{formatDate(b.date)}</td>
+                                      <td className="px-3 py-2 text-right tabular-nums text-gray-500">{b.produced.toLocaleString()}</td>
+                                      <td className="px-3 py-2 text-right tabular-nums">
+                                        {b.remaining === 0
+                                          ? <span className="text-gray-400">Sold out</span>
+                                          : <span className="font-semibold text-gray-900">{b.remaining.toLocaleString()}</span>}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -419,36 +549,26 @@ export default function FinishedGoodsPage() {
       {/* Right panel — history */}
       <aside className="hidden lg:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-l border-gray-200 bg-white overflow-hidden">
         <div className="px-4 py-4 border-b border-gray-200 shrink-0">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-1">
             <h2 className="text-sm font-semibold text-gray-900">
-              Recent Production
+              Production
               {filteredHistory.length > 0 && <span className="ml-1.5 text-gray-400 font-normal text-xs">({filteredHistory.length})</span>}
             </h2>
           </div>
+          <p className="text-xs text-gray-400 mb-3">{periodLabel}</p>
           <input
             type="text"
-            className="input w-full text-sm mb-2"
+            className="input w-full text-sm"
             placeholder="Search product…"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-          <div className="flex gap-1">
-            {(["week", "month"] as Period[]).map(p => (
-              <button
-                key={p}
-                onClick={() => { setPeriod(p); setDateFrom(""); setDateTo(""); }}
-                className={`flex-1 px-2 py-1.5 rounded text-xs font-medium border transition-colors ${period === p ? "bg-brand border-brand/50 text-brown" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
-              >
-                {p === "week" ? "This Week" : "This Month"}
-              </button>
-            ))}
-          </div>
         </div>
         <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
           {loading ? (
             <div className="p-4 text-sm text-gray-400 text-center">Loading…</div>
           ) : filteredHistory.length === 0 ? (
-            <div className="p-4 text-sm text-gray-400 text-center">No events found.</div>
+            <div className="p-4 text-sm text-gray-400 text-center">No production in this period.</div>
           ) : filteredHistory.map((row, i) => (
             <div key={i} className="px-4 py-3 hover:bg-gray-50 transition-colors">
               <div className="flex items-start justify-between gap-2">
@@ -515,14 +635,14 @@ export default function FinishedGoodsPage() {
                   </label>
                   <select className="input w-full" value={reconBatch} onChange={e => setReconBatch(e.target.value)}>
                     <option value="">— No specific batch —</option>
-                    {batchesForReconProduct.map(b => (
+                    {reconBatches.map(b => (
                       <option key={b.code} value={b.code}>
-                        {b.code} · {formatDate(b.date)} · {b.remaining} remaining
+                        {b.code} · {formatDate(b.date)} · {b.remaining} in stock
                       </option>
                     ))}
                   </select>
-                  {batchesForReconProduct.length === 0 && (
-                    <p className="mt-1 text-[11px] text-gray-400">No batch codes recorded for this product yet.</p>
+                  {reconBatches.length === 0 && (
+                    <p className="mt-1 text-[11px] text-gray-400">No batches with stock remaining for this product.</p>
                   )}
                 </div>
                 <div>

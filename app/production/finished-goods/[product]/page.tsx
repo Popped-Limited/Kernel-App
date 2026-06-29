@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import BackButton from "@/components/BackButton";
 import { supabase } from "@/lib/supabase";
+import { fetchAll } from "@/lib/fetchAll";
 import { formatDate } from "@/lib/utils";
 
 interface ProductionRun {
@@ -84,16 +85,22 @@ export default function ProductDetailPage() {
     async function load() {
       setLoading(true);
 
-      // Fetch all production submissions whose checklist name matches this product
-      const { data, error: fetchError } = await supabase
-        .from("submissions")
-        .select("id, submitted_at, checklist:checklists(name, category), answers(value, question:questions(type, label))")
-        .order("submitted_at", { ascending: false });
-
-      if (fetchError) { setError("Failed to load production records."); setLoading(false); return; }
+      // Fetch all production submissions whose checklist name matches this
+      // product, paginating past PostgREST's 1000-row cap so older runs aren't
+      // silently dropped from the history.
+      let data: any[];
+      try {
+        data = await fetchAll<any>((from, to) => supabase
+          .from("submissions")
+          .select("id, submitted_at, checklist:checklists(name, category), answers(value, question:questions(type, label))")
+          .order("submitted_at", { ascending: false })
+          .range(from, to));
+      } catch {
+        setError("Failed to load production records."); setLoading(false); return;
+      }
 
       const matched: ProductionRun[] = [];
-      for (const sub of (data ?? []) as any[]) {
+      for (const sub of data as any[]) {
         const cl = sub.checklist as { name: string; category: string } | null;
         if (!cl || cl.category !== "Production") continue;
         const name = cl.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
