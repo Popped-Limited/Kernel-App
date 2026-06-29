@@ -35,10 +35,6 @@ interface BatchRow {
   date: string;
   produced: number;
   remaining: number;
-  // Units dispatched/adjusted out beyond what this batch produced. >0 is
-  // physically impossible — it means dispatches were tagged to the wrong batch
-  // in Goods Out. Surfaced as a warning instead of being hidden by the clamp.
-  over: number;
 }
 
 type SortMode = "alpha" | "stock";
@@ -294,16 +290,12 @@ export default function FinishedGoodsPage() {
     }
 
     return Object.keys(producedByCode)
-      .map(code => {
-        const net = producedByCode[code] - (netOutByCode[code] ?? 0);
-        return {
-          code,
-          date: dateByCode[code],
-          produced: producedByCode[code],
-          remaining: Math.max(0, net),
-          over: net < 0 ? -net : 0,
-        };
-      })
+      .map(code => ({
+        code,
+        date: dateByCode[code],
+        produced: producedByCode[code],
+        remaining: Math.max(0, producedByCode[code] - (netOutByCode[code] ?? 0)),
+      }))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 
@@ -468,7 +460,6 @@ export default function FinishedGoodsPage() {
                   const stock   = stockFor(product);
                   const isOpen  = expanded.has(product);
                   const batches = breakdownByProduct[product] ?? [];
-                  const overUnits = batches.reduce((s, b) => s + b.over, 0);
                   return (
                     <Fragment key={product}>
                     <tr className="hover:bg-gray-50 transition-colors">
@@ -493,14 +484,6 @@ export default function FinishedGoodsPage() {
                           >
                             {product}
                           </Link>
-                          {overUnits > 0 && (
-                            <span
-                              title={`A batch has more dispatched than produced (by ${overUnits}) — a dispatch was likely tagged to the wrong batch in Goods Out. Expand to see which.`}
-                              className="shrink-0 rounded bg-red-50 border border-red-200 px-1.5 py-0.5 text-[10px] font-semibold text-red-600"
-                            >
-                              ⚠ Over-dispatched
-                            </span>
-                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-gray-700">
@@ -536,30 +519,22 @@ export default function FinishedGoodsPage() {
                                     <th className="text-left px-3 py-2 font-semibold uppercase tracking-wide">Batch</th>
                                     <th className="text-left px-3 py-2 font-semibold uppercase tracking-wide">Produced on</th>
                                     <th className="text-right px-3 py-2 font-semibold uppercase tracking-wide">Produced</th>
-                                    <th className="text-right px-3 py-2 font-semibold uppercase tracking-wide">Dispatched</th>
                                     <th className="text-right px-3 py-2 font-semibold uppercase tracking-wide">In stock</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                  {batches.map(b => {
-                                    // net out of the batch (dispatches − returns − batch adjustments)
-                                    const out = b.produced - b.remaining + b.over;
-                                    return (
-                                    <tr key={b.code} className={b.over > 0 ? "bg-red-50/60" : undefined}>
+                                  {batches.map(b => (
+                                    <tr key={b.code}>
                                       <td className="px-3 py-2 font-mono text-gray-700">{b.code}</td>
                                       <td className="px-3 py-2 text-gray-500">{formatDate(b.date)}</td>
                                       <td className="px-3 py-2 text-right tabular-nums text-gray-500">{b.produced.toLocaleString()}</td>
-                                      <td className="px-3 py-2 text-right tabular-nums text-gray-500">{out.toLocaleString()}</td>
                                       <td className="px-3 py-2 text-right tabular-nums">
-                                        {b.over > 0
-                                          ? <span className="font-semibold text-red-600" title="More dispatched than produced — a dispatch was tagged to the wrong batch in Goods Out.">⚠ over by {b.over.toLocaleString()}</span>
-                                          : b.remaining === 0
-                                            ? <span className="text-gray-400">Sold out</span>
-                                            : <span className="font-semibold text-gray-900">{b.remaining.toLocaleString()}</span>}
+                                        {b.remaining === 0
+                                          ? <span className="text-gray-400">Sold out</span>
+                                          : <span className="font-semibold text-gray-900">{b.remaining.toLocaleString()}</span>}
                                       </td>
                                     </tr>
-                                    );
-                                  })}
+                                  ))}
                                 </tbody>
                               </table>
                             </div>
