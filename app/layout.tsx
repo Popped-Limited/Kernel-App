@@ -22,14 +22,14 @@ export const metadata: Metadata = {
     title: "Kernel — Food production & compliance for small food businesses",
     description:
       "Food production records, food safety compliance, traceability, SOPs and training — built for small food makers.",
-    images: [{ url: "/logo.png", width: 1080, height: 1080, alt: "Kernel" }],
+    images: [{ url: "/og-image.png", width: 600, height: 600, alt: "Kernel" }],
   },
   twitter: {
     card: "summary",
     title: "Kernel — Food production & compliance for small food businesses",
     description:
       "Food production records, food safety compliance, traceability, SOPs and training — built for small food makers.",
-    images: ["/logo.png"],
+    images: ["/og-image.png"],
   },
 };
 

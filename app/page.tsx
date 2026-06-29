@@ -12,6 +12,7 @@ export const metadata: Metadata = {
     description:
       "Compliance, production records and traceability for small food businesses, in one place.",
     url: "/",
+    images: [{ url: "/og-image.png", width: 600, height: 600, alt: "Kernel" }],
   },
 };
 
