@@ -365,6 +365,21 @@ export default function FinishedGoodsPage() {
     if (isNaN(target) || target < 0) { setReconError("Please enter a valid stock count"); return; }
     if (!reconBy.trim()) { setReconError("Please enter who is logging this"); return; }
     const quantity = target - stockFor(reconProduct);
+    // Reducing stock (sample, wastage, count-down) must name the batch it came
+    // off — same as a dispatch — or per-batch traceability silently drifts.
+    // Increases (opening stock, count-up) have no batch and stay product-level.
+    if (quantity < 0 && !reconBatch) {
+      setReconError("Select which batch this came off — required for traceability when reducing stock.");
+      return;
+    }
+    // Can't take more off a batch than it has left (mirrors the Goods Out guard).
+    if (quantity < 0 && reconBatch) {
+      const batch = reconBatches.find(b => b.code === reconBatch);
+      if (batch && -quantity > batch.remaining) {
+        setReconError(`Batch ${reconBatch} only has ${batch.remaining.toLocaleString()} left — can't remove ${(-quantity).toLocaleString()}.`);
+        return;
+      }
+    }
     setReconSaving(true);
     setReconError("");
     const { error } = await supabase.from("finished_goods_adjustments").insert({
@@ -605,6 +620,8 @@ export default function FinishedGoodsPage() {
         const current = stockFor(reconProduct);
         const targetNum = reconTarget === "" ? null : parseInt(reconTarget, 10);
         const delta = targetNum !== null && !isNaN(targetNum) ? targetNum - current : null;
+        // Reducing stock requires naming the batch (traceability); increases don't.
+        const reducing = delta !== null && !isNaN(delta) && delta < 0;
         return (
           <div className="fixed inset-0 z-50 flex">
             <div className="flex-1 bg-black/30" onClick={() => setReconProduct(null)} />
@@ -638,16 +655,27 @@ export default function FinishedGoodsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Batch <span className="text-gray-400">(optional)</span>
+                    Batch {reducing
+                      ? <span className="text-red-400">*</span>
+                      : <span className="text-gray-400">(optional)</span>}
                   </label>
-                  <select className="input w-full" value={reconBatch} onChange={e => setReconBatch(e.target.value)}>
-                    <option value="">— No specific batch —</option>
+                  <select
+                    className={`input w-full ${reducing && !reconBatch ? "border-red-300" : ""}`}
+                    value={reconBatch}
+                    onChange={e => setReconBatch(e.target.value)}
+                  >
+                    <option value="">{reducing ? "Select the batch this came off…" : "— No specific batch —"}</option>
                     {reconBatches.map(b => (
                       <option key={b.code} value={b.code}>
                         {b.code} · {formatDate(b.date)} · {b.remaining} in stock
                       </option>
                     ))}
                   </select>
+                  {reducing && (
+                    <p className="mt-1 text-[11px] text-gray-500">
+                      Required when removing stock, so the batch it came off stays traceable.
+                    </p>
+                  )}
                   {reconBatches.length === 0 && (
                     <p className="mt-1 text-[11px] text-gray-400">No batches with stock remaining for this product.</p>
                   )}
