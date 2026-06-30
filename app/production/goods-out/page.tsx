@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Dispatch, Submission, Checklist, Question, GoodsReturn } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
+import PhotoCapture from "@/components/PhotoCapture";
+import { uploadPhotoAnswers } from "@/lib/photoUpload";
 
 /** Returns current local datetime as YYYY-MM-DDThh:mm for datetime-local inputs */
 function nowLocalDateTime() {
@@ -73,6 +75,9 @@ function renderComplianceField(
         placeholder={q.hint ?? ""}
       />
     );
+  }
+  if (q.type === "photo") {
+    return <PhotoCapture value={value} onChange={onChange} />;
   }
   return (
     <input
@@ -382,9 +387,13 @@ export default function GoodsOutPage() {
           ...(notes.trim() ? [`Notes: ${notes.trim()}`] : []),
         ].join("\n");
 
+        // Upload any captured photos to storage first; if this throws, the
+        // surrounding catch flags the compliance record as failed (the dispatch
+        // itself is already saved).
+        const uploaded = await uploadPhotoAnswers(goodsOutQuestions, complianceAnswers, goodsOutChecklistId);
         const answers = goodsOutQuestions.map(q => ({
           question_id: q.id,
-          value: complianceAnswers[q.id] ?? null,
+          value: uploaded[q.id] ?? null,
         }));
 
         const compRes = await fetch("/api/submit", {

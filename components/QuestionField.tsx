@@ -4,6 +4,7 @@ import { useRef, useCallback, useState, useEffect } from "react";
 import type { Question, IngredientLot } from "@/lib/types";
 import { todayJulianCode, formatDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import PhotoCapture from "@/components/PhotoCapture";
 
 /** Local-state input for litres — lets the user type freely, converts to grams only on blur */
 function LitresInput({ weightG, density, onChange }: { weightG: string; density: number; onChange: (g: string) => void }) {
@@ -68,7 +69,6 @@ function findDensity(densityByName: Record<string, number>, name: string): numbe
 }
 
 export default function QuestionField({ question, value, onChange, error, ingredientLots, densityByName }: Props) {
-  const fileRef = useRef<HTMLInputElement>(null);
   // Tracks raw litres/grams text per lot input so users can type freely without the field snapping
   const [litresDisplay, setLitresDisplay] = useState<Record<string, string>>({});
   const [gramsDisplay, setGramsDisplay]   = useState<Record<string, string>>({});
@@ -323,52 +323,10 @@ export default function QuestionField({ question, value, onChange, error, ingred
   }
 
   if (question.type === "photo") {
-    const hasPhoto = value && value.startsWith("http");
     return (
       <div>
         {base}
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            // Store as base64 temporarily; the submit handler will upload to Supabase
-            const reader = new FileReader();
-            reader.onload = () => onChange(reader.result as string);
-            reader.readAsDataURL(file);
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className={`flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-sm transition ${
-            hasPhoto
-              ? "border-green-400 bg-green-50 text-green-700"
-              : error
-              ? "border-red-300 bg-red-50 text-red-600"
-              : "border-gray-300 bg-white text-gray-500 hover:border-brand hover:text-brand"
-          }`}
-        >
-          {value && !value.startsWith("http") ? (
-            <>
-              {/* preview */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={value} alt="Preview" className="h-32 w-full rounded-lg object-cover" />
-              <span className="text-xs font-medium text-green-700">Photo captured — tap to retake</span>
-            </>
-          ) : hasPhoto ? (
-            <span className="font-medium">Photo uploaded ✓</span>
-          ) : (
-            <>
-              <CameraIcon />
-              <span className="font-medium">Take photo or upload</span>
-            </>
-          )}
-        </button>
+        <PhotoCapture value={value} onChange={onChange} error={!!error} />
         {errMsg}
       </div>
     );
@@ -1164,11 +1122,3 @@ function SignatureField({ question, value, onChange, error }: Props) {
   );
 }
 
-function CameraIcon() {
-  return (
-    <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  );
-}
