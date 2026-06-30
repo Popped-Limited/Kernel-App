@@ -465,8 +465,11 @@ function ChecklistPageInner() {
         const rows = (Array.isArray(parsed) ? parsed : (parsed?.rows ?? [])) as Array<{ name?: string; lots: Array<{ lot_id?: string; julian_code: string; weight_g: string }> }>;
         // Ingredient names by row position, for resolving available goods-in lots.
         const names = (q.options ?? []).map((o) => String(o).split("|")[0]);
-        const lotRefOk = (hasLots: boolean, l: { lot_id?: string; julian_code: string }) =>
-          !!(hasLots ? l.lot_id?.trim() : l.julian_code?.trim());
+        // Out-of-stock ingredients (no goods-in lots) can't be traced — a typed or
+        // defaulted Julian code is NOT acceptable. Require a real lot picked from the
+        // dropdown; no stock ⇒ never ok (forces a Goods In delivery first).
+        const lotRefOk = (hasLots: boolean, l: { lot_id?: string }) =>
+          !!(hasLots && l.lot_id?.trim());
         const ok = mode === "full"
           ? rows.length > 0 && rows.every((r, i) => {
               if (!(r.lots?.length > 0)) return false;
@@ -479,8 +482,8 @@ function ChecklistPageInner() {
               return (r.lots ?? []).every((l) => !l.weight_g?.trim() || lotRefOk(hasLots, l));
             });
         if (!ok) errs[q.id] = mode === "full"
-          ? "Select a goods-in lot and weight for every ingredient (including any split rows)"
-          : "Every ingredient you used must have a goods-in lot selected — these go to waste and must stay traceable";
+          ? "Select a goods-in lot and weight for every ingredient (including any split rows). If an ingredient is out of stock, log a delivery in Goods In first."
+          : "Every ingredient you used must have a goods-in lot selected — these go to waste and must stay traceable. Out-of-stock items must be received in Goods In before they can be traced.";
       } catch { errs[q.id] = "Please complete the ingredient table"; }
     }
     return errs;

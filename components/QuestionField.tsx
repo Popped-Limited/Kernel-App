@@ -597,20 +597,8 @@ export default function QuestionField({ question, value, onChange, error, ingred
                       </select>
                     ) : (
                       <div className="flex-1 min-w-0">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={lotUse.julian_code}
-                            onChange={(e) => updateLot(ingIdx, lotIdx, "julian_code", e.target.value)}
-                            className="input w-full text-sm py-1.5 font-mono"
-                            placeholder="Julian code"
-                          />
-                          {lotUse.julian_code === todayJulianCode() && (
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-medium text-brown bg-brand/40 rounded-full px-1.5 py-0.5 pointer-events-none">
-                              today
-                            </span>
-                          )}
-                        </div>
+                        <p className="text-sm font-semibold text-red-600">Out of stock</p>
+                        <p className="text-[11px] text-gray-500">Log a delivery in Goods In before recording this batch.</p>
                       </div>
                     )}
                     {density ? (
