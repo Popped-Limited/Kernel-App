@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { expandRunValues } from "@/lib/production-runs";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared traceability engine.
@@ -161,29 +162,32 @@ export function computeMassBalance(result: TraceResult): MassBalance {
  * ingredient_lots table, so the whole trace/recall chain treats them uniformly.
  */
 function lotUsesFromAnswer(value: string | null, type: string | undefined): Array<{ lot_id: string; amount: number }> {
-  if (!value) return [];
   const out: Array<{ lot_id: string; amount: number }> = [];
-  try {
-    const parsed = JSON.parse(value);
-    if (type === "packing_runs") {
-      const runs = Array.isArray(parsed) ? parsed : [];
-      for (const run of runs) {
-        if (run.jar_lot_id && Number(run.jars_used) > 0) out.push({ lot_id: run.jar_lot_id, amount: Number(run.jars_used) });
-        if (run.lids_lot_id && Number(run.lids_count) > 0) out.push({ lot_id: run.lids_lot_id, amount: Number(run.lids_count) });
-      }
-    } else {
-      const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
-      for (const row of rows) {
-        for (const rl of (row.lots ?? [])) {
-          if (rl.lot_id) {
-            const g = Number(rl.weight_g);
-            out.push({ lot_id: rl.lot_id, amount: Number.isNaN(g) ? 0 : g });
+  // A multi-run record wraps each run's value in { __runs__: [...] } — expand so
+  // every run's lots are traced, not just the first.
+  for (const v of expandRunValues(value)) {
+    try {
+      const parsed = JSON.parse(v);
+      if (type === "packing_runs") {
+        const runs = Array.isArray(parsed) ? parsed : [];
+        for (const run of runs) {
+          if (run.jar_lot_id && Number(run.jars_used) > 0) out.push({ lot_id: run.jar_lot_id, amount: Number(run.jars_used) });
+          if (run.lids_lot_id && Number(run.lids_count) > 0) out.push({ lot_id: run.lids_lot_id, amount: Number(run.lids_count) });
+        }
+      } else {
+        const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
+        for (const row of rows) {
+          for (const rl of (row.lots ?? [])) {
+            if (rl.lot_id) {
+              const g = Number(rl.weight_g);
+              out.push({ lot_id: rl.lot_id, amount: Number.isNaN(g) ? 0 : g });
+            }
           }
         }
       }
+    } catch {
+      /* ignore malformed answer */
     }
-  } catch {
-    /* ignore malformed answer */
   }
   return out;
 }

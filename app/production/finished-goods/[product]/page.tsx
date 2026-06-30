@@ -6,6 +6,7 @@ import BackButton from "@/components/BackButton";
 import { supabase } from "@/lib/supabase";
 import { fetchAll } from "@/lib/fetchAll";
 import { formatDate } from "@/lib/utils";
+import { expandRunValues } from "@/lib/production-runs";
 
 interface ProductionRun {
   id: string;
@@ -58,13 +59,16 @@ function extractFields(answers: Array<{ value: string | null; question: { type: 
     }
 
     // Packing-log jars used — only used as a fallback when no units-produced field
+    // (summed across every run of the record)
     if (type === "packing_runs") {
-      try {
-        const rows = JSON.parse(ans.value) as Array<{ jars_used?: string }>;
-        let sum = 0;
-        for (const r of rows) sum += Number(r.jars_used) || 0;
-        if (sum > 0) jarsUsedFallback = sum;
-      } catch { /* ignore */ }
+      let sum = 0;
+      for (const v of expandRunValues(ans.value)) {
+        try {
+          const rows = JSON.parse(v) as Array<{ jars_used?: string }>;
+          for (const r of rows) sum += Number(r.jars_used) || 0;
+        } catch { /* ignore */ }
+      }
+      if (sum > 0) jarsUsedFallback = sum;
     }
   }
 

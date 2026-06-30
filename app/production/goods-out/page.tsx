@@ -9,6 +9,7 @@ import type { Dispatch, Submission, Checklist, Question, GoodsReturn } from "@/l
 import { formatDate } from "@/lib/utils";
 import PhotoCapture from "@/components/PhotoCapture";
 import { uploadPhotoAnswers } from "@/lib/photoUpload";
+import { expandRunValues } from "@/lib/production-runs";
 
 /** Returns current local datetime as YYYY-MM-DDThh:mm for datetime-local inputs */
 function nowLocalDateTime() {
@@ -116,10 +117,12 @@ function batchSummary(answers: Array<{ value: string | null; question: { type: s
       totalUnits += Number(ans.value) || 0;
     }
     if (type === "packing_runs" && ans.value) {
-      try {
-        const rows = JSON.parse(ans.value) as Array<{ jars_used?: string }>;
-        for (const r of rows) jarsUsedFallback += Number(r.jars_used) || 0;
-      } catch { /* ignore */ }
+      for (const v of expandRunValues(ans.value)) {
+        try {
+          const rows = JSON.parse(v) as Array<{ jars_used?: string }>;
+          for (const r of rows) jarsUsedFallback += Number(r.jars_used) || 0;
+        } catch { /* ignore */ }
+      }
     }
     if (!batchCode && type === "text" && (label.includes("batch") || label.includes("lot")) && ans.value) {
       batchCode = ans.value;

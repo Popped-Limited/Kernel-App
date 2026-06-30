@@ -534,19 +534,9 @@ export default function QuestionField({ question, value, onChange, error, ingred
               )}
             </div>
           ))}
-          <button
-            type="button"
-            onClick={() => updateBatches([...batches, { multiplier: 1, input: "1" }])}
-            className="text-xs text-brand hover:text-brown hover:underline"
-          >
-            + Add another batch
-          </button>
-          {batches.length > 1 && (
-            <p className="text-xs text-amber-700 font-medium">
-              {batches.length} batches — combined total: {totalMultiplier}× recipe
-            </p>
-          )}
-          {batches.length === 1 && totalMultiplier !== 1 && (
+          {/* Multiple batches in one record are now handled as production runs at
+              the record level — this control just sets the recipe size for this run. */}
+          {totalMultiplier !== 1 && (
             <p className="text-xs text-amber-700 font-medium">
               Targets scaled to {totalMultiplier}×
             </p>

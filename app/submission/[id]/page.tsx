@@ -9,11 +9,14 @@ import type { Checklist, Submission, Answer, Question } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
 import PortalShell from "@/components/PortalShell";
 import AnswerRow from "@/components/AnswerRow";
+import { getRunQuestionIds } from "@/lib/production-runs";
 
 type FullSubmission = Submission & {
   checklist: Checklist;
   answers: (Answer & { question: Question })[];
   batch_notes?: string | null;
+  run_count?: number | null;
+  run_meta?: ({ units?: string } | null)[] | null;
 };
 
 export default function SubmissionPage() {
@@ -294,13 +297,70 @@ export default function SubmissionPage() {
         </div>
 
         {/* Answers */}
-        {submission.answers.length > 0 && (
-          <div className="card divide-y divide-gray-100">
-            {submission.answers.map((a) => (
-              <AnswerRow key={a.id} answer={a} />
-            ))}
-          </div>
-        )}
+        {submission.answers.length > 0 && (() => {
+          const answers = submission.answers;
+          const runCount = submission.run_count ?? 1;
+          const questionsList = answers.map((a) => a.question).filter((q): q is Question => !!q);
+          const runIds = getRunQuestionIds(questionsList);
+          const isRun = (a: { question?: Question | null }) => !!a.question && runIds.has(a.question.id);
+
+          // Single-run / non-production records render flat, exactly as before.
+          if (runCount <= 1 || runIds.size === 0) {
+            return (
+              <div className="card divide-y divide-gray-100">
+                {answers.map((a) => <AnswerRow key={a.id} answer={a} />)}
+              </div>
+            );
+          }
+
+          // Multi-run: master header → each run as its own batch record → master footer.
+          const firstRunIdx = answers.findIndex(isRun);
+          const header = answers.filter((a, i) => !isRun(a) && i < firstRunIdx);
+          const runAnswers = answers.filter(isRun);
+          const footer = answers.filter((a, i) => !isRun(a) && i >= firstRunIdx);
+
+          const runVal = (value: string | null, r: number): string | null => {
+            if (!value) return null;
+            try {
+              const p = JSON.parse(value);
+              if (p && Array.isArray(p.__runs__)) return (p.__runs__[r] ?? null) as string | null;
+            } catch { /* not a runs wrapper */ }
+            return value;
+          };
+
+          return (
+            <div className="space-y-4">
+              {header.length > 0 && (
+                <div className="card divide-y divide-gray-100">
+                  {header.map((a) => <AnswerRow key={a.id} answer={a} />)}
+                </div>
+              )}
+
+              {Array.from({ length: runCount }, (_, r) => {
+                const units = submission.run_meta?.[r]?.units;
+                return (
+                  <div key={r} className="card overflow-hidden">
+                    <div className="flex items-center justify-between bg-brand-cream/70 border-b border-brand/30 px-5 py-2.5">
+                      <p className="text-sm font-semibold text-brown">Production run {r + 1} of {runCount}</p>
+                      {units && <p className="text-xs text-brown-light">Units produced: <span className="font-semibold text-brown">{Number(units).toLocaleString()}</span></p>}
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                      {runAnswers.map((a) => (
+                        <AnswerRow key={`${a.id}-${r}`} answer={{ value: runVal(a.value, r), question: a.question }} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {footer.length > 0 && (
+                <div className="card divide-y divide-gray-100">
+                  {footer.map((a) => <AnswerRow key={a.id} answer={a} />)}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Next pending — shown after sign-off */}
         {isSigned && nextPendingId && (

@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, Suspense } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { Checklist, Question, IngredientLot } from "@/lib/types";
 import QuestionField, { findLots } from "@/components/QuestionField";
 import { frequencyLabel } from "@/lib/utils";
+import {
+  getRunQuestionIds, splitRunZones, findTotalUnitsQuestion,
+  runKey, unitsKey, RUN_COUNT_KEY,
+} from "@/lib/production-runs";
 
 type AnswerMap = Record<string, string>;
 
@@ -182,6 +186,46 @@ function ChecklistPageInner() {
   // Both production records and inductions auto-save as a draft and submit a
   // record; only production has the ingredient/lot + batch-failed machinery.
   const isDraftable = isProduction || isInduction;
+
+  // ── Multi-run production records ──────────────────────────────────────────
+  // A record may capture several identical runs in one day. Questions in the
+  // "runs" zone (ingredients → packing log) repeat per run; everything else is
+  // master (entered once). Run count is stored in the answer map so it auto-saves
+  // and live-syncs like any other field. Run 0 uses bare question ids, so a
+  // single-run record is byte-identical to a pre-feature one.
+  const runQuestionIds = useMemo(() => getRunQuestionIds(questions), [questions]);
+  const hasRunZone = runQuestionIds.size > 0;
+  const runCount = Math.max(1, parseInt(answers[RUN_COUNT_KEY] || "1", 10) || 1);
+  const [activeRun, setActiveRun] = useState(0);
+  const totalUnitsQ = useMemo(() => findTotalUnitsQuestion(questions), [questions]);
+
+  // Expand every required question into one entry per run it applies to, with the
+  // namespaced answer key. Master questions yield a single entry. Used by progress,
+  // validation and the lot gate so all runs are checked.
+  const expandedFields = useCallback((): { q: Question; key: string; run: number }[] => {
+    const out: { q: Question; key: string; run: number }[] = [];
+    for (const q of questions) {
+      if (runQuestionIds.has(q.id)) {
+        for (let r = 0; r < runCount; r++) out.push({ q, key: runKey(q.id, r), run: r });
+      } else {
+        out.push({ q, key: q.id, run: 0 });
+      }
+    }
+    return out;
+  }, [questions, runQuestionIds, runCount]);
+
+  // The sum of per-run "good units produced" — pre-fills the editable Total units field.
+  const perRunUnitsSum = useCallback((): number => {
+    let sum = 0;
+    for (let r = 0; r < runCount; r++) sum += Number(answers[unitsKey(r)] || 0) || 0;
+    return sum;
+  }, [answers, runCount]);
+
+  function setRunCount(next: number) {
+    const n = Math.max(1, next);
+    handleAnswerChange(RUN_COUNT_KEY, String(n));
+    setActiveRun((cur) => Math.min(cur, n - 1));
+  }
 
   useEffect(() => {
     async function load() {
@@ -423,6 +467,7 @@ function ChecklistPageInner() {
     const { __batch_notes__: savedNotes, ...questionAnswers } = draft.answers ?? {};
     setAnswers(questionAnswers as AnswerMap);
     if (savedNotes) setBatchNotes(savedNotes);
+    setActiveRun(0);
     setShowResumePrompt(false);
     // Recompute lot availability excluding THIS draft's own reservations so the
     // user doesn't see their already-reserved quantities subtracted twice
@@ -439,13 +484,14 @@ function ChecklistPageInner() {
     setShowResumePrompt(false);
     setBatchNotes("");
     setAnswers({});
+    setActiveRun(0);
   }
 
-  // Progress calculation for production checklists
+  // Progress calculation for production checklists — every run counts.
   function calcProgress() {
-    const required = questions.filter((q) => q.required);
-    const filledCount = required.filter((q) => isFieldFilled(q, answers[q.id] ?? "")).length;
-    return { filled: filledCount, total: required.length };
+    const fields = expandedFields().filter((f) => f.q.required);
+    const filled = fields.filter((f) => isFieldFilled(f.q, answers[f.key] ?? "")).length;
+    return { filled, total: fields.length };
   }
 
   // Traceability gate for ingredient_table questions. Every ingredient that has
@@ -459,7 +505,10 @@ function ChecklistPageInner() {
     const errs: Record<string, string> = {};
     for (const q of questions) {
       if (q.type !== "ingredient_table" || !q.required) continue;
-      const val = answers[q.id] ?? "";
+      const runs = runQuestionIds.has(q.id) ? runCount : 1;
+      for (let r = 0; r < runs; r++) {
+      const key = runKey(q.id, r);
+      const val = answers[key] ?? "";
       try {
         const parsed = JSON.parse(val);
         const rows = (Array.isArray(parsed) ? parsed : (parsed?.rows ?? [])) as Array<{ name?: string; lots: Array<{ lot_id?: string; julian_code: string; weight_g: string }> }>;
@@ -481,35 +530,36 @@ function ChecklistPageInner() {
               // Only lots with a weight count as "used" and must be traceable.
               return (r.lots ?? []).every((l) => !l.weight_g?.trim() || lotRefOk(hasLots, l));
             });
-        if (!ok) errs[q.id] = mode === "full"
+        if (!ok) errs[key] = mode === "full"
           ? "Select a goods-in lot and weight for every ingredient (including any split rows). If an ingredient is out of stock, log a delivery in Goods In first."
           : "Every ingredient you used must have a goods-in lot selected — these go to waste and must stay traceable. Out-of-stock items must be received in Goods In before they can be traced.";
-      } catch { errs[q.id] = "Please complete the ingredient table"; }
+      } catch { errs[key] = "Please complete the ingredient table"; }
+      }
     }
     return errs;
   }
 
   function validate(): boolean {
     const errs: Record<string, string> = { ...ingredientLotErrors("full") };
-    for (const q of questions) {
+    for (const { q, key } of expandedFields()) {
       if (!q.required) continue;
-      const val = answers[q.id] ?? "";
+      const val = answers[key] ?? "";
       if (q.type === "ingredient_table") {
         continue; // handled by ingredientLotErrors above
       } else if (q.type === "packing_runs") {
         try {
           const runs = JSON.parse(val) as Array<{ pack_weight: string; jars_used: string }>;
           if (!runs.some((r) => r.pack_weight?.trim() && r.jars_used?.trim())) {
-            errs[q.id] = "Please complete at least one packing run";
+            errs[key] = "Please complete at least one packing run";
           }
-        } catch { errs[q.id] = "Please complete the packing log"; }
+        } catch { errs[key] = "Please complete the packing log"; }
       } else if (q.type === "multi_number") {
         try {
           const arr = JSON.parse(val) as string[];
-          if (!arr.every(v => v !== "" && !isNaN(Number(v)))) errs[q.id] = "Please fill in all values";
-        } catch { errs[q.id] = "Please fill in all values"; }
+          if (!arr.every(v => v !== "" && !isNaN(Number(v)))) errs[key] = "Please fill in all values";
+        } catch { errs[key] = "Please fill in all values"; }
       } else if (!val || val === "false" || val === "[]") {
-        errs[q.id] = "This field is required";
+        errs[key] = "This field is required";
       }
     }
     setErrors(errs);
@@ -533,12 +583,12 @@ function ChecklistPageInner() {
     // exceeds the server's request-body limit and the whole submit fails with a
     // cryptic error. Instead, surface a clear message and stop.
     const processedAnswers: AnswerMap = { ...answers };
-    for (const q of questions) {
-      if (q.type === "photo" && processedAnswers[q.id]?.startsWith("data:")) {
-        const base64 = processedAnswers[q.id];
+    for (const { q, key } of expandedFields()) {
+      if (q.type === "photo" && processedAnswers[key]?.startsWith("data:")) {
+        const base64 = processedAnswers[key];
         const blob = await (await fetch(base64)).blob();
         const ext = blob.type.split("/")[1] ?? "jpg";
-        const path = `photos/${id}/${Date.now()}-${q.id}.${ext}`;
+        const path = `photos/${id}/${Date.now()}-${key.replace(/[^a-z0-9]/gi, "")}.${ext}`;
         const { data: uploadData, error: uploadErr } = await supabase.storage
           .from("compliance-photos")
           .upload(path, blob, { contentType: blob.type, upsert: false });
@@ -548,7 +598,7 @@ function ChecklistPageInner() {
           return false;
         }
         const { data: urlData } = supabase.storage.from("compliance-photos").getPublicUrl(path);
-        processedAnswers[q.id] = urlData.publicUrl;
+        processedAnswers[key] = urlData.publicUrl;
       }
     }
 
@@ -568,10 +618,21 @@ function ChecklistPageInner() {
         submitted_by: getSubmittedBy(questions, processedAnswers),
         batch_notes: notes,
         team_member_id: memberId,
-        answers: questions.map((q) => ({
-          question_id: q.id,
-          value: processedAnswers[q.id] ?? null,
-        })),
+        run_count: runCount,
+        // Per-run "good units produced" — for the report's per-run yield. The
+        // finished-goods total comes from the editable Total units master field.
+        run_meta: runCount > 1
+          ? Array.from({ length: runCount }, (_, r) => ({ units: processedAnswers[unitsKey(r)] ?? "" }))
+          : null,
+        // Run questions ship all runs under one answer as { __runs__: [...] };
+        // single-run records stay byte-identical (bare value, no wrapper).
+        answers: questions.map((q) => {
+          if (runQuestionIds.has(q.id) && runCount > 1) {
+            const runs = Array.from({ length: runCount }, (_, r) => processedAnswers[runKey(q.id, r)] ?? "");
+            return { question_id: q.id, value: JSON.stringify({ __runs__: runs }) };
+          }
+          return { question_id: q.id, value: processedAnswers[q.id] ?? null };
+        }),
       }),
     });
 
@@ -596,8 +657,16 @@ function ChecklistPageInner() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) {
-      const firstErr = document.querySelector("[data-error]");
-      firstErr?.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Jump to the first run that has an incomplete required field, so the error
+      // isn't hidden behind another run's tab.
+      if (hasRunZone && runCount > 1) {
+        const bad = expandedFields().find((f) => f.q.required && !isFieldFilled(f.q, answers[f.key] ?? ""));
+        if (bad) setActiveRun(bad.run);
+      }
+      setTimeout(() => {
+        const firstErr = document.querySelector("[data-error]");
+        firstErr?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 0);
       return;
     }
     if (await submitRecord()) setSubmitted(true);
@@ -823,18 +892,124 @@ function ChecklistPageInner() {
           )}
 
           {/* Questions */}
-          {questions.map((q) => (
-            <div key={q.id} data-error={errors[q.id] ? true : undefined}>
-              <QuestionField
-                question={q}
-                value={answers[q.id] ?? ""}
-                onChange={(val) => handleAnswerChange(q.id, val)}
-                error={errors[q.id]}
-                ingredientLots={ingredientLots}
-                densityByName={densityByName}
-              />
-            </div>
-          ))}
+          {(() => {
+            const renderQ = (q: Question, key: string) => (
+              <div key={key} data-error={errors[key] ? true : undefined}>
+                <QuestionField
+                  question={q}
+                  value={answers[key] ?? ""}
+                  onChange={(val) => handleAnswerChange(key, val)}
+                  error={errors[key]}
+                  ingredientLots={ingredientLots}
+                  densityByName={densityByName}
+                />
+              </div>
+            );
+
+            // Non-production / no run zone — render flat, exactly as before.
+            if (!hasRunZone) return questions.map((q) => renderQ(q, q.id));
+
+            const { header, runs, footer } = splitRunZones(questions);
+            const runComplete = (r: number) =>
+              runs.every((q) => !q.required || isFieldFilled(q, answers[runKey(q.id, r)] ?? ""));
+
+            const onRunUnitsChange = (val: string) => {
+              handleAnswerChange(unitsKey(activeRun), val);
+              if (totalUnitsQ) {
+                let sum = 0;
+                for (let r = 0; r < runCount; r++)
+                  sum += (r === activeRun ? Number(val || 0) : Number(answers[unitsKey(r)] || 0)) || 0;
+                handleAnswerChange(totalUnitsQ.id, sum ? String(sum) : "");
+              }
+            };
+
+            return (
+              <>
+                {header.map((q) => renderQ(q, q.id))}
+
+                {/* Run switcher */}
+                <div className="rounded-xl border border-brand/40 bg-brand-cream/60 px-3 py-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-brown">Production runs</span>
+                    <span className="text-xs text-brown-light">{runCount} run{runCount !== 1 ? "s" : ""} in this record</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Array.from({ length: runCount }, (_, r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setActiveRun(r)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                          r === activeRun
+                            ? "bg-brown text-white"
+                            : "bg-white border border-gray-200 text-gray-600 hover:border-brown/40"
+                        }`}
+                      >
+                        {runComplete(r) && <span className={r === activeRun ? "text-white" : "text-green-600"}>✓</span>}
+                        Run {r + 1}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => { setRunCount(runCount + 1); setActiveRun(runCount); }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium bg-white border border-dashed border-brown/40 text-brown hover:bg-brand/10 transition-colors"
+                    >
+                      + Add run
+                    </button>
+                  </div>
+                  {runCount > 1 && (
+                    <div className="flex items-center justify-between pt-0.5">
+                      <span className="text-xs text-brown-light">Editing <span className="font-semibold text-brown">Run {activeRun + 1}</span> — its ingredients, CCPs, checks &amp; packing</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!confirm(`Remove Run ${activeRun + 1}? Its entries in this record will be cleared.`)) return;
+                          // Clear this run's keys, shift later runs down, drop the last slot.
+                          for (const q of runs) {
+                            for (let r = activeRun; r < runCount - 1; r++)
+                              handleAnswerChange(runKey(q.id, r), answers[runKey(q.id, r + 1)] ?? "");
+                            handleAnswerChange(runKey(q.id, runCount - 1), "");
+                          }
+                          for (let r = activeRun; r < runCount - 1; r++)
+                            handleAnswerChange(unitsKey(r), answers[unitsKey(r + 1)] ?? "");
+                          handleAnswerChange(unitsKey(runCount - 1), "");
+                          setRunCount(runCount - 1);
+                        }}
+                        className="text-xs text-red-400 hover:text-red-600 transition shrink-0"
+                      >
+                        Remove run
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Active run's repeating questions */}
+                {runs.map((q) => renderQ(q, runKey(q.id, activeRun)))}
+
+                {/* Per-run good units produced (only when there's more than one run) */}
+                {runCount > 1 && (
+                  <div className="card px-4 py-4 space-y-1.5">
+                    <label className="block text-sm font-semibold text-gray-800">
+                      Units produced — Run {activeRun + 1}
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={answers[unitsKey(activeRun)] ?? ""}
+                      onChange={(e) => onRunUnitsChange(e.target.value)}
+                      className="input w-full"
+                      placeholder="Good, sellable units from this run"
+                    />
+                    <p className="text-xs text-gray-400">
+                      Totals to {perRunUnitsSum().toLocaleString()} units across {runCount} runs — fills in “{totalUnitsQ?.label ?? "Total units produced"}” below (editable).
+                    </p>
+                  </div>
+                )}
+
+                {footer.map((q) => renderQ(q, q.id))}
+              </>
+            );
+          })()}
 
           {/* Additional comments — Production records only */}
           {isProduction && (

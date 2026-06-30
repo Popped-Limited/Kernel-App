@@ -7,6 +7,7 @@ import { fetchAll } from "@/lib/fetchAll";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Dispatch, FinishedGoodsAdjustment, GoodsReturn } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
+import { expandRunValues } from "@/lib/production-runs";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -175,12 +176,14 @@ export default function FinishedGoodsPage() {
             (label.includes("batch code") || label.includes("julian") || label.includes("batch ref") || label.includes("lot number"))) {
           batchCode = ans.value.trim();
         }
-        // Fallback: sum jars_used from packing_runs
+        // Fallback: sum jars_used from packing_runs (across all runs of the record)
         if (ans.question?.type === "packing_runs") {
-          try {
-            const rows = JSON.parse(ans.value);
-            if (Array.isArray(rows)) for (const r of rows) jarsUsedFallback += Number(r.jars_used) || 0;
-          } catch { /* ignore */ }
+          for (const v of expandRunValues(ans.value)) {
+            try {
+              const rows = JSON.parse(v);
+              if (Array.isArray(rows)) for (const r of rows) jarsUsedFallback += Number(r.jars_used) || 0;
+            } catch { /* ignore */ }
+          }
         }
       }
       const jars = totalUnits > 0 ? totalUnits : jarsUsedFallback;

@@ -4,11 +4,23 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { checklist_id, organisation_id, submitted_by, answers, batch_notes, team_member_id } = body;
+  const { checklist_id, organisation_id, submitted_by, answers, batch_notes, team_member_id, run_count, run_meta } = body;
 
   if (!checklist_id || !submitted_by || !Array.isArray(answers)) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
+
+  // A multi-run record ships each repeating answer as { __runs__: [v0, v1, …] }
+  // where each element is a normal single-run value string. Expand to the flat
+  // list of per-run values for stock deduction; single-run values pass through.
+  const runValues = (value: string | null): string[] => {
+    if (!value) return [value as string];
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && Array.isArray(parsed.__runs__)) return parsed.__runs__ as string[];
+    } catch { /* not a runs wrapper */ }
+    return [value];
+  };
 
   // Use a SECURITY DEFINER RPC function to insert submission + answers,
   // bypassing RLS without needing the service role key.
@@ -35,6 +47,15 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin
       .from("submissions")
       .update({ batch_notes })
+      .eq("id", submissionId);
+  }
+
+  // Record multi-run metadata so the report can show each run as its own batch
+  // record. Single-run records leave these at their defaults (run_count = 1).
+  if (Number(run_count) > 1) {
+    await supabaseAdmin
+      .from("submissions")
+      .update({ run_count: Number(run_count), run_meta: run_meta ?? null })
       .eq("id", submissionId);
   }
 
@@ -91,8 +112,10 @@ export async function POST(req: NextRequest) {
 
       for (const answer of answers) {
         if (!ingredientQIds.has(answer.question_id) || !answer.value) continue;
+        for (const value of runValues(answer.value)) {
+        if (!value) continue;
         try {
-          const parsedVal = JSON.parse(answer.value);
+          const parsedVal = JSON.parse(value);
           const rows = (Array.isArray(parsedVal) ? parsedVal : (parsedVal?.rows ?? [])) as Array<{
             lots: Array<{ lot_id?: string; julian_code?: string; weight_g: string }>;
           }>;
@@ -144,13 +167,16 @@ export async function POST(req: NextRequest) {
         } catch (e) {
           console.error("Stock deduction error:", e);
         }
+        }
       }
 
       // Deduct primary packaging from the packing log's lot-linked runs
       for (const answer of answers) {
         if (!packingQIds.has(answer.question_id) || !answer.value) continue;
+        for (const value of runValues(answer.value)) {
+        if (!value) continue;
         try {
-          const runs = JSON.parse(answer.value);
+          const runs = JSON.parse(value);
           if (!Array.isArray(runs)) continue;
           for (const run of runs) {
             const jarsUsed = Number(run.jars_used);
@@ -160,6 +186,7 @@ export async function POST(req: NextRequest) {
           }
         } catch (e) {
           console.error("Packaging deduction error:", e);
+        }
         }
       }
     }
