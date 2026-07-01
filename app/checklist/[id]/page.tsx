@@ -986,7 +986,10 @@ function ChecklistPageInner() {
                   )}
                 </div>
 
-                {/* Per-run good units produced — headline total for this run/sub-batch */}
+                {/* Active run's repeating questions */}
+                {runs.map((q) => renderQ(q, runKey(q.id, activeRun)))}
+
+                {/* Per-run good units produced — the last thing entered for this run */}
                 {runCount > 1 && (
                   <div className="card px-4 py-4 space-y-1.5 border-brand/40">
                     <label className="block text-sm font-semibold text-gray-800">
@@ -1005,9 +1008,6 @@ function ChecklistPageInner() {
                     </p>
                   </div>
                 )}
-
-                {/* Active run's repeating questions */}
-                {runs.map((q) => renderQ(q, runKey(q.id, activeRun)))}
 
                 {footer.map((q) => renderQ(q, q.id))}
               </>
