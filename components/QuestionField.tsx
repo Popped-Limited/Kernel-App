@@ -759,7 +759,6 @@ export default function QuestionField({ question, value, onChange, error, ingred
       const next = runs.map((r, i) => (i === idx ? { ...r, ...patch } : r));
       onChange(JSON.stringify(next));
     };
-    const addRun = () => onChange(JSON.stringify([...runs, emptyRun]));
     const removeRun = (idx: number) => {
       if (runs.length === 1) return;
       onChange(JSON.stringify(runs.filter((_, i) => i !== idx)));
@@ -867,13 +866,6 @@ export default function QuestionField({ question, value, onChange, error, ingred
               </div>
             </div>
           ))}
-          <button
-            type="button"
-            onClick={addRun}
-            className="w-full rounded-xl border-2 border-dashed border-gray-200 py-2 text-sm text-gray-500 hover:border-brand hover:text-brand transition"
-          >
-            + Add another packing run
-          </button>
         </div>
         {errMsg}
       </div>

@@ -8,6 +8,7 @@ import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Checklist, ChecklistReminder, ReminderFrequency, Question, QuestionType, ChecklistFrequency } from "@/lib/types";
 import { FREQUENCIES, QUESTION_TYPES } from "@/lib/constants";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
+import { getRunQuestionIds } from "@/lib/production-runs";
 
 const BLANK_QUESTION: Omit<Question, "id" | "checklist_id" | "created_at"> = {
   label: "",
@@ -165,6 +166,14 @@ export default function EditChecklistPage() {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
+  // Multi-run production records have a fixed structure: master header, the
+  // repeating "runs" zone, then master footer. Master questions are pinned — they
+  // can't be dragged, and a run question can't be dropped outside the runs zone —
+  // so the header/footer can never drift into the middle of a batch.
+  const runIds = getRunQuestionIds(questions);
+  const hasRunZone = runIds.size > 0;
+  const isMasterQuestion = (q: Question) => hasRunZone && !runIds.has(q.id);
+
   function handleDragStart(index: number) {
     setDragIndex(index);
   }
@@ -179,6 +188,14 @@ export default function EditChecklistPage() {
       setDragIndex(null);
       setDragOverIndex(null);
       return;
+    }
+    // Keep a run question inside the runs zone (masters aren't draggable, so the
+    // dragged item is always a run question when a run zone exists).
+    if (hasRunZone) {
+      const runIdx = questions.map((q, i) => (runIds.has(q.id) ? i : -1)).filter((i) => i >= 0);
+      const lo = runIdx[0], hi = runIdx[runIdx.length - 1];
+      dropIndex = Math.min(Math.max(dropIndex, lo), hi);
+      if (dragIndex === dropIndex) { setDragIndex(null); setDragOverIndex(null); return; }
     }
     const reordered = [...questions];
     const [moved] = reordered.splice(dragIndex, 1);
@@ -350,6 +367,7 @@ export default function EditChecklistPage() {
                 key={q.id}
                 question={q}
                 index={i}
+                pinned={isMasterQuestion(q)}
                 isDragging={dragIndex === i}
                 isDragOver={dragOverIndex === i && dragIndex !== i}
                 onEdit={() => openEditQuestion(q)}
@@ -714,9 +732,10 @@ function RemindersCard({ checklistId, orgId }: { checklistId: string; orgId: str
   );
 }
 
-function QuestionRow({ question, index, isDragging, isDragOver, onEdit, onDelete, onDragStart, onDragOver, onDrop, onDragEnd }: {
+function QuestionRow({ question, index, pinned, isDragging, isDragOver, onEdit, onDelete, onDragStart, onDragOver, onDrop, onDragEnd }: {
   question: Question;
   index: number;
+  pinned: boolean;
   isDragging: boolean;
   isDragOver: boolean;
   onEdit: () => void;
@@ -729,21 +748,29 @@ function QuestionRow({ question, index, isDragging, isDragOver, onEdit, onDelete
   const typeLabel = QUESTION_TYPES.find(t => t.value === question.type)?.label ?? question.type;
   return (
     <div
-      draggable
-      onDragStart={onDragStart}
+      draggable={!pinned}
+      onDragStart={pinned ? undefined : onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
       onDragEnd={onDragEnd}
       className={`card flex items-center gap-3 px-4 py-3 transition-all ${isDragging ? "opacity-40" : ""} ${isDragOver ? "ring-2 ring-brand ring-offset-1" : ""}`}
     >
-      {/* Drag handle */}
-      <div className="shrink-0 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 transition select-none" title="Drag to reorder">
-        <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
-          <circle cx="5.5" cy="4" r="1.2"/><circle cx="10.5" cy="4" r="1.2"/>
-          <circle cx="5.5" cy="8" r="1.2"/><circle cx="10.5" cy="8" r="1.2"/>
-          <circle cx="5.5" cy="12" r="1.2"/><circle cx="10.5" cy="12" r="1.2"/>
-        </svg>
-      </div>
+      {/* Drag handle — pinned master questions can't be reordered */}
+      {pinned ? (
+        <div className="shrink-0 text-gray-300 select-none" title="Fixed position — batch code, dates, totals and sign-off stay put">
+          <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 1a3 3 0 0 0-3 3v2H4.5A1.5 1.5 0 0 0 3 7.5v5A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 6H11V4a3 3 0 0 0-3-3Zm1.5 5h-3V4a1.5 1.5 0 0 1 3 0v2Z"/>
+          </svg>
+        </div>
+      ) : (
+        <div className="shrink-0 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 transition select-none" title="Drag to reorder">
+          <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
+            <circle cx="5.5" cy="4" r="1.2"/><circle cx="10.5" cy="4" r="1.2"/>
+            <circle cx="5.5" cy="8" r="1.2"/><circle cx="10.5" cy="8" r="1.2"/>
+            <circle cx="5.5" cy="12" r="1.2"/><circle cx="10.5" cy="12" r="1.2"/>
+          </svg>
+        </div>
+      )}
 
       {/* Number */}
       <span className="text-xs text-gray-400 w-5 shrink-0 text-center">{index + 1}</span>

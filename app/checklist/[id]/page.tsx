@@ -931,7 +931,10 @@ function ChecklistPageInner() {
                 <div className="rounded-xl border border-brand/40 bg-brand-cream/60 px-3 py-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-brown">Production runs</span>
-                    <span className="text-xs text-brown-light">{runCount} run{runCount !== 1 ? "s" : ""} in this record</span>
+                    <span className="text-xs text-brown-light">
+                      {runCount} run{runCount !== 1 ? "s" : ""}
+                      {runCount > 1 && perRunUnitsSum() > 0 && <> · <span className="font-semibold text-brown">{perRunUnitsSum().toLocaleString()}</span> units total</>}
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {Array.from({ length: runCount }, (_, r) => (
@@ -983,14 +986,11 @@ function ChecklistPageInner() {
                   )}
                 </div>
 
-                {/* Active run's repeating questions */}
-                {runs.map((q) => renderQ(q, runKey(q.id, activeRun)))}
-
-                {/* Per-run good units produced (only when there's more than one run) */}
+                {/* Per-run good units produced — headline total for this run/sub-batch */}
                 {runCount > 1 && (
-                  <div className="card px-4 py-4 space-y-1.5">
+                  <div className="card px-4 py-4 space-y-1.5 border-brand/40">
                     <label className="block text-sm font-semibold text-gray-800">
-                      Units produced — Run {activeRun + 1}
+                      Units produced — Run {activeRun + 1} (sub-batch total)
                     </label>
                     <input
                       type="number"
@@ -1001,10 +1001,13 @@ function ChecklistPageInner() {
                       placeholder="Good, sellable units from this run"
                     />
                     <p className="text-xs text-gray-400">
-                      Totals to {perRunUnitsSum().toLocaleString()} units across {runCount} runs — fills in “{totalUnitsQ?.label ?? "Total units produced"}” below (editable).
+                      Combined: <span className="font-semibold text-brown">{perRunUnitsSum().toLocaleString()}</span> units across {runCount} runs — fills in “{totalUnitsQ?.label ?? "Total units produced"}” below (editable).
                     </p>
                   </div>
                 )}
+
+                {/* Active run's repeating questions */}
+                {runs.map((q) => renderQ(q, runKey(q.id, activeRun)))}
 
                 {footer.map((q) => renderQ(q, q.id))}
               </>
