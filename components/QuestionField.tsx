@@ -775,13 +775,13 @@ export default function QuestionField({ question, value, onChange, error, ingred
         </div>
         <div className="space-y-3">
           {runs.map((run, idx) => (
-            <div key={idx} className={`rounded-xl border p-3 space-y-2 ${error ? "border-red-300" : "border-gray-200"}`}>
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Run {idx + 1}</p>
-                {runs.length > 1 && (
+            <div key={idx} className={`space-y-2 ${error ? "rounded-xl border border-red-300 p-3" : ""}`}>
+              {runs.length > 1 && (
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Entry {idx + 1}</p>
                   <button type="button" onClick={() => removeRun(idx)} className="text-xs text-gray-400 hover:text-red-500 transition">Remove</button>
-                )}
-              </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-gray-500 block mb-0.5">Pack weight (g)</label>
