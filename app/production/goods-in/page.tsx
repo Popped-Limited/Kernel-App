@@ -9,6 +9,7 @@ import type { Ingredient, IngredientLot, Question } from "@/lib/types";
 import { formatDate, todayJulianCode } from "@/lib/utils";
 import PhotoCapture from "@/components/PhotoCapture";
 import { uploadPhotoAnswers } from "@/lib/photoUpload";
+import { fetchAll } from "@/lib/fetchAll";
 
 /** Returns current local datetime as YYYY-MM-DDThh:mm for datetime-local inputs */
 function nowLocalDateTime() {
@@ -144,12 +145,15 @@ export default function GoodsInPage() {
   useEffect(() => { if (orgId) load(); }, [orgId]);
 
   async function load() {
-    const [ingRes, lotRes, supRes, clRes] = await Promise.all([
+    const [ingRes, lots, supRes, clRes] = await Promise.all([
       supabase.from("ingredients").select("*").order("name"),
-      supabase
+      // Full delivery history — paginate past the 1000-row cap or older
+      // goods-in records silently vanish from the log
+      fetchAll<IngredientLot & { ingredient: { name: string } }>((from, to) => supabase
         .from("ingredient_lots")
         .select("*, ingredient:ingredients(name)")
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .range(from, to)),
       supabase.from("suppliers").select("id, name").order("name"),
       supabase
         .from("checklists")
@@ -160,7 +164,7 @@ export default function GoodsInPage() {
         .maybeSingle(),
     ]);
     if (ingRes.data) setIngredients(ingRes.data);
-    if (lotRes.data) setRecentLots(lotRes.data as (IngredientLot & { ingredient: Ingredient })[]);
+    setRecentLots(lots as (IngredientLot & { ingredient: Ingredient })[]);
     if (supRes.data) setSuppliers(supRes.data as Supplier[]);
     if (clRes.data?.id) {
       setGoodsInChecklistId(clRes.data.id);

@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/utils";
 import PhotoCapture from "@/components/PhotoCapture";
 import { uploadPhotoAnswers } from "@/lib/photoUpload";
 import { expandRunValues } from "@/lib/production-runs";
+import { fetchAll } from "@/lib/fetchAll";
 
 /** Returns current local datetime as YYYY-MM-DDThh:mm for datetime-local inputs */
 function nowLocalDateTime() {
@@ -227,39 +228,47 @@ export default function GoodsOutPage() {
     // Use production checklist IDs to fetch only production submissions (no wasted limit)
     const productionChecklistIds = (clData ?? []).map(cl => cl.id);
 
-    const [dispRes, subRes, batchDispRes, returnsRes, adjRes] = await Promise.all([
-      supabase
+    // Every one of these feeds the per-batch availability guard — an un-ranged
+    // select stops at 1000 rows, and a missing dispatch/return/adjustment makes
+    // the guard allow over-dispatching (or block valid stock). Paginate them all.
+    const [dispData, subData, batchDispData, returnsData, adjData] = await Promise.all([
+      fetchAll<Dispatch>((from, to) => supabase
         .from("dispatches")
         .select("*")
         .order("dispatch_date", { ascending: false })
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .range(from, to)),
       productionChecklistIds.length > 0
-        ? supabase
+        ? fetchAll<any>((from, to) => supabase
             .from("submissions")
             .select("id, submitted_by, submitted_at, checklist:checklists(name, category), answers(value, question:questions(type, label))")
             .in("checklist_id", productionChecklistIds)
             .order("submitted_at", { ascending: false })
-        : Promise.resolve({ data: [] }),
-      supabase
+            .range(from, to))
+        : Promise.resolve([]),
+      fetchAll<{ batch_submission_id: string | null; total_units: number | null }>((from, to) => supabase
         .from("dispatches")
         .select("batch_submission_id, total_units")
-        .not("batch_submission_id", "is", null),
-      supabase
+        .not("batch_submission_id", "is", null)
+        .order("id")
+        .range(from, to)),
+      fetchAll<GoodsReturn>((from, to) => supabase
         .from("goods_returns")
         .select("*")
-        .order("return_date", { ascending: false }),
-      supabase
+        .order("return_date", { ascending: false })
+        .range(from, to)),
+      fetchAll<{ batch_code: string | null; quantity: number | null }>((from, to) => supabase
         .from("finished_goods_adjustments")
         .select("batch_code, quantity")
-        .not("batch_code", "is", null),
+        .not("batch_code", "is", null)
+        .order("id")
+        .range(from, to)),
     ]);
 
-    if (dispRes.data) setRecentDispatches(dispRes.data as Dispatch[]);
-    if (subRes.data) {
-      setBatchSubmissions(subRes.data as unknown as (Submission & { checklist: Checklist })[]);
-    }
+    setRecentDispatches(dispData);
+    setBatchSubmissions(subData as unknown as (Submission & { checklist: Checklist })[]);
 
-    const returns = (returnsRes.data ?? []) as GoodsReturn[];
+    const returns = returnsData as GoodsReturn[];
     setRecentReturns(returns);
     // Returned units per batch and per original dispatch
     const returnedByBatch: Record<string, number> = {};
@@ -272,7 +281,7 @@ export default function GoodsOutPage() {
 
     // Net out per batch = dispatched − returned, so returned units become available again
     const dispatchedTotals: Record<string, number> = {};
-    for (const d of (batchDispRes.data ?? [])) {
+    for (const d of batchDispData) {
       if (d.batch_submission_id) {
         dispatchedTotals[d.batch_submission_id] = (dispatchedTotals[d.batch_submission_id] ?? 0) + (d.total_units ?? 0);
       }
@@ -290,13 +299,13 @@ export default function GoodsOutPage() {
     // Goods and no run keeps phantom stock that's really been removed.
     const subsByCode: Record<string, string[]> = {};
     const producedBySub: Record<string, number> = {};
-    for (const s of ((subRes.data ?? []) as any[])) {
+    for (const s of (subData as any[])) {
       const { batchCode, totalJars } = batchSummary(s.answers ?? []);
       producedBySub[s.id] = totalJars;
       if (batchCode) (subsByCode[batchCode] ??= []).push(s.id);
     }
     const codeAdj: Record<string, number> = {};
-    for (const a of ((adjRes.data ?? []) as Array<{ batch_code: string | null; quantity: number | null }>)) {
+    for (const a of adjData) {
       if (!a.batch_code) continue;
       codeAdj[a.batch_code] = (codeAdj[a.batch_code] ?? 0) + (a.quantity ?? 0);
     }

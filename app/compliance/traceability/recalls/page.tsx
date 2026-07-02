@@ -4,6 +4,7 @@ import BackButton from "@/components/BackButton";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { fetchAll } from "@/lib/fetchAll";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import { formatDate } from "@/lib/utils";
 import { recallDurationLabel, outcomeBadge, type MockRecallRow } from "@/lib/mock-recall";
@@ -15,14 +16,16 @@ export default function RecallsListPage() {
 
   useEffect(() => {
     if (!orgId) return;
-    supabase
-      .from("mock_recalls")
-      .select("id, direction, trigger_type, trigger_label, outcome, time_started, time_completed, conducted_by, created_at")
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        setRecalls((data ?? []) as MockRecallRow[]);
-        setLoading(false);
-      });
+    fetchAll<MockRecallRow>((from, to) =>
+      supabase
+        .from("mock_recalls")
+        .select("id, direction, trigger_type, trigger_label, outcome, time_started, time_completed, conducted_by, created_at")
+        .order("created_at", { ascending: false })
+        .range(from, to)
+    ).then((rows) => {
+      setRecalls(rows);
+      setLoading(false);
+    });
   }, [orgId]);
 
   return (

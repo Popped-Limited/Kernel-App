@@ -5,6 +5,7 @@ import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { fetchAll } from "@/lib/fetchAll";
 import type { Checklist, Submission, Answer, Question } from "@/lib/types";
 import { formatDateTime, frequencyLabel, frequencyBadgeColor } from "@/lib/utils";
 
@@ -52,15 +53,19 @@ function SubmissionsPageInner() {
 
   useEffect(() => {
     async function load() {
-      const [clRes, subRes] = await Promise.all([
+      // The history page must show EVERYTHING — an un-ranged select silently
+      // stops at 1000 rows and older records vanish from the audit trail.
+      const [clRes, subs] = await Promise.all([
         supabase.from("checklists").select("*").eq("active", true).order("name"),
-        supabase
-          .from("submissions")
-          .select("*, checklist:checklists(*)")
-          .order("submitted_at", { ascending: false }),
+        fetchAll<SubmissionWithChecklist>((from, to) =>
+          supabase
+            .from("submissions")
+            .select("*, checklist:checklists(*)")
+            .order("submitted_at", { ascending: false })
+            .range(from, to)),
       ]);
       if (clRes.data) setChecklists(clRes.data);
-      if (subRes.data) setSubmissions(subRes.data as SubmissionWithChecklist[]);
+      setSubmissions(subs);
       setLoading(false);
     }
     load();
@@ -90,11 +95,21 @@ function SubmissionsPageInner() {
         return;
       }
 
-      // Fetch answers + questions for filtered submissions
-      const { data: answers } = await supabase
-        .from("answers")
-        .select("*, question:questions(*)")
-        .in("submission_id", ids);
+      // Fetch answers + questions for filtered submissions. Chunk the id list
+      // (URL length) and paginate each chunk — a truncated export is a silently
+      // incomplete audit record, which is worse than a failed one.
+      const answers: (Answer & { question: Question })[] = [];
+      const CHUNK = 150;
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK);
+        answers.push(...await fetchAll<Answer & { question: Question }>((from, to) =>
+          supabase
+            .from("answers")
+            .select("*, question:questions(*)")
+            .in("submission_id", chunk)
+            .order("id")
+            .range(from, to)));
+      }
 
       const answerMap: Record<string, (Answer & { question: Question })[]> = {};
       for (const a of (answers ?? []) as (Answer & { question: Question })[]) {

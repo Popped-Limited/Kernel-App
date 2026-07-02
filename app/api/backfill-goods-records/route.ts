@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { fetchAll } from "@/lib/fetchAll";
 
 /**
  * POST /api/backfill-goods-records
@@ -40,11 +41,12 @@ export async function POST() {
 
   // ── Goods In backfill ──────────────────────────────────────────────────────
   if (giChecklist) {
-    const { data: lots } = await supabaseAdmin
+    const lots = await fetchAll<any>((from, to) => supabaseAdmin
       .from("ingredient_lots")
       .select("id, ingredient_id, julian_code, quantity_received_g, received_date, supplier, created_by, best_before_date, created_at, organisation_id, ingredient:ingredients(name, unit)")
       .order("received_date", { ascending: true })
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .range(from, to));
 
     if (lots && lots.length > 0) {
       // Group by (received_date, supplier, created_by)
@@ -94,11 +96,12 @@ export async function POST() {
 
   // ── Goods Out backfill ─────────────────────────────────────────────────────
   if (goChecklist) {
-    const { data: dispatches } = await supabaseAdmin
+    const dispatches = await fetchAll<any>((from, to) => supabaseAdmin
       .from("dispatches")
       .select("id, dispatch_date, product, customer, cases_of_6, cases_of_3, singles, total_units, reference, dispatched_by, notes, created_at, organisation_id")
       .order("dispatch_date", { ascending: true })
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .range(from, to));
 
     if (dispatches && dispatches.length > 0) {
       // Group by (dispatch_date, customer, dispatched_by, reference)

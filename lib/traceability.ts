@@ -119,6 +119,25 @@ type TraceOutcome = { result: TraceResult } | { error: string };
 const SUBMISSION_SELECT =
   "id, submitted_by, submitted_at, checklist:checklists(name, category), answers(id, value, question:questions(id, type, label, order_index))";
 
+/**
+ * Fetch ALL rows matching `.in(column, ids)`. Two silent truncation traps live
+ * here: PostgREST caps any un-ranged response at 1000 rows, and a huge id list
+ * can overflow the request URL — so the ids are chunked and each chunk paginated.
+ * Every trace fetch goes through this; a dropped row is a hole in the audit trail.
+ */
+const IN_CHUNK = 150;
+async function fetchAllByIn<T>(
+  ids: string[],
+  build: (chunk: string[], from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const all: T[] = [];
+  for (let i = 0; i < ids.length; i += IN_CHUNK) {
+    const chunk = ids.slice(i, i + IN_CHUNK);
+    all.push(...(await fetchAll<T>((from, to) => build(chunk, from, to))));
+  }
+  return all;
+}
+
 /** Extract the batch/Julian code from a batch submission's answers (text questions only). */
 export function getBatchCode(batch: BatchInfo): string {
   for (const ans of batch.answers ?? []) {
@@ -241,30 +260,28 @@ function lotIdsFromBatches(batches: BatchInfo[]): Set<string> {
 
 async function fetchBatches(submissionIds: string[]): Promise<BatchInfo[]> {
   if (submissionIds.length === 0) return [];
-  const { data } = await supabase.from("submissions").select(SUBMISSION_SELECT).in("id", submissionIds);
-  return (data ?? []) as unknown as BatchInfo[];
+  return (await fetchAllByIn(submissionIds, (chunk, from, to) =>
+    supabase.from("submissions").select(SUBMISSION_SELECT).in("id", chunk).order("id").range(from, to) as never
+  )) as unknown as BatchInfo[];
 }
 
 async function fetchDispatchesForBatches(submissionIds: string[]): Promise<DispatchInfo[]> {
   if (submissionIds.length === 0) return [];
-  const { data } = await supabase.from("dispatches").select("*").in("batch_submission_id", submissionIds);
-  return (data ?? []) as DispatchInfo[];
+  return await fetchAllByIn<DispatchInfo>(submissionIds, (chunk, from, to) =>
+    supabase.from("dispatches").select("*").in("batch_submission_id", chunk).order("id").range(from, to));
 }
 
 /** Returns logged against the traced production batches (the "came back" leg of the chain). */
 async function fetchReturnsForBatches(submissionIds: string[]): Promise<ReturnInfo[]> {
   if (submissionIds.length === 0) return [];
-  const { data } = await supabase.from("goods_returns").select("*").in("batch_submission_id", submissionIds);
-  return (data ?? []) as ReturnInfo[];
+  return await fetchAllByIn<ReturnInfo>(submissionIds, (chunk, from, to) =>
+    supabase.from("goods_returns").select("*").in("batch_submission_id", chunk).order("id").range(from, to));
 }
 
 async function fetchLots(lotIds: string[]): Promise<LotInfo[]> {
   if (lotIds.length === 0) return [];
-  const { data } = await supabase
-    .from("ingredient_lots")
-    .select("*, ingredient:ingredients(name, unit)")
-    .in("id", lotIds);
-  return (data ?? []) as LotInfo[];
+  return await fetchAllByIn<LotInfo>(lotIds, (chunk, from, to) =>
+    supabase.from("ingredient_lots").select("*, ingredient:ingredients(name, unit)").in("id", chunk).order("id").range(from, to) as never);
 }
 
 /**
@@ -281,6 +298,7 @@ async function fetchLotLinkedAnswers(): Promise<Array<{ submission_id: string; v
       .from("answers")
       .select("submission_id, value, question:questions(type)")
       .in("questions.type", ["ingredient_table", "packing_runs"])
+      .order("id") // pagination without a stable order can skip/duplicate rows
       .range(from, from + PAGE - 1);
     const rows = (data ?? []) as unknown as Array<{ submission_id: string; value: string | null; question: { type: string } | null }>;
     all.push(...rows.map((r) => ({ submission_id: r.submission_id, value: r.value, type: r.question?.type })));
@@ -324,10 +342,10 @@ export async function fetchWastage(lotIds: string[]): Promise<Record<string, Was
   const byLot: Record<string, WastageReason[]> = {};
   if (lotIds.length === 0) return byLot;
 
-  const { data } = await supabase
-    .from("wastage_log")
-    .select("lot_id, quantity_written_off_g, reason, notes")
-    .in("lot_id", lotIds);
+  const data = await fetchAllByIn<{ lot_id: string; quantity_written_off_g: number; reason: string; notes: string | null }>(
+    lotIds,
+    (chunk, from, to) =>
+      supabase.from("wastage_log").select("lot_id, quantity_written_off_g, reason, notes").in("lot_id", chunk).order("id").range(from, to));
 
   for (const w of (data ?? []) as Array<{ lot_id: string; quantity_written_off_g: number; reason: string; notes: string | null }>) {
     if (!w.lot_id) continue;
@@ -387,17 +405,15 @@ async function enrich(result: TraceResult): Promise<TraceResult> {
     ),
   ];
 
-  const [adjRes, unlinkedRes] = await Promise.all([
-    codes.length > 0
-      ? supabase.from("finished_goods_adjustments").select("*").in("batch_code", codes)
-      : Promise.resolve({ data: [] as AdjustmentInfo[] }),
-    products.length > 0
-      ? supabase.from("dispatches").select("*").is("batch_submission_id", null).in("product", products)
-      : Promise.resolve({ data: [] as DispatchInfo[] }),
+  const [adjustments, unlinked] = await Promise.all([
+    fetchAllByIn<AdjustmentInfo>(codes, (chunk, from, to) =>
+      supabase.from("finished_goods_adjustments").select("*").in("batch_code", chunk).order("id").range(from, to)),
+    fetchAllByIn<DispatchInfo>(products, (chunk, from, to) =>
+      supabase.from("dispatches").select("*").is("batch_submission_id", null).in("product", chunk).order("id").range(from, to)),
   ]);
 
-  result.adjustments = (adjRes.data ?? []) as AdjustmentInfo[];
-  result.unlinked_dispatches = (unlinkedRes.data ?? []) as DispatchInfo[];
+  result.adjustments = adjustments;
+  result.unlinked_dispatches = unlinked;
   return result;
 }
 
@@ -414,16 +430,20 @@ export interface SupplierContact {
 export async function fetchSupplierContacts(names: string[]): Promise<SupplierContact[]> {
   const wanted = [...new Set(names.map((n) => n.trim().toLowerCase()).filter(Boolean))];
   if (wanted.length === 0) return [];
-  const { data } = await supabase.from("suppliers").select("id, name, contact_name, contact_email, contact_phone");
-  return ((data ?? []) as SupplierContact[]).filter((s) => wanted.includes(s.name.trim().toLowerCase()));
+  const data = await fetchAll<SupplierContact>((from, to) =>
+    supabase.from("suppliers").select("id, name, contact_name, contact_email, contact_phone").order("id").range(from, to));
+  return data.filter((s) => wanted.includes(s.name.trim().toLowerCase()));
 }
 
 // ── Search by raw-material Julian code ──────────────────────────────────────
 export async function searchByLot(julianCode: string): Promise<TraceOutcome> {
-  const { data: lots } = await supabase
-    .from("ingredient_lots")
-    .select("*, ingredient:ingredients(name, unit)")
-    .ilike("julian_code", `%${julianCode}%`);
+  const lots = await fetchAll<LotInfo>((from, to) =>
+    supabase
+      .from("ingredient_lots")
+      .select("*, ingredient:ingredients(name, unit)")
+      .ilike("julian_code", `%${julianCode}%`)
+      .order("id")
+      .range(from, to) as never);
 
   if (!lots || lots.length === 0) {
     return { error: `No ingredient lots found with Julian code matching "${julianCode}".` };
@@ -439,10 +459,13 @@ export async function searchByLot(julianCode: string): Promise<TraceOutcome> {
 
 // ── Search by finished-product Julian / batch code ──────────────────────────
 export async function searchByBatch(julianCode: string): Promise<TraceOutcome> {
-  const { data: matchingAnswers } = await supabase
-    .from("answers")
-    .select("submission_id, value, question:questions(label)")
-    .ilike("value", `%${julianCode}%`);
+  const matchingAnswers = await fetchAll<{ submission_id: string; value: string | null; question: unknown }>((from, to) =>
+    supabase
+      .from("answers")
+      .select("submission_id, value, question:questions(label)")
+      .ilike("value", `%${julianCode}%`)
+      .order("id")
+      .range(from, to) as never);
 
   const submissionIds = [
     ...new Set(
@@ -479,11 +502,15 @@ export async function searchIngredientLots(name: string): Promise<{ lots: LotInf
     return { error: `No ingredients found matching "${name}".` };
   }
 
-  const { data: lots } = await supabase
-    .from("ingredient_lots")
-    .select("*, ingredient:ingredients(name, unit)")
-    .in("ingredient_id", ingredients.map((i: { id: string }) => i.id))
-    .order("received_date", { ascending: false });
+  const lots = await fetchAllByIn<LotInfo>(
+    ingredients.map((i: { id: string }) => i.id),
+    (chunk, from, to) =>
+      supabase
+        .from("ingredient_lots")
+        .select("*, ingredient:ingredients(name, unit)")
+        .in("ingredient_id", chunk)
+        .order("received_date", { ascending: false })
+        .range(from, to) as never);
 
   if (!lots || lots.length === 0) {
     return { error: `No goods-in records found for "${name}".` };
@@ -611,17 +638,19 @@ export async function traceFromBatchGroup(group: ProductBatchGroup): Promise<Tra
 
 // ── Search by finished-product name (backward trace) ────────────────────────
 export async function searchByProduct(name: string): Promise<TraceOutcome> {
-  // 1. Dispatches matching this product name
-  const { data: disps } = await supabase
-    .from("dispatches")
-    .select("*")
-    .ilike("product", `%${name}%`)
-    .order("dispatch_date", { ascending: false });
-  const dispatches = (disps ?? []) as DispatchInfo[];
+  // 1. Dispatches matching this product name (paginated — a product's dispatch
+  //    history passes the 1000-row cap within a couple of years of daily orders)
+  const dispatches = await fetchAll<DispatchInfo>((from, to) =>
+    supabase
+      .from("dispatches")
+      .select("*")
+      .ilike("product", `%${name}%`)
+      .order("dispatch_date", { ascending: false })
+      .range(from, to));
 
   // 2a. Batch submissions linked to those dispatches
   const linkedBatchIds = [
-    ...new Set((disps ?? []).map((d: { batch_submission_id?: string }) => d.batch_submission_id).filter(Boolean)),
+    ...new Set(dispatches.map((d) => d.batch_submission_id).filter(Boolean)),
   ] as string[];
 
   // 2b. Also production submissions matched directly by checklist name

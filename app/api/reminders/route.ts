@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
+import { fetchAll } from "@/lib/fetchAll";
 import { Resend } from "resend";
 
 // Called hourly by Vercel Cron — see vercel.json. Vercel Cron issues a GET
@@ -35,15 +36,21 @@ async function runReminders(req: NextRequest) {
 
   // Find every active reminder due this hour, on this weekday, not yet sent today.
   // `days` is a smallint[] — `cs` (contains) matches when it includes today's weekday.
-  const { data: reminders, error } = await supabase
-    .from("checklist_reminders")
-    .select("*, checklists(name, description, public_token, active)")
-    .eq("active", true)
-    .eq("send_hour", uk.hour);
-
-  if (error) {
+  // Paginated: this runs across ALL orgs, so it grows with every customer — an
+  // un-ranged select stops at 1000 rows and later orgs' reminders never send.
+  let reminders: any[];
+  try {
+    reminders = await fetchAll<any>((from, to) =>
+      supabase
+        .from("checklist_reminders")
+        .select("*, checklists(name, description, public_token, active)")
+        .eq("active", true)
+        .eq("send_hour", uk.hour)
+        .order("id")
+        .range(from, to));
+  } catch (error: unknown) {
     console.error("Reminders query failed:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 
   const due = (reminders ?? []).filter((r: any) => {

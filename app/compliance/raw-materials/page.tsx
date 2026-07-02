@@ -9,6 +9,7 @@ import DocUploader from "@/components/DocUploader";
 import SortableTh, { type SortDir } from "@/components/SortableTh";
 import { useGuidedTour } from "@/lib/useGuidedTour";
 import { fetchLotUsage, fetchWastage } from "@/lib/traceability";
+import { fetchAll } from "@/lib/fetchAll";
 
 interface Supplier { id: string; name: string }
 type ItemType = "ingredient" | "packaging" | "supplies";
@@ -290,34 +291,40 @@ export default function RawMaterialsPage() {
   });
 
   async function load() {
-    const [lotsRes, ingsRes, supRes, docsRes, draftsRes, wastageRes] = await Promise.all([
-      supabase.from("ingredient_lots").select("*, ingredient:ingredients(*)").order("julian_code"),
+    // Lots, wastage history and documents all grow without bound — paginate
+    // past the 1000-row cap so stock totals and reconciliation history stay complete.
+    const [lotsData, ingsRes, supRes, docsData, draftsData, wastageData] = await Promise.all([
+      fetchAll<IngredientLot & { ingredient: Ingredient }>((from, to) =>
+        supabase.from("ingredient_lots").select("*, ingredient:ingredients(*)").order("julian_code").range(from, to)),
       supabase.from("ingredients").select("*").order("name"),
       supabase.from("suppliers").select("id, name").order("name"),
-      supabase.from("documents").select("entity_id, doc_type").in("entity_type", ["ingredient", "packaging", "supply"]),
-      supabase.from("batch_drafts").select("id, answers"),
-      supabase.from("wastage_log").select("*").order("created_at", { ascending: false }),
+      fetchAll<{ entity_id: string; doc_type: string }>((from, to) =>
+        supabase.from("documents").select("entity_id, doc_type").in("entity_type", ["ingredient", "packaging", "supply"]).order("id").range(from, to)),
+      fetchAll<{ id: string; answers: Record<string, unknown> | null }>((from, to) =>
+        supabase.from("batch_drafts").select("id, answers").order("id").range(from, to)),
+      fetchAll<WastageEntry>((from, to) =>
+        supabase.from("wastage_log").select("*").order("created_at", { ascending: false }).range(from, to)),
     ]);
 
-    setReservedByLot(reservedFromDrafts((draftsRes.data ?? []) as { answers: Record<string, unknown> | null }[]));
-    setWastageLog((wastageRes.data ?? []) as WastageEntry[]);
+    setReservedByLot(reservedFromDrafts(draftsData));
+    setWastageLog(wastageData);
 
     const sups = (supRes.data ?? []) as Supplier[];
     setSuppliers(sups);
 
     // Build a set of ingredient IDs that have a relevant doc uploaded
     const docSet = new Set<string>();
-    for (const doc of (docsRes.data ?? [])) {
+    for (const doc of docsData) {
       if (doc.doc_type === "spec_sheet" || doc.doc_type === "coshh") {
         docSet.add(doc.entity_id);
       }
     }
     setHasDoc(docSet);
 
-    if (ingsRes.data && lotsRes.data) {
+    if (ingsRes.data) {
       const supById = Object.fromEntries(sups.map(s => [s.id, s]));
       const lotsByIng: Record<string, IngredientLot[]> = {};
-      for (const lot of (lotsRes.data as (IngredientLot & { ingredient: Ingredient })[]))
+      for (const lot of lotsData)
         (lotsByIng[lot.ingredient_id] ??= []).push(lot);
 
       setItems(

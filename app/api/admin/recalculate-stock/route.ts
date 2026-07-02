@@ -58,13 +58,16 @@ export async function POST(req: NextRequest) {
   const orgId = membership.organisation_id;
 
   try {
-    // ── Step 1: Load all lots for this org ─────────────────────────────────
-    const { data: lots, error: lotsErr } = await supabaseAdmin
-      .from("ingredient_lots")
-      .select("id, julian_code, quantity_received_g")
-      .eq("organisation_id", orgId);
+    // ── Step 1: Load ALL lots for this org (paginated — a lot missed past the
+    //    1000-row cap would never be reset or receive its deductions) ─────────
+    const lots = await fetchAllRows<{ id: string; julian_code: string; quantity_received_g: number }>((from, to) =>
+      supabaseAdmin
+        .from("ingredient_lots")
+        .select("id, julian_code, quantity_received_g")
+        .eq("organisation_id", orgId)
+        .order("id")
+        .range(from, to));
 
-    if (lotsErr) throw lotsErr;
     if (!lots || lots.length === 0) {
       return NextResponse.json({ success: true, message: "No lots to reset", deductions: 0 });
     }

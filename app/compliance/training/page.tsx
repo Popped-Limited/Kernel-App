@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { fetchAll } from "@/lib/fetchAll";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import TrainingSessionFlow from "@/components/TrainingSessionFlow";
 
@@ -77,15 +78,17 @@ export default function TrainingPage() {
   useEffect(() => { if (orgId) load(); }, [orgId]);
 
   async function load() {
-    const [mRes, iRes, rRes] = await Promise.all([
+    const [mRes, iRes, records] = await Promise.all([
       supabase.from("team_members").select("id,name,position,active").eq("active", true).order("name"),
       // select * so the page keeps working if document_path hasn't been migrated yet
       supabase.from("training_items").select("*").eq("active", true).order("sort_order"),
-      supabase.from("training_records").select("*"),
+      // records = staff × training items — passes the 1000-row cap quickly, so paginate
+      fetchAll<TrainingRecord>((from, to) =>
+        supabase.from("training_records").select("*").order("id").range(from, to)),
     ]);
     setMembers((mRes.data ?? []) as TeamMember[]);
     setItems((iRes.data ?? []) as TrainingItem[]);
-    setRecords((rRes.data ?? []) as TrainingRecord[]);
+    setRecords(records);
 
     // Find this org's Employee Induction Record (RLS scopes to the org — never
     // hardcode an id). It's the per_new_start checklist named "…induction…".
@@ -99,14 +102,16 @@ export default function TrainingPage() {
 
     if (induction?.id) {
       setInductionId(induction.id);
-      const [subRes, draftRes] = await Promise.all([
-        supabase.from("submissions").select("team_member_id, submitted_at")
-          .eq("checklist_id", induction.id).not("team_member_id", "is", null),
-        supabase.from("batch_drafts").select("team_member_id")
-          .eq("checklist_id", induction.id).not("team_member_id", "is", null),
+      const [subs, drafts] = await Promise.all([
+        fetchAll<InductionSubmission>((from, to) =>
+          supabase.from("submissions").select("team_member_id, submitted_at")
+            .eq("checklist_id", induction.id).not("team_member_id", "is", null).order("id").range(from, to)),
+        fetchAll<{ team_member_id: string }>((from, to) =>
+          supabase.from("batch_drafts").select("team_member_id")
+            .eq("checklist_id", induction.id).not("team_member_id", "is", null).order("id").range(from, to)),
       ]);
-      setInductionSubs((subRes.data ?? []) as InductionSubmission[]);
-      setInductionDraftMembers(((draftRes.data ?? []) as { team_member_id: string }[]).map(d => d.team_member_id));
+      setInductionSubs(subs);
+      setInductionDraftMembers(drafts.map(d => d.team_member_id));
     } else {
       setInductionId(null);
       setInductionSubs([]);

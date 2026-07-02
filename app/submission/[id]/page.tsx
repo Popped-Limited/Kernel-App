@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { fetchAll } from "@/lib/fetchAll";
 import type { Checklist, Submission, Answer, Question } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
 import PortalShell from "@/components/PortalShell";
@@ -37,12 +38,14 @@ export default function SubmissionPage() {
   }, [id]);
 
   async function loadPending() {
-    const { data } = await supabase
-      .from("submissions")
-      .select("id")
-      .is("signed_off_at", null)
-      .order("submitted_at", { ascending: true });
-    setPendingIds((data ?? []).map((s: { id: string }) => s.id));
+    const data = await fetchAll<{ id: string }>((from, to) =>
+      supabase
+        .from("submissions")
+        .select("id")
+        .is("signed_off_at", null)
+        .order("submitted_at", { ascending: true })
+        .range(from, to));
+    setPendingIds(data.map((s) => s.id));
   }
 
   async function load() {

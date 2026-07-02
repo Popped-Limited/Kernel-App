@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { fetchAll } from "@/lib/fetchAll";
 import type { Checklist, Question, IngredientLot } from "@/lib/types";
 import QuestionField, { findLots } from "@/components/QuestionField";
 import { frequencyLabel } from "@/lib/utils";
@@ -249,16 +250,22 @@ function ChecklistPageInner() {
       // For production checklists: fetch ingredient lots + ALL active drafts in parallel.
       // Drafts serve two purposes: (1) resume-prompt detection, (2) lot-reservation display.
       if (clRes.data?.category === "Production") {
-        const [{ data: lots }, { data: allDrafts }] = await Promise.all([
-          supabase
-            .from("ingredient_lots")
-            .select("*, ingredient:ingredients(name, density_g_per_l)")
-            .gt("quantity_remaining_g", 0)
-            .order("julian_code"),
-          supabase
-            .from("batch_drafts")
-            .select("id, checklist_id, started_by, started_at, last_saved_at, answers")
-            .order("last_saved_at", { ascending: false }),
+        // Paginated: the lot list feeds the ingredient dropdowns — a lot missing
+        // past the 1000-row cap forces manual entry and weakens traceability.
+        const [lots, allDrafts] = await Promise.all([
+          fetchAll<LotWithIngredient>((from, to) =>
+            supabase
+              .from("ingredient_lots")
+              .select("*, ingredient:ingredients(name, density_g_per_l)")
+              .gt("quantity_remaining_g", 0)
+              .order("julian_code")
+              .range(from, to)),
+          fetchAll<BatchDraft>((from, to) =>
+            supabase
+              .from("batch_drafts")
+              .select("id, checklist_id, started_by, started_at, last_saved_at, answers")
+              .order("last_saved_at", { ascending: false })
+              .range(from, to)),
         ]);
 
         if (lots) {
@@ -336,9 +343,11 @@ function ChecklistPageInner() {
 
     const refreshDraftReservations = async () => {
       if (rawLotsRef.current.length === 0) return; // lots not loaded yet
-      const { data: freshDrafts } = await supabase
+      const freshDrafts = await fetchAll<BatchDraft>((from, to) => supabase
         .from("batch_drafts")
-        .select("id, checklist_id, started_by, started_at, last_saved_at, answers");
+        .select("id, checklist_id, started_by, started_at, last_saved_at, answers")
+        .order("id")
+        .range(from, to));
       if (freshDrafts) {
         allDraftsRef.current = freshDrafts as BatchDraft[];
         const { byName, density } = buildIngredientMaps(

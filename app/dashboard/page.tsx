@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { fetchAll } from "@/lib/fetchAll";
 import type { Checklist, Submission, IngredientLot, Ingredient, Dispatch } from "@/lib/types";
 import { frequencyLabel, frequencyBadgeColor } from "@/lib/utils";
 import AppSidebar from "@/components/AppSidebar";
@@ -84,37 +85,36 @@ export default function Dashboard() {
 
     // Recent activity: last 60 days (display only — date filter is appropriate here)
     const sixtyDaysAgo = new Date(now); sixtyDaysAgo.setDate(now.getDate() - 60);
-    const [clRes, recentSubRes, pendingSubRes, draftRes, dispRes, batchSubRes] = await Promise.all([
+    // Paginated past the 1000-row cap — a busy org logs enough checks in 60
+    // days to pass it, and pending sign-offs must never be silently dropped.
+    const [clRes, recentSubs, pendingSubs, drafts, disps, batchSubs] = await Promise.all([
       supabase.from("checklists").select("*").eq("active", true).order("name"),
-      supabase.from("submissions").select("*, checklist:checklists(*)").gte("submitted_at", sixtyDaysAgo.toISOString()).order("submitted_at", { ascending: false }),
+      fetchAll<Submission & { checklist: Checklist }>((from, to) =>
+        supabase.from("submissions").select("*, checklist:checklists(*)").gte("submitted_at", sixtyDaysAgo.toISOString()).order("submitted_at", { ascending: false }).range(from, to)),
       // Pending sign-offs: no date limit — must never miss one
-      supabase.from("submissions").select("*, checklist:checklists(*)").is("signed_off_at", null).order("submitted_at", { ascending: false }),
-      supabase.from("batch_drafts").select("*, checklist:checklists(name, category)").order("last_saved_at", { ascending: false }),
-      supabase.from("dispatches").select("product, total_units").gte("dispatch_date", weekStart.toISOString().slice(0, 10)),
-      supabase.from("submissions").select("id, checklist:checklists(name, category), answers(value, question:questions(type, label))").eq("checklists.category", "Production").gte("submitted_at", weekStart.toISOString()),
+      fetchAll<Submission & { checklist: Checklist }>((from, to) =>
+        supabase.from("submissions").select("*, checklist:checklists(*)").is("signed_off_at", null).order("submitted_at", { ascending: false }).range(from, to)),
+      fetchAll<any>((from, to) =>
+        supabase.from("batch_drafts").select("*, checklist:checklists(name, category)").order("last_saved_at", { ascending: false }).range(from, to)),
+      fetchAll<{ product: string; total_units: number }>((from, to) =>
+        supabase.from("dispatches").select("product, total_units").gte("dispatch_date", weekStart.toISOString().slice(0, 10)).order("id").range(from, to)),
+      fetchAll<any>((from, to) =>
+        supabase.from("submissions").select("id, checklist:checklists(name, category), answers(value, question:questions(type, label))").eq("checklists.category", "Production").gte("submitted_at", weekStart.toISOString()).order("id").range(from, to)),
     ]);
 
     if (clRes.data) setChecklists(clRes.data as Checklist[]);
 
-    if (recentSubRes.data) {
-      const all = recentSubRes.data as (Submission & { checklist: Checklist })[];
-      setRecentSubs(all.filter(s => s.checklist));
-    }
+    setRecentSubs(recentSubs.filter(s => s.checklist));
+    setPendingSignOff(pendingSubs.filter(s => s.checklist));
+    setOpenDrafts(drafts as never);
 
-    if (pendingSubRes.data) {
-      const all = pendingSubRes.data as (Submission & { checklist: Checklist })[];
-      setPendingSignOff(all.filter(s => s.checklist));
-    }
-
-    if (draftRes.data) setOpenDrafts(draftRes.data as never);
-
-    if (batchSubRes.data && dispRes.data) {
+    {
       const dispatched: Record<string, number> = {};
-      for (const d of (dispRes.data as { product: string; total_units: number }[]))
+      for (const d of disps)
         dispatched[d.product] = (dispatched[d.product] ?? 0) + d.total_units;
 
       const produced: Record<string, number> = {};
-      for (const sub of (batchSubRes.data as never as Array<{ checklist: { name: string; category: string } | null; answers: Array<{ value: string | null; question: { type: string; label: string } | null }> }>)) {
+      for (const sub of (batchSubs as never as Array<{ checklist: { name: string; category: string } | null; answers: Array<{ value: string | null; question: { type: string; label: string } | null }> }>)) {
         if (sub.checklist?.category !== "Production") continue;
         const sku = sub.checklist.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
         for (const ans of (sub.answers ?? [])) {

@@ -94,11 +94,21 @@ export default function QuestionField({ question, value, onChange, error, ingred
     if (question.type !== "batch_link") return;
     let cancelled = false;
     (async () => {
+      // Filter to production checklists at the DB level — fetching "recent
+      // submissions of any kind" lets daily checks crowd every production
+      // batch out of the window, leaving the dropdown empty.
+      const { data: prodCls } = await supabase
+        .from("checklists")
+        .select("id")
+        .eq("category", "Production");
+      const prodIds = (prodCls ?? []).map((c: { id: string }) => c.id);
+      if (cancelled || prodIds.length === 0) return;
       const { data } = await supabase
         .from("submissions")
         .select("id, submitted_at, checklist:checklists(name, category), answers(value, question:questions(type, label))")
+        .in("checklist_id", prodIds)
         .order("submitted_at", { ascending: false })
-        .limit(300);
+        .limit(300); // dropdown shows the 300 most recent batches — a deliberate UX cap, not a data cap
       if (cancelled || !data) return;
       const opts: Array<{ id: string; product: string; code: string; label: string }> = [];
       for (const sub of data as unknown as Array<{ id: string; submitted_at: string; checklist: { name: string; category: string } | null; answers: Array<{ value: string | null; question: { type: string; label: string } | null }> }>) {
