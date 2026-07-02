@@ -12,10 +12,13 @@ import {
   searchByBatch,
   searchIngredientLots,
   traceFromLot,
-  searchByProduct,
+  searchProductBatches,
+  traceFromBatchGroup,
+  fetchSupplierContacts,
   computeMassBalance,
   type LotInfo,
   type TraceResult,
+  type ProductBatchGroup,
 } from "@/lib/traceability";
 import { formatDate } from "@/lib/utils";
 
@@ -25,6 +28,12 @@ type Outcome = "pass" | "pass_with_actions" | "fail";
 interface CustomerContact {
   customer: string;
   contacted_by: string;
+  response: string;
+}
+
+interface SupplierContactRow {
+  name: string;
+  contact: string; // frozen contact details (name / email / phone)
   response: string;
 }
 
@@ -44,6 +53,7 @@ export default function MockRecallPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [ingredientLots, setIngredientLots] = useState<LotInfo[] | null>(null);
+  const [batchGroups, setBatchGroups] = useState<ProductBatchGroup[] | null>(null);
 
   // Result + findings
   const [result, setResult] = useState<TraceResult | null>(null);
@@ -51,6 +61,7 @@ export default function MockRecallPage() {
   const [findings, setFindings] = useState("");
   const [correctiveActions, setCorrectiveActions] = useState("");
   const [customers, setCustomers] = useState<CustomerContact[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierContactRow[]>([]);
   const [outcome, setOutcome] = useState<Outcome | "">("");
   const [conductedBy, setConductedBy] = useState("");
   const [signedOffBy, setSignedOffBy] = useState("");
@@ -69,13 +80,38 @@ export default function MockRecallPage() {
     setQuery("");
     setError("");
     setIngredientLots(null);
+    setBatchGroups(null);
     setStep("trigger");
   }
 
-  function adoptResult(r: TraceResult, label: string) {
+  /**
+   * Adopt a trace as the recall subject. Pre-fills the contact log from the
+   * chain itself: every customer the traced batch(es) reached, and every
+   * supplier behind the traced lots (with their contact details) — the two
+   * groups SALSA expects you to be able to phone within the exercise.
+   */
+  async function adoptResult(r: TraceResult, label: string) {
     setResult(r);
     setTriggerLabel(label);
     setIngredientLots(null);
+    setBatchGroups(null);
+
+    const customerNames = [...new Set(r.dispatches.map((d) => d.customer?.trim()).filter(Boolean))] as string[];
+    setCustomers(customerNames.map((c) => ({ customer: c, contacted_by: conductedBy, response: "" })));
+
+    const supplierNames = [...new Set(r.lots.map((l) => l.supplier?.trim()).filter(Boolean))] as string[];
+    let contacts: Awaited<ReturnType<typeof fetchSupplierContacts>> = [];
+    try {
+      contacts = await fetchSupplierContacts(supplierNames);
+    } catch { /* contact details are a bonus — the names still show */ }
+    setSuppliers(
+      supplierNames.map((name) => {
+        const c = contacts.find((s) => s.name.trim().toLowerCase() === name.toLowerCase());
+        const detail = [c?.contact_name, c?.contact_email, c?.contact_phone].filter(Boolean).join(" · ");
+        return { name, contact: detail, response: "" };
+      })
+    );
+
     setStep("report");
   }
 
@@ -85,13 +121,14 @@ export default function MockRecallPage() {
     setLoading(true);
     setError("");
     setIngredientLots(null);
+    setBatchGroups(null);
 
     try {
       if (direction === "forward") {
         if (triggerMode === "julian") {
           const out = await searchByLot(query.trim());
           if ("error" in out) setError(out.error);
-          else adoptResult(out.result, `Raw material — Julian ${query.trim()}`);
+          else await adoptResult(out.result, `Raw material — Julian ${query.trim()}`);
         } else {
           const out = await searchIngredientLots(query.trim());
           if ("error" in out) setError(out.error);
@@ -101,11 +138,13 @@ export default function MockRecallPage() {
         if (triggerMode === "julian") {
           const out = await searchByBatch(query.trim());
           if ("error" in out) setError(out.error);
-          else adoptResult(out.result, `Finished product — Julian ${query.trim()}`);
+          else await adoptResult(out.result, `Finished product — Julian ${query.trim()}`);
         } else {
-          const out = await searchByProduct(query.trim());
+          // A recall targets ONE batch, not the product's whole history —
+          // list the product's batches and let the user pick.
+          const out = await searchProductBatches(query.trim());
           if ("error" in out) setError(out.error);
-          else adoptResult(out.result, out.result.query);
+          else setBatchGroups(out.groups);
         }
       }
     } catch {
@@ -120,7 +159,20 @@ export default function MockRecallPage() {
     try {
       const out = await traceFromLot(lot);
       if ("error" in out) setError(out.error);
-      else adoptResult(out.result, `${lot.ingredient?.name ?? "Ingredient"} — Julian ${lot.julian_code}`);
+      else await adoptResult(out.result, `${lot.ingredient?.name ?? "Ingredient"} — Julian ${lot.julian_code}`);
+    } catch {
+      setError("Trace failed — please try again.");
+    }
+    setLoading(false);
+  }
+
+  async function pickBatchGroup(group: ProductBatchGroup) {
+    setLoading(true);
+    setError("");
+    try {
+      const out = await traceFromBatchGroup(group);
+      if ("error" in out) setError(out.error);
+      else await adoptResult(out.result, `${group.product} — Batch ${group.batch_code || formatDate(group.last_date)}`);
     } catch {
       setError("Trace failed — please try again.");
     }
@@ -137,10 +189,27 @@ export default function MockRecallPage() {
     setCustomers((c) => c.filter((_, idx) => idx !== i));
   }
 
+  function addSupplier() {
+    setSuppliers((s) => [...s, { name: "", contact: "", response: "" }]);
+  }
+  function updateSupplier(i: number, patch: Partial<SupplierContactRow>) {
+    setSuppliers((s) => s.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
+  }
+  function removeSupplier(i: number) {
+    setSuppliers((s) => s.filter((_, idx) => idx !== i));
+  }
+
   async function handleSave() {
     if (!orgId || !result || !direction || !outcome) return;
     setSaving(true);
     const massBalance = computeMassBalance(result);
+    // Customers and suppliers share the contact-log column, tagged by kind.
+    const contactLog = [
+      ...customers.filter((c) => c.customer.trim()).map((c) => ({ kind: "customer" as const, ...c })),
+      ...suppliers
+        .filter((s) => s.name.trim())
+        .map((s) => ({ kind: "supplier" as const, customer: s.name.trim(), contact: s.contact.trim() || undefined, contacted_by: conductedBy, response: s.response })),
+    ];
     const { data, error: insErr } = await supabase
       .from("mock_recalls")
       .insert({
@@ -152,7 +221,7 @@ export default function MockRecallPage() {
         mass_balance: massBalance,
         findings: findings.trim() || null,
         corrective_actions: correctiveActions.trim() || null,
-        customers_contacted: customers.filter((c) => c.customer.trim()),
+        customers_contacted: contactLog,
         time_started: startedAt.current,
         time_completed: new Date().toISOString(),
         outcome,
@@ -248,6 +317,40 @@ export default function MockRecallPage() {
           </form>
           {error && <p className="text-sm text-red-600">{error}</p>}
 
+          {/* Backward product → batch picker: a recall targets ONE batch code */}
+          {batchGroups && (
+            <div className="border border-brand/30 rounded overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-brand/30 bg-brand-cream">
+                <span className="font-semibold text-sm text-brown">Production batches</span>
+                <span className="text-xs text-brown/60 ml-2">
+                  {batchGroups.length} batch{batchGroups.length !== 1 ? "es" : ""} — select the batch being recalled
+                </span>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {batchGroups.map((g) => (
+                  <button
+                    key={`${g.product}|${g.batch_code}|${g.submission_ids[0]}`}
+                    onClick={() => pickBatchGroup(g)}
+                    className="w-full text-left px-4 py-3 hover:bg-brand/10 transition-colors flex items-center justify-between gap-4 group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      <span className="font-mono font-semibold text-sm text-gray-900 shrink-0">
+                        {g.batch_code || <span className="text-red-500 font-sans text-xs font-medium">No batch code</span>}
+                      </span>
+                      <span className="text-sm font-medium text-gray-700 truncate">{g.product}</span>
+                    </div>
+                    <div className="flex items-center gap-4 shrink-0 text-xs text-gray-500">
+                      <span>{formatDate(g.last_date)}</span>
+                      <span className="hidden sm:inline">{g.units_produced > 0 ? `${g.units_produced.toLocaleString()} produced` : "units n/a"}</span>
+                      <span className="hidden sm:inline">{g.dispatched.toLocaleString()} out</span>
+                      <span className="text-brown font-medium opacity-0 group-hover:opacity-100 transition-opacity">Recall →</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Forward ingredient → lot picker */}
           {ingredientLots && (
             <div className="border border-brand/30 rounded overflow-hidden">
@@ -294,18 +397,24 @@ export default function MockRecallPage() {
           {/* Mass balance reconciliation */}
           <div className="card p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Mass-balance reconciliation</p>
-            <div className="grid grid-cols-3 gap-4 text-center">
+            <div className={`grid gap-4 text-center ${massBalance.adjusted !== 0 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{massBalance.produced.toLocaleString()}</p>
                 <p className="text-xs text-gray-400 mt-0.5">units produced</p>
               </div>
+              {massBalance.adjusted !== 0 && (
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{massBalance.adjusted > 0 ? "+" : ""}{massBalance.adjusted.toLocaleString()}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">adjustments (samples / wastage)</p>
+                </div>
+              )}
               <div>
                 <p className="text-2xl font-bold text-gray-900">{massBalance.dispatched.toLocaleString()}</p>
-                <p className="text-xs text-gray-400 mt-0.5">units dispatched</p>
+                <p className="text-xs text-gray-400 mt-0.5">units dispatched{massBalance.returned > 0 ? ` (−${massBalance.returned.toLocaleString()} returned)` : ""}</p>
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{massBalance.remaining.toLocaleString()}</p>
-                <p className="text-xs text-gray-400 mt-0.5">unaccounted / in stock</p>
+                <p className="text-xs text-gray-400 mt-0.5">remaining in stock / to locate</p>
               </div>
             </div>
             {massBalance.produced === 0 ? (
@@ -349,14 +458,14 @@ export default function MockRecallPage() {
               />
             </div>
 
-            {/* Customers contacted */}
+            {/* Customers contacted — pre-filled from the traced dispatches */}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-medium text-gray-600">Customers contacted</label>
                 <button type="button" onClick={addCustomer} className="text-xs text-brown font-medium hover:underline">+ Add customer</button>
               </div>
               {customers.length === 0 ? (
-                <p className="text-xs text-gray-400">None recorded.</p>
+                <p className="text-xs text-gray-400">No dispatches found for this trace — add any customers you contacted.</p>
               ) : (
                 <div className="space-y-2">
                   {customers.map((c, i) => (
@@ -374,6 +483,40 @@ export default function MockRecallPage() {
                         className="input text-base"
                       />
                       <button type="button" onClick={() => removeCustomer(i)} className="text-xs text-red-500 hover:text-red-700 px-2 py-2">Remove</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Suppliers contacted — pre-filled from the traced raw-material lots */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-medium text-gray-600">Suppliers contacted</label>
+                <button type="button" onClick={addSupplier} className="text-xs text-brown font-medium hover:underline">+ Add supplier</button>
+              </div>
+              {suppliers.length === 0 ? (
+                <p className="text-xs text-gray-400">No suppliers found on the traced lots — add any you contacted.</p>
+              ) : (
+                <div className="space-y-2">
+                  {suppliers.map((s, i) => (
+                    <div key={i} className="border border-gray-200 rounded p-2 space-y-1.5">
+                      <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-start">
+                        <input
+                          value={s.name}
+                          onChange={(e) => updateSupplier(i, { name: e.target.value })}
+                          placeholder="Supplier"
+                          className="input text-base"
+                        />
+                        <input
+                          value={s.response}
+                          onChange={(e) => updateSupplier(i, { response: e.target.value })}
+                          placeholder="Their response"
+                          className="input text-base"
+                        />
+                        <button type="button" onClick={() => removeSupplier(i)} className="text-xs text-red-500 hover:text-red-700 px-2 py-2">Remove</button>
+                      </div>
+                      {s.contact && <p className="text-xs text-gray-500 px-1">Contact: {s.contact}</p>}
                     </div>
                   ))}
                 </div>

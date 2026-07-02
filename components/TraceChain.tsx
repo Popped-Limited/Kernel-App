@@ -82,16 +82,17 @@ export default function TraceChain({
         </Section>
       )}
 
-      {/* Dispatches & returns — one chronological timeline so the round-trip
-          (out → back → out) reads top to bottom */}
+      {/* Dispatches, returns & stock adjustments — one chronological timeline so
+          every unit that left (or came back to) the batch reads top to bottom */}
       {(() => {
         type Movement = {
-          kind: "dispatch" | "return";
+          kind: "dispatch" | "return" | "adjustment";
           id: string;
           date: string;
           product: string;
           customer: string;
           batchId: string | null;
+          batchCodeOverride?: string;
           units: number;
           by: string;
           ref: string | null;
@@ -107,10 +108,15 @@ export default function TraceChain({
             customer: r.customer, batchId: r.batch_submission_id, units: r.quantity,
             by: r.returned_by, ref: null,
           })),
+          ...(result.adjustments ?? []).map((a) => ({
+            kind: "adjustment" as const, id: a.id, date: a.created_at, product: a.product,
+            customer: "", batchId: null, batchCodeOverride: a.batch_code ?? "", units: a.quantity,
+            by: a.created_by ?? "", ref: [a.reason, a.notes].filter(Boolean).join(" — ") || null,
+          })),
         ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         return (
-          <Section title="Dispatches & returns" count={movements.length} defaultOpen={defaultOpen}>
+          <Section title="Dispatches, returns & adjustments" count={movements.length} defaultOpen={defaultOpen}>
             {movements.length === 0 ? (
               <p className="text-sm text-gray-400 py-2">No dispatches linked to these batch records yet.</p>
             ) : (
@@ -131,21 +137,22 @@ export default function TraceChain({
                   <tbody className="divide-y divide-gray-100">
                     {movements.map((m) => {
                       const linkedBatch = m.batchId ? result.batches.find((b) => b.id === m.batchId) : null;
-                      const batchCode = linkedBatch ? getBatchCode(linkedBatch) : "";
+                      const batchCode = m.batchCodeOverride ?? (linkedBatch ? getBatchCode(linkedBatch) : "");
                       const isReturn = m.kind === "return";
+                      const isAdjustment = m.kind === "adjustment";
                       return (
                         <tr key={`${m.kind}-${m.id}`}>
                           <td className="py-1.5 text-gray-600 whitespace-nowrap">{formatDate(m.date)}</td>
                           <td className="py-1.5">
-                            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${isReturn ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-700"}`}>
-                              {isReturn ? "Returned" : "Dispatched"}
+                            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${isReturn ? "bg-amber-100 text-amber-800" : isAdjustment ? "bg-purple-100 text-purple-800" : "bg-gray-100 text-gray-700"}`}>
+                              {isReturn ? "Returned" : isAdjustment ? "Adjustment" : "Dispatched"}
                             </span>
                           </td>
                           <td className="py-1.5 font-medium text-gray-900">{m.product}</td>
                           <td className="py-1.5 text-gray-600">{m.customer || <span className="text-gray-300">—</span>}</td>
                           <td className="py-1.5 font-mono text-gray-700">{batchCode || <span className="text-gray-300">—</span>}</td>
-                          <td className={`py-1.5 text-right tabular-nums font-bold ${isReturn ? "text-amber-700" : "text-gray-900"}`}>
-                            {isReturn ? `+${m.units}` : m.units}
+                          <td className={`py-1.5 text-right tabular-nums font-bold ${isReturn ? "text-amber-700" : isAdjustment ? "text-purple-700" : "text-gray-900"}`}>
+                            {isReturn ? `+${m.units}` : isAdjustment && m.units > 0 ? `+${m.units}` : m.units}
                           </td>
                           <td className="py-1.5 pl-3 text-gray-500">{m.ref ?? "—"}</td>
                           <td className="py-1.5 text-gray-500">{m.by}</td>
@@ -157,6 +164,42 @@ export default function TraceChain({
               </div>
             )}
           </Section>
+        );
+      })()}
+
+      {/* Traceability gap: dispatches of this product with no batch link. A recall
+          can't rule these in or out — they must be surfaced, not hidden. */}
+      {(() => {
+        // In a product-wide trace these rows already sit in the main timeline;
+        // only list the ones the timeline doesn't show.
+        const shown = new Set(result.dispatches.map((d) => d.id));
+        const gaps = (result.unlinked_dispatches ?? []).filter((d) => !shown.has(d.id));
+        const total = (result.unlinked_dispatches ?? []).length;
+        if (total === 0) return null;
+        return (
+          <div className="card border-red-200 bg-red-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-red-700 mb-1">
+              ⚠ {total} dispatch{total !== 1 ? "es" : ""} not linked to any batch record
+            </p>
+            <p className="text-xs text-red-700 mb-2">
+              These dispatches of the same product were logged without a batch link, so they cannot be ruled in or out of this recall.
+              Edit each dispatch in Goods Out and link it to its production batch.
+            </p>
+            {gaps.length > 0 && (
+              <table className="w-full text-xs">
+                <tbody className="divide-y divide-red-100">
+                  {gaps.map((d) => (
+                    <tr key={d.id}>
+                      <td className="py-1 text-red-900 whitespace-nowrap">{formatDate(d.dispatch_date)}</td>
+                      <td className="py-1 font-medium text-red-900">{d.product}</td>
+                      <td className="py-1 text-red-800">{d.customer || "—"}</td>
+                      <td className="py-1 text-right tabular-nums font-semibold text-red-900">{d.total_units} units</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         );
       })()}
 

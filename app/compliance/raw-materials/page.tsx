@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/utils";
 import DocUploader from "@/components/DocUploader";
 import SortableTh, { type SortDir } from "@/components/SortableTh";
 import { useGuidedTour } from "@/lib/useGuidedTour";
+import { fetchLotUsage, fetchWastage } from "@/lib/traceability";
 
 interface Supplier { id: string; name: string }
 type ItemType = "ingredient" | "packaging" | "supplies";
@@ -139,15 +140,28 @@ export default function RawMaterialsPage() {
 
   // Reconcile panel
   // reconMode controls how the typed number is interpreted:
-  //   "remove" → the amount to write off (new remaining = current − typed)
-  //   "count"  → the actual amount left after a stocktake (new remaining = typed)
+  //   "remove"   → the amount to write off (new remaining = current − typed)
+  //   "count"    → the actual amount left after a stocktake (new remaining = typed)
+  //   "variance" → log an unaccounted historical write-off WITHOUT changing
+  //                remaining stock (closes a mass-balance gap truthfully)
   const [reconLot, setReconLot]         = useState<{ lot: IngredientLot; ing: IngredientWithLots; reserved: number } | null>(null);
-  const [reconMode, setReconMode]       = useState<"remove" | "count">("remove");
+  const [reconMode, setReconMode]       = useState<"remove" | "count" | "variance">("remove");
   const [reconInput, setReconInput]     = useState("");
   const [reconReason, setReconReason]   = useState("wastage");
   const [reconNotes, setReconNotes]     = useState("");
   const [reconSaving, setReconSaving]   = useState(false);
   const [reconError, setReconError]     = useState("");
+  // received − used − written off − remaining for the open lot (null while loading)
+  const [reconUnaccounted, setReconUnaccounted] = useState<number | null>(null);
+  // Who is reconciling — stamped onto every wastage_log row for the audit trail
+  const [userName, setUserName] = useState("");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const name = (user?.user_metadata as { full_name?: string } | undefined)?.full_name;
+      if (name) setUserName(name);
+    });
+  }, []);
 
   // Resolve the typed value + mode into the new quantity_remaining_g to store.
   // "remove" mode: deduct from total remaining (on-shelf write-off).
@@ -392,10 +406,70 @@ export default function RawMaterialsPage() {
     setReconReason("wastage");
     setReconNotes("");
     setReconError("");
+    // Compute this lot's mass-balance gap so the panel can offer to close it:
+    // unaccounted = received − used in production − written off − remaining.
+    setReconUnaccounted(null);
+    Promise.all([fetchLotUsage([lot.id]), fetchWastage([lot.id])])
+      .then(([usage, wastage]) => {
+        const used = usage[lot.id] ?? 0;
+        const writtenOff = (wastage[lot.id] ?? []).reduce((s, w) => s + w.grams, 0);
+        const unaccounted = (lot.quantity_received_g ?? 0) - used - writtenOff - lot.quantity_remaining_g;
+        setReconUnaccounted(unaccounted);
+        // A depleted lot has nothing left to write off or count — if it has a
+        // gap, explaining the variance is the only useful action, so jump there.
+        const tolerance = (ing.unit ?? "g") === "units" ? 0.5 : 5;
+        if (lot.quantity_remaining_g === 0 && unaccounted > tolerance) {
+          setReconMode("variance");
+          setReconInput((ing.unit ?? "g") === "units" ? String(Math.round(unaccounted)) : (unaccounted / 1000).toFixed(3));
+        }
+      })
+      .catch(() => setReconUnaccounted(0)); // can't compute → just don't offer the variance mode
+  }
+
+  /**
+   * Variance mode: log a write-off that already physically happened but was
+   * never recorded (reconciliations before the wastage log existed). Stock
+   * remaining is untouched — only the history row is written, which closes
+   * the lot's unaccounted gap in every trace and mock recall.
+   */
+  async function saveVariance() {
+    if (!reconLot) return;
+    const { lot, ing } = reconLot;
+    const unit = ing.unit ?? "g";
+    const typed = parseFloat(reconInput);
+    if (isNaN(typed) || typed <= 0) { setReconError("Please enter a valid amount"); return; }
+    const varianceG = unit === "units" ? Math.round(typed) : Math.round(typed * 1000);
+    const tolerance = unit === "units" ? 0 : 5;
+    if (reconUnaccounted !== null && varianceG > reconUnaccounted + tolerance) {
+      setReconError(`Only ${fmtQty(Math.max(0, reconUnaccounted), unit)} is unaccounted for on this lot`);
+      return;
+    }
+
+    setReconSaving(true);
+    setReconError("");
+    const { error: logErr } = await supabase.from("wastage_log").insert({
+      organisation_id: orgId,
+      lot_id: lot.id,
+      ingredient_id: ing.id,
+      julian_code: lot.julian_code,
+      ingredient_name: ing.name,
+      // The stock physically went from remaining+X to remaining at some earlier,
+      // unlogged point — record exactly that; quantity_remaining_g is untouched.
+      adjusted_from_g: lot.quantity_remaining_g + varianceG,
+      adjusted_to_g: lot.quantity_remaining_g,
+      reason: reconReason,
+      notes: reconNotes.trim() || "Unaccounted variance reconciliation",
+      created_by: userName || null,
+    });
+    setReconSaving(false);
+    if (logErr) { setReconError("The variance couldn't be logged: " + logErr.message); return; }
+    setReconLot(null);
+    await load();
   }
 
   async function saveReconcile() {
     if (!reconLot) return;
+    if (reconMode === "variance") return saveVariance();
     const { lot, ing, reserved } = reconLot;
     const unit = ing.unit ?? "g";
     const onShelfG = Math.max(0, lot.quantity_remaining_g - reserved);
@@ -443,6 +517,7 @@ export default function RawMaterialsPage() {
       adjusted_to_g: actualG,
       reason: reconReason,
       notes: reconNotes.trim() || null,
+      created_by: userName || null,
     });
     if (logErr) {
       console.error("wastage_log insert failed:", logErr);
@@ -868,14 +943,14 @@ export default function RawMaterialsPage() {
                                         <td className="py-1.5 text-gray-500 hidden sm:table-cell">{lot.supplier ?? "—"}</td>
                                         <td className="py-1.5 text-gray-500 hidden sm:table-cell">{lot.best_before_date ? formatDate(lot.best_before_date) : "—"}</td>
                                         <td className="py-1.5">
-                                          {lot.quantity_remaining_g > 0 && (
-                                            <button
-                                              onClick={e => openReconcile(lot, ing, lotReserved, e)}
-                                              className="text-xs text-brand-dark font-medium hover:underline whitespace-nowrap"
-                                            >
-                                              Reconcile
-                                            </button>
-                                          )}
+                                          {/* Depleted lots stay reconcilable — that's where
+                                              historical unaccounted variance lives */}
+                                          <button
+                                            onClick={e => openReconcile(lot, ing, lotReserved, e)}
+                                            className="text-xs text-brand-dark font-medium hover:underline whitespace-nowrap"
+                                          >
+                                            Reconcile
+                                          </button>
                                         </td>
                                       </tr>
                                       );
@@ -903,11 +978,19 @@ export default function RawMaterialsPage() {
         const unitLabel = unit === "units" ? "units" : "kg";
         const onShelfG = Math.max(0, lot.quantity_remaining_g - reserved);
         const onShelfDisplay = fmtQty(onShelfG, unit);
-        const newRemainingG = reconNewRemainingG(lot, unit, reserved);
+        const isVariance = reconMode === "variance";
+        const newRemainingG = isVariance ? null : reconNewRemainingG(lot, unit, reserved);
         // For display: on-shelf figure after the adjustment
         const newOnShelfG = newRemainingG !== null ? newRemainingG - reserved : null;
         const writtenOff = newRemainingG !== null ? onShelfG - (newRemainingG - reserved) : null;
         const overRemove = newRemainingG !== null && newRemainingG < reserved;
+        // Offer the variance mode only when the lot genuinely has a mass-balance gap
+        const varianceTolerance = unit === "units" ? 0.5 : 5;
+        const hasVariance = reconUnaccounted !== null && reconUnaccounted > varianceTolerance;
+        const typedVarianceG = isVariance && reconInput !== "" && !isNaN(parseFloat(reconInput))
+          ? (unit === "units" ? Math.round(parseFloat(reconInput)) : Math.round(parseFloat(reconInput) * 1000))
+          : null;
+        const overVariance = isVariance && typedVarianceG !== null && reconUnaccounted !== null && typedVarianceG > reconUnaccounted + varianceTolerance;
 
         return (
           <div className="fixed inset-0 z-50 flex">
@@ -933,17 +1016,36 @@ export default function RawMaterialsPage() {
                   )}
                 </div>
 
-                {/* Mode toggle — write off an amount, or record a counted total */}
-                <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-gray-100">
+                {/* Unaccounted banner — offers to close a historical mass-balance gap */}
+                {hasVariance && (
+                  <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 space-y-1">
+                    <p className="text-xs text-red-700 font-medium">Unaccounted on this lot</p>
+                    <p className="text-lg font-bold text-red-900">{fmtQty(reconUnaccounted!, unit)}</p>
+                    <p className="text-xs text-red-600">
+                      Received minus production usage, write-offs and remaining stock doesn&apos;t balance —
+                      usually a reconciliation made before the wastage log existed. Use &ldquo;Explain variance&rdquo; to log it.
+                    </p>
+                  </div>
+                )}
+
+                {/* Mode toggle — write off an amount, record a counted total, or explain a gap */}
+                <div className={`grid gap-1 p-1 rounded-lg bg-gray-100 ${hasVariance ? "grid-cols-3" : "grid-cols-2"}`}>
                   {([
                     { key: "remove", label: "Write off amount" },
                     { key: "count",  label: "Counted stock" },
-                  ] as const).map(m => (
+                    ...(hasVariance ? [{ key: "variance", label: "Explain variance" }] : []),
+                  ] as { key: "remove" | "count" | "variance"; label: string }[]).map(m => (
                     <button
                       key={m.key}
                       type="button"
-                      onClick={() => { setReconMode(m.key); setReconInput(""); }}
-                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                      onClick={() => {
+                        setReconMode(m.key);
+                        // Pre-fill the whole gap — that's almost always what's being explained
+                        setReconInput(m.key === "variance" && reconUnaccounted !== null
+                          ? (unit === "units" ? String(Math.round(reconUnaccounted)) : (reconUnaccounted / 1000).toFixed(3))
+                          : "");
+                      }}
+                      className={`rounded-md px-2 py-1.5 text-xs font-medium transition ${
                         reconMode === m.key ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
                       }`}
                     >
@@ -957,7 +1059,9 @@ export default function RawMaterialsPage() {
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     {reconMode === "remove"
                       ? `Amount to write off (${unitLabel})`
-                      : `Amount counted on shelf (${unitLabel})`}
+                      : reconMode === "count"
+                      ? `Amount counted on shelf (${unitLabel})`
+                      : `Unaccounted amount to explain (${unitLabel})`}
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -969,21 +1073,34 @@ export default function RawMaterialsPage() {
                       value={reconInput}
                       onChange={e => setReconInput(e.target.value)}
                     />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // "Write off all" → writes off all on-shelf stock (in-production is untouched)
-                        const allOnShelf = unit === "units" ? String(onShelfG) : (onShelfG / 1000).toString();
-                        setReconInput(reconMode === "remove" ? allOnShelf : "0");
-                      }}
-                      className="text-xs px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 whitespace-nowrap"
-                    >
-                      Write off all
-                    </button>
+                    {!isVariance && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // "Write off all" → writes off all on-shelf stock (in-production is untouched)
+                          const allOnShelf = unit === "units" ? String(onShelfG) : (onShelfG / 1000).toString();
+                          setReconInput(reconMode === "remove" ? allOnShelf : "0");
+                        }}
+                        className="text-xs px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 whitespace-nowrap"
+                      >
+                        Write off all
+                      </button>
+                    )}
                   </div>
 
                   {/* Live preview */}
-                  {overRemove ? (
+                  {isVariance ? (
+                    overVariance ? (
+                      <p className="mt-2 text-xs text-red-600">
+                        Only {fmtQty(Math.max(0, reconUnaccounted ?? 0), unit)} is unaccounted for on this lot.
+                      </p>
+                    ) : typedVarianceG !== null && (
+                      <p className="mt-2 text-xs text-gray-600">
+                        <span className="font-semibold text-gray-800">{fmtQty(typedVarianceG, unit)}</span> will be logged as a historical write-off ·
+                        {" "}stock remaining stays <span className="font-semibold text-gray-800">{fmtQty(lot.quantity_remaining_g, unit)}</span>
+                      </p>
+                    )
+                  ) : overRemove ? (
                     <p className="mt-2 text-xs text-red-600">
                       That&apos;s more than the {onShelfDisplay} currently on shelf.
                     </p>
@@ -1034,10 +1151,10 @@ export default function RawMaterialsPage() {
                   <button onClick={() => setReconLot(null)} className="btn-ghost flex-1">Cancel</button>
                   <button
                     onClick={saveReconcile}
-                    disabled={reconSaving || reconInput === "" || overRemove}
+                    disabled={reconSaving || reconInput === "" || overRemove || overVariance}
                     className="btn-primary flex-1"
                   >
-                    {reconSaving ? "Saving…" : "Save reconciliation"}
+                    {reconSaving ? "Saving…" : isVariance ? "Log variance" : "Save reconciliation"}
                   </button>
                 </div>
               </div>

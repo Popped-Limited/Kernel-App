@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { expandRunValues } from "@/lib/production-runs";
 
 /**
  * POST /api/admin/recalculate-stock
@@ -11,10 +12,28 @@ import { cookies } from "next/headers";
  *   1. Resetting all lots to their original quantity_received_g
  *   2. Replaying every ingredient_table answer ever submitted for this org,
  *      resolving by lot_id where available, julian_code as fallback
+ *   3. Re-applying every reconciliation write-off from wastage_log — without
+ *      this, a recalculation resurrects written-off stock
  *
  * This corrects any historical discrepancies where deductions were missed
  * (e.g. when a manual julian_code entry meant lot_id was never set).
  */
+
+/** Paginate past PostgREST's 1000-row cap (older answers must not be dropped). */
+async function fetchAllRows<T>(
+  build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const PAGE = 1000;
+  const all: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build(from, from + PAGE - 1);
+    if (error) throw error;
+    const rows = data ?? [];
+    all.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return all;
+}
 export async function POST(req: NextRequest) {
   // ── Auth: must be admin ────────────────────────────────────────────────────
   const cookieStore = await cookies();
@@ -89,58 +108,37 @@ export async function POST(req: NextRequest) {
     let deductionCount = 0;
 
     // ── Step 3: Replay every ingredient_table answer ──────────────────────
-    const { data: allAnswers } = ingQIds.length > 0
-      ? await supabaseAdmin.from("answers").select("question_id, value").in("question_id", ingQIds).not("value", "is", null)
-      : { data: [] as Array<{ question_id: string; value: string | null }> };
+    // expandRunValues unwraps multi-run records ({ __runs__: [...] }) so every
+    // run's usage replays, not just the first.
+    const allAnswers = ingQIds.length > 0
+      ? await fetchAllRows<{ question_id: string; value: string | null }>((from, to) =>
+          supabaseAdmin.from("answers").select("question_id, value").in("question_id", ingQIds).not("value", "is", null).order("id").range(from, to))
+      : [];
 
-    for (const answer of allAnswers ?? []) {
+    for (const answer of allAnswers) {
       if (!answer.value) continue;
-      try {
-        const parsedVal = JSON.parse(answer.value);
-        const rows = (Array.isArray(parsedVal) ? parsedVal : (parsedVal?.rows ?? [])) as Array<{
-          lots: Array<{ lot_id?: string; julian_code?: string; weight_g: string }>;
-        }>;
-
-        for (const row of rows) {
-          for (const lotUse of row.lots ?? []) {
-            const used = Number(lotUse.weight_g);
-            if (!used || used <= 0) continue;
-
-            let resolvedId: string | undefined;
-            if (lotUse.lot_id && lotById.has(lotUse.lot_id)) {
-              resolvedId = lotUse.lot_id;
-            } else if (lotUse.julian_code?.trim() && lotByCode.has(lotUse.julian_code.trim())) {
-              resolvedId = lotByCode.get(lotUse.julian_code.trim());
-            }
-
-            if (resolvedId) {
-              usage.set(resolvedId, (usage.get(resolvedId) ?? 0) + used);
-              deductionCount++;
-            }
-          }
-        }
-      } catch { /* malformed answer — skip */ }
-    }
-
-    // ── Step 3b: Replay every packing_runs answer (primary packaging) ──────
-    if (packQIds.length > 0) {
-      const { data: packAnswers } = await supabaseAdmin
-        .from("answers")
-        .select("question_id, value")
-        .in("question_id", packQIds)
-        .not("value", "is", null);
-
-      for (const answer of packAnswers ?? []) {
-        if (!answer.value) continue;
+      for (const value of expandRunValues(answer.value)) {
+        if (!value) continue;
         try {
-          const runs = JSON.parse(answer.value);
-          if (!Array.isArray(runs)) continue;
-          for (const run of runs) {
-            for (const [lotKey, countKey] of [["jar_lot_id", "jars_used"], ["lids_lot_id", "lids_count"]] as const) {
-              const lotId = run[lotKey];
-              const used = Number(run[countKey]);
-              if (lotId && lotById.has(lotId) && used > 0) {
-                usage.set(lotId, (usage.get(lotId) ?? 0) + used);
+          const parsedVal = JSON.parse(value);
+          const rows = (Array.isArray(parsedVal) ? parsedVal : (parsedVal?.rows ?? [])) as Array<{
+            lots: Array<{ lot_id?: string; julian_code?: string; weight_g: string }>;
+          }>;
+
+          for (const row of rows) {
+            for (const lotUse of row.lots ?? []) {
+              const used = Number(lotUse.weight_g);
+              if (!used || used <= 0) continue;
+
+              let resolvedId: string | undefined;
+              if (lotUse.lot_id && lotById.has(lotUse.lot_id)) {
+                resolvedId = lotUse.lot_id;
+              } else if (lotUse.julian_code?.trim() && lotByCode.has(lotUse.julian_code.trim())) {
+                resolvedId = lotByCode.get(lotUse.julian_code.trim());
+              }
+
+              if (resolvedId) {
+                usage.set(resolvedId, (usage.get(resolvedId) ?? 0) + used);
                 deductionCount++;
               }
             }
@@ -149,13 +147,55 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Step 4: Apply accumulated deductions ───────────────────────────────
-    const results: Array<{ julian_code: string; received_g: number; used_g: number; remaining_g: number }> = [];
+    // ── Step 3b: Replay every packing_runs answer (primary packaging) ──────
+    if (packQIds.length > 0) {
+      const packAnswers = await fetchAllRows<{ question_id: string; value: string | null }>((from, to) =>
+        supabaseAdmin.from("answers").select("question_id, value").in("question_id", packQIds).not("value", "is", null).order("id").range(from, to));
 
-    for (const [lotId, totalUsed] of usage) {
+      for (const answer of packAnswers) {
+        if (!answer.value) continue;
+        for (const value of expandRunValues(answer.value)) {
+          if (!value) continue;
+          try {
+            const runs = JSON.parse(value);
+            if (!Array.isArray(runs)) continue;
+            for (const run of runs) {
+              for (const [lotKey, countKey] of [["jar_lot_id", "jars_used"], ["lids_lot_id", "lids_count"]] as const) {
+                const lotId = run[lotKey];
+                const used = Number(run[countKey]);
+                if (lotId && lotById.has(lotId) && used > 0) {
+                  usage.set(lotId, (usage.get(lotId) ?? 0) + used);
+                  deductionCount++;
+                }
+              }
+            }
+          } catch { /* malformed answer — skip */ }
+        }
+      }
+    }
+
+    // ── Step 3c: Re-apply reconciliation write-offs from wastage_log ───────
+    // A write-off physically removed stock; replaying production alone would
+    // resurrect it and overstate every reconciled lot.
+    const wastageRows = await fetchAllRows<{ lot_id: string | null; quantity_written_off_g: number | null }>((from, to) =>
+      supabaseAdmin.from("wastage_log").select("lot_id, quantity_written_off_g").eq("organisation_id", orgId).order("id").range(from, to));
+
+    const writtenOffByLot = new Map<string, number>();
+    for (const w of wastageRows) {
+      if (!w.lot_id || !lotById.has(w.lot_id)) continue;
+      writtenOffByLot.set(w.lot_id, (writtenOffByLot.get(w.lot_id) ?? 0) + (Number(w.quantity_written_off_g) || 0));
+    }
+
+    // ── Step 4: Apply accumulated deductions + write-offs ──────────────────
+    const results: Array<{ julian_code: string; received_g: number; used_g: number; written_off_g: number; remaining_g: number }> = [];
+    const touched = new Set([...usage.keys(), ...writtenOffByLot.keys()]);
+
+    for (const lotId of touched) {
       const lot = lotById.get(lotId);
       if (!lot) continue;
-      const remaining = Math.max(0, lot.quantity_received_g - totalUsed);
+      const totalUsed = usage.get(lotId) ?? 0;
+      const writtenOff = writtenOffByLot.get(lotId) ?? 0;
+      const remaining = Math.max(0, lot.quantity_received_g - totalUsed - writtenOff);
       await supabaseAdmin
         .from("ingredient_lots")
         .update({ quantity_remaining_g: remaining })
@@ -163,10 +203,11 @@ export async function POST(req: NextRequest) {
 
       const code = lots.find(l => l.id === lotId)?.julian_code ?? lotId;
       results.push({
-        julian_code:  code,
-        received_g:   lot.quantity_received_g,
-        used_g:       Math.round(totalUsed),
-        remaining_g:  remaining,
+        julian_code:   code,
+        received_g:    lot.quantity_received_g,
+        used_g:        Math.round(totalUsed),
+        written_off_g: Math.round(writtenOff),
+        remaining_g:   remaining,
       });
     }
 

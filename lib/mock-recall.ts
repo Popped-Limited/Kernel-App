@@ -3,11 +3,21 @@ import type { TraceResult, MassBalance } from "@/lib/traceability";
 export type RecallDirection = "forward" | "backward";
 export type RecallOutcome = "pass" | "pass_with_actions" | "fail";
 
-export interface CustomerContact {
+/**
+ * One row of the recall contact log. Customers AND suppliers share the
+ * customers_contacted jsonb column: `kind` distinguishes them (legacy rows
+ * have no kind and are customers). `customer` holds the name for both;
+ * `contact` freezes the supplier's contact details at recall time.
+ */
+export interface ContactEntry {
+  kind?: "customer" | "supplier";
   customer: string;
+  contact?: string;
   contacted_by?: string;
   response?: string;
 }
+
+export type CustomerContact = ContactEntry;
 
 /** Light row used by the list page. */
 export interface MockRecallRow {
@@ -28,7 +38,7 @@ export interface MockRecall extends MockRecallRow {
   mass_balance: MassBalance;
   findings: string | null;
   corrective_actions: string | null;
-  customers_contacted: CustomerContact[];
+  customers_contacted: ContactEntry[];
   signed_off_by: string | null;
 }
 

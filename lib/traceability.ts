@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { expandRunValues } from "@/lib/production-runs";
+import { fetchAll } from "@/lib/fetchAll";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared traceability engine.
@@ -85,14 +86,31 @@ export interface ReturnInfo {
   batch_submission_id: string | null;
 }
 
+/** A finished-goods stock adjustment (sample, wastage, count correction) tagged to a batch code. */
+export interface AdjustmentInfo {
+  id: string;
+  product: string;
+  quantity: number; // signed — samples/wastage negative
+  reason: string;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  batch_code: string | null;
+}
+
 export interface TraceResult {
   searchType: "lot" | "batch" | "ingredient" | "product";
   query: string;
+  product?: string; // finished-product name when the trace is product/batch-scoped
   lots: LotInfo[];
   batches: BatchInfo[];
   dispatches: DispatchInfo[];
   returns: ReturnInfo[];
   reconciliation?: LotReconciliation[]; // per-lot ingredient mass balance
+  adjustments?: AdjustmentInfo[]; // finished-goods adjustments against the traced batch codes
+  // Dispatches of the same product with NO batch link — they can't be ruled in
+  // or out of a recall, so every trace must surface them as a traceability gap.
+  unlinked_dispatches?: DispatchInfo[];
 }
 
 /** Functions return either a payload or a human-readable error string. */
@@ -121,24 +139,38 @@ export interface MassBalance {
   produced: number;    // total finished units produced across the traced batches
   dispatched: number;  // total units dispatched
   returned: number;    // total units returned to stock
-  remaining: number;   // produced − (dispatched − returned)
-  reconciled: boolean;  // true when net dispatched does not exceed produced
+  adjusted: number;    // signed batch-tagged finished-goods adjustments (samples/wastage negative)
+  remaining: number;   // produced + adjusted − (dispatched − returned)
+  reconciled: boolean;  // true when net dispatched does not exceed produced + adjusted
 }
 
 /**
  * Units produced from a batch submission. Per the data conventions we prefer an
- * explicit "Total units produced" answer; numeric/text answers are parsed loosely.
+ * explicit "Total units produced" answer and only fall back to the packing log's
+ * jars_used when it's absent — tracked in separate accumulators so answer order
+ * can't make the fallback win.
  */
 export function getUnitsProduced(batch: BatchInfo): number {
+  let explicit = 0;
+  let jarsFallback = 0;
   for (const ans of batch.answers ?? []) {
     if (!ans.value) continue;
     const label = (ans.question?.label ?? "").toLowerCase();
+    const type = ans.question?.type ?? "";
     if (label.includes("units produced") || label.includes("total units")) {
       const n = parseInt(ans.value.replace(/[^0-9]/g, ""), 10);
-      if (!Number.isNaN(n)) return n;
+      if (!Number.isNaN(n)) explicit += n;
+    }
+    if (type === "packing_runs") {
+      for (const v of expandRunValues(ans.value)) {
+        try {
+          const runs = JSON.parse(v);
+          if (Array.isArray(runs)) for (const r of runs) jarsFallback += Number(r?.jars_used) || 0;
+        } catch { /* ignore malformed packing log */ }
+      }
     }
   }
-  return 0;
+  return explicit > 0 ? explicit : jarsFallback;
 }
 
 /** Reconcile produced vs net-dispatched units for a mock-recall mass-balance check. */
@@ -146,13 +178,15 @@ export function computeMassBalance(result: TraceResult): MassBalance {
   const produced = result.batches.reduce((s, b) => s + getUnitsProduced(b), 0);
   const dispatched = result.dispatches.reduce((s, d) => s + (d.total_units ?? 0), 0);
   const returned = (result.returns ?? []).reduce((s, r) => s + (r.quantity ?? 0), 0);
+  const adjusted = (result.adjustments ?? []).reduce((s, a) => s + (a.quantity ?? 0), 0);
   const netDispatched = dispatched - returned;
   return {
     produced,
     dispatched,
     returned,
-    remaining: produced - netDispatched,
-    reconciled: produced === 0 ? false : netDispatched <= produced,
+    adjusted,
+    remaining: produced + adjusted - netDispatched,
+    reconciled: produced === 0 ? false : netDispatched <= produced + adjusted,
   };
 }
 
@@ -270,7 +304,7 @@ async function submissionsUsingLots(lotIds: string[]): Promise<string[]> {
 }
 
 /** Total amount of each lot consumed across ALL production batches (grams for ingredients, units for packaging). */
-async function fetchLotUsage(lotIds: string[]): Promise<Record<string, number>> {
+export async function fetchLotUsage(lotIds: string[]): Promise<Record<string, number>> {
   const usage: Record<string, number> = {};
   if (lotIds.length === 0) return usage;
   const wanted = new Set(lotIds);
@@ -286,7 +320,7 @@ async function fetchLotUsage(lotIds: string[]): Promise<Record<string, number>> 
 }
 
 /** Wastage / write-offs per lot, grouped with their reasons. */
-async function fetchWastage(lotIds: string[]): Promise<Record<string, WastageReason[]>> {
+export async function fetchWastage(lotIds: string[]): Promise<Record<string, WastageReason[]>> {
   const byLot: Record<string, WastageReason[]> = {};
   if (lotIds.length === 0) return byLot;
 
@@ -333,6 +367,57 @@ async function withReconciliation(result: TraceResult): Promise<TraceResult> {
   return result;
 }
 
+/** "Garlic Chilli Oil — Production Record" → "Garlic Chilli Oil" (same rule as Goods Out). */
+export function productNameFromChecklist(name: string | null | undefined): string {
+  return (name ?? "").replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
+}
+
+/**
+ * Attach finished-goods adjustments (samples/wastage tagged to the traced batch
+ * codes) and any dispatches of the same product that were saved WITHOUT a batch
+ * link. The unlinked ones are a traceability gap — a recall can't rule them in
+ * or out — so every trace and recall must show them rather than hide them.
+ */
+async function enrich(result: TraceResult): Promise<TraceResult> {
+  const codes = [...new Set(result.batches.map(getBatchCode).filter(Boolean))];
+  const products = [
+    ...new Set(
+      [result.product, ...result.batches.map((b) => productNameFromChecklist(b.checklist?.name))]
+        .filter((p): p is string => !!p)
+    ),
+  ];
+
+  const [adjRes, unlinkedRes] = await Promise.all([
+    codes.length > 0
+      ? supabase.from("finished_goods_adjustments").select("*").in("batch_code", codes)
+      : Promise.resolve({ data: [] as AdjustmentInfo[] }),
+    products.length > 0
+      ? supabase.from("dispatches").select("*").is("batch_submission_id", null).in("product", products)
+      : Promise.resolve({ data: [] as DispatchInfo[] }),
+  ]);
+
+  result.adjustments = (adjRes.data ?? []) as AdjustmentInfo[];
+  result.unlinked_dispatches = (unlinkedRes.data ?? []) as DispatchInfo[];
+  return result;
+}
+
+/** Supplier contact details for the "contact the suppliers" leg of a recall. */
+export interface SupplierContact {
+  id: string;
+  name: string;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+}
+
+/** Look up contact details for the suppliers named on a set of lots (case-insensitive exact match). */
+export async function fetchSupplierContacts(names: string[]): Promise<SupplierContact[]> {
+  const wanted = [...new Set(names.map((n) => n.trim().toLowerCase()).filter(Boolean))];
+  if (wanted.length === 0) return [];
+  const { data } = await supabase.from("suppliers").select("id, name, contact_name, contact_email, contact_phone");
+  return ((data ?? []) as SupplierContact[]).filter((s) => wanted.includes(s.name.trim().toLowerCase()));
+}
+
 // ── Search by raw-material Julian code ──────────────────────────────────────
 export async function searchByLot(julianCode: string): Promise<TraceOutcome> {
   const { data: lots } = await supabase
@@ -349,7 +434,7 @@ export async function searchByLot(julianCode: string): Promise<TraceOutcome> {
   const dispatches = await fetchDispatchesForBatches(submissionIds);
   const returns = await fetchReturnsForBatches(submissionIds);
 
-  return { result: await withReconciliation({ searchType: "lot", query: julianCode, lots: lots as LotInfo[], batches, dispatches, returns }) };
+  return { result: await withReconciliation(await enrich({ searchType: "lot", query: julianCode, lots: lots as LotInfo[], batches, dispatches, returns })) };
 }
 
 // ── Search by finished-product Julian / batch code ──────────────────────────
@@ -383,7 +468,7 @@ export async function searchByBatch(julianCode: string): Promise<TraceOutcome> {
   const dispatches = await fetchDispatchesForBatches(submissionIds);
   const returns = await fetchReturnsForBatches(submissionIds);
 
-  return { result: await withReconciliation({ searchType: "batch", query: julianCode, lots, batches, dispatches, returns }) };
+  return { result: await withReconciliation(await enrich({ searchType: "batch", query: julianCode, lots, batches, dispatches, returns })) };
 }
 
 // ── Search by ingredient name — step 1: list candidate lots ─────────────────
@@ -415,14 +500,112 @@ export async function traceFromLot(lot: LotInfo): Promise<TraceOutcome> {
   const returns = await fetchReturnsForBatches(submissionIds);
 
   return {
-    result: await withReconciliation({
+    result: await withReconciliation(await enrich({
       searchType: "ingredient",
       query: lot.ingredient?.name ?? lot.julian_code,
       lots: [lot],
       batches,
       dispatches,
       returns,
-    }),
+    })),
+  };
+}
+
+// ── Backward recall — step 1: list a product's batches to pick from ─────────
+/** One recallable batch: a batch code and the production submission(s) behind it. */
+export interface ProductBatchGroup {
+  product: string;
+  batch_code: string; // "" when the record has no batch code answer
+  submission_ids: string[];
+  first_date: string;
+  last_date: string;
+  units_produced: number;
+  dispatched: number; // net of returns
+}
+
+export async function searchProductBatches(name: string): Promise<{ groups: ProductBatchGroup[] } | { error: string }> {
+  const { data: cls } = await supabase
+    .from("checklists")
+    .select("id, name")
+    .eq("category", "Production")
+    .ilike("name", `%${name}%`);
+
+  if (!cls || cls.length === 0) {
+    return { error: `No production records found for a product matching "${name}".` };
+  }
+
+  const clById = Object.fromEntries(cls.map((c: { id: string; name: string }) => [c.id, c.name]));
+  const subs = await fetchAll<BatchInfo & { checklist_id: string }>((from, to) =>
+    supabase
+      .from("submissions")
+      .select("checklist_id, " + SUBMISSION_SELECT)
+      .in("checklist_id", cls.map((c: { id: string }) => c.id))
+      .order("submitted_at", { ascending: false })
+      .range(from, to) as never
+  );
+
+  if (subs.length === 0) {
+    return { error: `No production batches recorded yet for "${name}".` };
+  }
+
+  // Group by product + batch code — the batch code is what's printed on the jar,
+  // so it's the unit of recall (a code can span several production submissions).
+  const groups = new Map<string, ProductBatchGroup>();
+  for (const s of subs) {
+    const product = productNameFromChecklist(clById[s.checklist_id] ?? s.checklist?.name);
+    const code = getBatchCode(s);
+    const key = code ? `${product}|${code}` : `${product}|__uncoded__${s.id}`;
+    const g = groups.get(key);
+    if (g) {
+      g.submission_ids.push(s.id);
+      g.units_produced += getUnitsProduced(s);
+      if (s.submitted_at < g.first_date) g.first_date = s.submitted_at;
+      if (s.submitted_at > g.last_date) g.last_date = s.submitted_at;
+    } else {
+      groups.set(key, {
+        product,
+        batch_code: code,
+        submission_ids: [s.id],
+        first_date: s.submitted_at,
+        last_date: s.submitted_at,
+        units_produced: getUnitsProduced(s),
+        dispatched: 0,
+      });
+    }
+  }
+
+  // Net units dispatched per submission so the picker can show what's already out.
+  const allIds = subs.map((s) => s.id);
+  const [disps, rets] = await Promise.all([fetchDispatchesForBatches(allIds), fetchReturnsForBatches(allIds)]);
+  const netBySub: Record<string, number> = {};
+  for (const d of disps) if (d.batch_submission_id) netBySub[d.batch_submission_id] = (netBySub[d.batch_submission_id] ?? 0) + (d.total_units ?? 0);
+  for (const r of rets) if (r.batch_submission_id) netBySub[r.batch_submission_id] = (netBySub[r.batch_submission_id] ?? 0) - (r.quantity ?? 0);
+  for (const g of groups.values()) g.dispatched = g.submission_ids.reduce((s, id) => s + (netBySub[id] ?? 0), 0);
+
+  return { groups: [...groups.values()].sort((a, b) => (a.last_date < b.last_date ? 1 : -1)) };
+}
+
+// ── Backward recall — step 2: trace ONE chosen batch back to lots & customers ─
+export async function traceFromBatchGroup(group: ProductBatchGroup): Promise<TraceOutcome> {
+  const batches = await fetchBatches(group.submission_ids);
+  if (batches.length === 0) return { error: "Batch record not found." };
+
+  const [lots, dispatches, returns] = await Promise.all([
+    fetchLots(Array.from(lotIdsFromBatches(batches))),
+    fetchDispatchesForBatches(group.submission_ids),
+    fetchReturnsForBatches(group.submission_ids),
+  ]);
+
+  return {
+    result: await withReconciliation(await enrich({
+      searchType: "batch",
+      query: group.batch_code || group.product,
+      product: group.product,
+      lots,
+      batches,
+      dispatches,
+      returns,
+    })),
   };
 }
 
@@ -442,19 +625,28 @@ export async function searchByProduct(name: string): Promise<TraceOutcome> {
   ] as string[];
 
   // 2b. Also production submissions matched directly by checklist name
-  //     (catches batches not yet dispatched or dispatched without a batch link)
-  const { data: directSubs } = await supabase
-    .from("submissions")
-    .select("id, checklist:checklists(name, category)")
-    .order("submitted_at", { ascending: false });
+  //     (catches batches not yet dispatched or dispatched without a batch link).
+  //     Filter by checklist at the DB level and paginate — an unranged select
+  //     stops at 1000 rows and silently drops older batches from the trace.
+  const { data: matchingCls } = await supabase
+    .from("checklists")
+    .select("id")
+    .eq("category", "Production")
+    .ilike("name", `%${name}%`);
 
-  const directBatchIds = (directSubs ?? [])
-    .filter((s: any) => {
-      const clName: string = s.checklist?.name ?? "";
-      const clCat: string = s.checklist?.category ?? "";
-      return clCat === "Production" && clName.toLowerCase().includes(name.toLowerCase());
-    })
-    .map((s: any) => s.id as string);
+  const directBatchIds =
+    matchingCls && matchingCls.length > 0
+      ? (
+          await fetchAll<{ id: string }>((from, to) =>
+            supabase
+              .from("submissions")
+              .select("id")
+              .in("checklist_id", matchingCls.map((c: { id: string }) => c.id))
+              .order("submitted_at", { ascending: false })
+              .range(from, to)
+          )
+        ).map((s) => s.id)
+      : [];
 
   const allBatchIds = [...new Set([...linkedBatchIds, ...directBatchIds])];
   const batches = await fetchBatches(allBatchIds);
@@ -466,5 +658,5 @@ export async function searchByProduct(name: string): Promise<TraceOutcome> {
   const lots = await fetchLots(Array.from(lotIdsFromBatches(batches)));
   const returns = await fetchReturnsForBatches(allBatchIds);
 
-  return { result: await withReconciliation({ searchType: "product", query: name, lots, batches, dispatches, returns }) };
+  return { result: await withReconciliation(await enrich({ searchType: "product", query: name, lots, batches, dispatches, returns })) };
 }

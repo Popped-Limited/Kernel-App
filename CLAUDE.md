@@ -42,6 +42,19 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   OR the existing-checklist editor (so live records link without rebuilding).
 - **Finished-goods stock** is product-level: `produced − dispatched + adjustments`, matched by **exact product name**.
   Dispatches link to a production batch via `batch_submission_id`; per-batch "remaining" = produced − dispatched-against-that-batch.
+- **Backward mock recall is batch-level**: product name → pick ONE batch code (`searchProductBatches` groups
+  production submissions by batch code — the code on the jar is the unit of recall) → `traceFromBatchGroup`.
+  Never trace a product's whole history for a recall. Customer + supplier contact rows are pre-filled from the
+  trace; both live in `mock_recalls.customers_contacted` jsonb tagged `kind: "customer" | "supplier"` (legacy
+  rows without `kind` are customers). `mock_recalls` has NO service_role grant — admin scripts can't touch it.
+- **Every trace surfaces gaps**: `enrich()` in lib/traceability.ts attaches batch-tagged
+  `finished_goods_adjustments` and `unlinked_dispatches` (same product, no batch link) to every TraceResult —
+  a recall can't rule unlinked dispatches in or out, so they render as a red warning, never hidden.
+- **wastage_log is the raw-material write-off ledger** (created in prod 2 Jul 2026 — history before then is lost).
+  The Reconcile panel has three modes: write off / counted stock / **explain variance** (logs a historical
+  write-off WITHOUT touching `quantity_remaining_g`, closing a lot's unaccounted gap truthfully; auto-selected
+  for depleted lots with a gap). Always set `created_by`. "Recalculate stock" replays production usage AND
+  subtracts wastage_log write-offs — replaying usage alone would resurrect written-off stock.
 
 ## Product/name integrity
 - Dispatch product must be **selected from the products dropdown** (create AND edit), never free-typed — a typo

@@ -36,7 +36,11 @@ export default function RecallReportPage() {
 
   const badge = outcomeBadge(recall.outcome);
   const mb = recall.mass_balance;
-  const customers = recall.customers_contacted ?? [];
+  // Legacy rows have no kind — they're all customers.
+  const contacts = recall.customers_contacted ?? [];
+  const customers = contacts.filter((c) => c.kind !== "supplier");
+  const suppliers = contacts.filter((c) => c.kind === "supplier");
+  const adjusted = mb?.adjusted ?? 0;
 
   return (
     <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-4xl w-full mx-auto space-y-6 print:px-0 print:py-0">
@@ -70,18 +74,24 @@ export default function RecallReportPage() {
       {/* Mass balance */}
       <div className="card p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Mass-balance reconciliation</p>
-        <div className="grid grid-cols-3 gap-4 text-center">
+        <div className={`grid gap-4 text-center ${adjusted !== 0 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
           <div>
             <p className="text-2xl font-bold text-gray-900">{(mb?.produced ?? 0).toLocaleString()}</p>
             <p className="text-xs text-gray-400 mt-0.5">units produced</p>
           </div>
+          {adjusted !== 0 && (
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{adjusted > 0 ? "+" : ""}{adjusted.toLocaleString()}</p>
+              <p className="text-xs text-gray-400 mt-0.5">adjustments (samples / wastage)</p>
+            </div>
+          )}
           <div>
             <p className="text-2xl font-bold text-gray-900">{(mb?.dispatched ?? 0).toLocaleString()}</p>
             <p className="text-xs text-gray-400 mt-0.5">units dispatched</p>
           </div>
           <div>
             <p className="text-2xl font-bold text-gray-900">{(mb?.remaining ?? 0).toLocaleString()}</p>
-            <p className="text-xs text-gray-400 mt-0.5">unaccounted / in stock</p>
+            <p className="text-xs text-gray-400 mt-0.5">remaining in stock / to locate</p>
           </div>
         </div>
         {mb && (mb.produced === 0 ? (
@@ -121,6 +131,32 @@ export default function RecallReportPage() {
                   <tr key={i}>
                     <td className="py-1.5 font-medium text-gray-900">{c.customer}</td>
                     <td className="py-1.5 text-gray-600">{c.response || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div>
+          <p className="text-xs font-medium text-gray-600 mb-1">Suppliers contacted</p>
+          {suppliers.length === 0 ? (
+            <p className="text-sm text-gray-400">None recorded.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-gray-500 text-xs">
+                  <th className="text-left py-1 font-medium">Supplier</th>
+                  <th className="text-left py-1 font-medium">Contact</th>
+                  <th className="text-left py-1 font-medium">Response</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {suppliers.map((s, i) => (
+                  <tr key={i}>
+                    <td className="py-1.5 font-medium text-gray-900">{s.customer}</td>
+                    <td className="py-1.5 text-gray-600">{s.contact || "—"}</td>
+                    <td className="py-1.5 text-gray-600">{s.response || "—"}</td>
                   </tr>
                 ))}
               </tbody>
