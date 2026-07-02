@@ -430,7 +430,10 @@ export default function RawMaterialsPage() {
 
     if (lotErr) { setReconError(lotErr.message); setReconSaving(false); return; }
 
-    await supabase.from("wastage_log").insert({
+    // The reconciliation history depends on this row. Surface a failure instead
+    // of silently swallowing it (a silently-failing insert left the whole log
+    // empty before), but keep the completed stock change either way.
+    const { error: logErr } = await supabase.from("wastage_log").insert({
       organisation_id: orgId,
       lot_id: lot.id,
       ingredient_id: ing.id,
@@ -441,6 +444,13 @@ export default function RawMaterialsPage() {
       reason: reconReason,
       notes: reconNotes.trim() || null,
     });
+    if (logErr) {
+      console.error("wastage_log insert failed:", logErr);
+      setReconError("Stock updated, but the reconciliation couldn't be logged: " + logErr.message);
+      setReconSaving(false);
+      await load();
+      return;
+    }
 
     setReconSaving(false);
     setReconLot(null);
@@ -578,7 +588,7 @@ export default function RawMaterialsPage() {
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
-              <span>♻️</span>
+              <span>🤝</span>
               Reconciliation
               <span className={`text-xs rounded-full px-1.5 py-0.5 font-semibold ${
                 activeTab === "reconciliation" ? "bg-brand text-gray-900" : "bg-gray-100 text-gray-500"
