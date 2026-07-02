@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import TraceChain from "@/components/TraceChain";
+import LotMassBalance from "@/components/LotMassBalance";
 import {
   searchByLot,
   searchByBatch,
@@ -187,6 +188,7 @@ export default function TraceabilityPage() {
               </button>
             )}
             <TraceChain result={result} />
+            <LotMassBalance reconciliation={result.reconciliation} />
           </div>
         )}
       </main>

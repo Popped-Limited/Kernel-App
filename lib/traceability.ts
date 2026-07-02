@@ -21,7 +21,7 @@ export interface LotInfo {
   supplier: string | null;
   best_before_date: string | null;
   created_by: string;
-  ingredient: { name: string };
+  ingredient: { name: string; unit?: string | null };
 }
 
 export interface BatchAnswer {
@@ -49,6 +49,7 @@ export interface LotReconciliation {
   lot_id: string;
   ingredient_name: string;
   julian_code: string;
+  unit: string;          // "g" (weighed ingredient) or "units" (e.g. packaging)
   received_g: number;
   used_g: number;        // consumed across ALL production batches
   written_off_g: number; // wastage / damaged / expired / other
@@ -227,7 +228,7 @@ async function fetchLots(lotIds: string[]): Promise<LotInfo[]> {
   if (lotIds.length === 0) return [];
   const { data } = await supabase
     .from("ingredient_lots")
-    .select("*, ingredient:ingredients(name)")
+    .select("*, ingredient:ingredients(name, unit)")
     .in("id", lotIds);
   return (data ?? []) as LotInfo[];
 }
@@ -320,6 +321,7 @@ async function withReconciliation(result: TraceResult): Promise<TraceResult> {
       lot_id: lot.id,
       ingredient_name: lot.ingredient?.name ?? "",
       julian_code: lot.julian_code,
+      unit: lot.ingredient?.unit ?? "g",
       received_g: received,
       used_g: used,
       written_off_g: writtenOff,
@@ -335,7 +337,7 @@ async function withReconciliation(result: TraceResult): Promise<TraceResult> {
 export async function searchByLot(julianCode: string): Promise<TraceOutcome> {
   const { data: lots } = await supabase
     .from("ingredient_lots")
-    .select("*, ingredient:ingredients(name)")
+    .select("*, ingredient:ingredients(name, unit)")
     .ilike("julian_code", `%${julianCode}%`);
 
   if (!lots || lots.length === 0) {
@@ -394,7 +396,7 @@ export async function searchIngredientLots(name: string): Promise<{ lots: LotInf
 
   const { data: lots } = await supabase
     .from("ingredient_lots")
-    .select("*, ingredient:ingredients(name)")
+    .select("*, ingredient:ingredients(name, unit)")
     .in("ingredient_id", ingredients.map((i: { id: string }) => i.id))
     .order("received_date", { ascending: false });
 

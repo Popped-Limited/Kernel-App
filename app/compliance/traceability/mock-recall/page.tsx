@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import TraceChain from "@/components/TraceChain";
+import LotMassBalance from "@/components/LotMassBalance";
 import {
   searchByLot,
   searchByBatch,
@@ -315,6 +316,9 @@ export default function MockRecallPage() {
               <p className="mt-3 text-xs text-red-700 bg-red-50 rounded px-3 py-2">⚠ Does not reconcile — more units dispatched than produced. Investigate before closing this recall.</p>
             )}
           </div>
+
+          {/* Raw-material mass balance (received = used + written off + remaining + unaccounted) */}
+          <LotMassBalance reconciliation={result.reconciliation} />
 
           {/* The chain */}
           <TraceChain result={result} defaultOpen linkBack="/compliance/traceability/mock-recall" />

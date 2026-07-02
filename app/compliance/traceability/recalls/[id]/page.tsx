@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import TraceChain from "@/components/TraceChain";
+import LotMassBalance from "@/components/LotMassBalance";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { recallDurationLabel, outcomeBadge, type MockRecall } from "@/lib/mock-recall";
 
@@ -91,6 +92,9 @@ export default function RecallReportPage() {
           <p className="mt-3 text-xs text-red-700 bg-red-50 rounded px-3 py-2">⚠ Does not reconcile — more units dispatched than produced.</p>
         ))}
       </div>
+
+      {/* Raw-material mass balance, frozen at recall time */}
+      <LotMassBalance reconciliation={recall.trace_snapshot?.reconciliation} />
 
       {/* The frozen chain */}
       <TraceChain result={recall.trace_snapshot} defaultOpen linkBack={`/compliance/traceability/recalls/${recall.id}`} />
