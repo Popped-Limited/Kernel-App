@@ -19,6 +19,11 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
 - Verify UI changes in a local preview before pushing when practical.
 
 ## Data conventions (learned the hard way — don't regress these)
+- **NO 1000-row truncation, ever.** PostgREST silently caps un-ranged selects (and `.in()` results) at
+  1000 rows. Every query on a table that grows with usage (submissions, answers, dispatches, returns,
+  ingredient_lots, wastage_log, adjustments, drafts, training_records, mock_recalls, reminders) MUST use
+  `fetchAll` (lib/fetchAll.ts) or `fetchAllByIn` (lib/traceability.ts), always with a stable `.order()`.
+  Site-wide sweep done 2 Jul 2026 — don't reintroduce it. Deliberate UX caps use `.limit()` + a comment.
 - **Submit answer payloads** to `/api/submit` must be `{ question_id, value }` (NOT `answer`).
 - **Checkbox answers** are stored as the strings `"true"` / `"false"`; the submission view checks `val === "true"`.
 - **Batch code / Julian code** must be read from a **text** question (`type === "text"`). Don't match by
