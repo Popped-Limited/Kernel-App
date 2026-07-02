@@ -224,10 +224,6 @@ export default function FinishedGoodsPage() {
     return t >= bounds[0].getTime() && t < bounds[1].getTime();
   };
 
-  function producedAllTime(product: string) {
-    return productions.filter(p => p.product === product).reduce((s, p) => s + p.jars, 0);
-  }
-
   function producedInPeriod(product: string) {
     return productions
       .filter(p => p.product === product && inBounds(p.submitted_at))
@@ -240,12 +236,12 @@ export default function FinishedGoodsPage() {
       .reduce((s, d) => s + d.total_units, 0);
   }
 
+  // In Stock = the sum of what's actually left in each batch. Stock that isn't
+  // tied to a batch (opening-stock seeds, product-level corrections) isn't
+  // traceable and doesn't count, so this total always equals the batch
+  // breakdown below it. Over-dispatched batches floor at 0 (never negative).
   function stockFor(product: string) {
-    const produced   = producedAllTime(product);
-    const dispatched = dispatches.filter(d => d.product === product).reduce((s, d) => s + d.total_units, 0);
-    const returned   = returns.filter(r => r.product === product).reduce((s, r) => s + r.quantity, 0);
-    const adjusted   = adjustments.filter(a => a.product === product).reduce((s, a) => s + a.quantity, 0);
-    return Math.max(0, produced + adjusted + returned - dispatched);
+    return batchBreakdown(product).reduce((s, b) => s + b.remaining, 0);
   }
 
   // ── Per-batch breakdown ─────────────────────────────────────────────────────
@@ -554,6 +550,12 @@ export default function FinishedGoodsPage() {
                                     </tr>
                                   ))}
                                 </tbody>
+                                <tfoot className="border-t border-gray-200 bg-gray-50">
+                                  <tr>
+                                    <td className="px-3 py-2 font-semibold text-gray-700" colSpan={3}>Total in stock</td>
+                                    <td className="px-3 py-2 text-right tabular-nums font-bold text-gray-900">{stock.toLocaleString()}</td>
+                                  </tr>
+                                </tfoot>
                               </table>
                             </div>
                           )}

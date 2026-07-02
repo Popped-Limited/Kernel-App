@@ -26,6 +26,32 @@ const ADD_LABELS: Record<ItemType, string> = {
   supplies:   "Supply",
 };
 
+// The tab bar shows the three item types plus a read-only reconciliation history.
+type View = ItemType | "reconciliation";
+
+// A single historic stock reconciliation, from the write-only wastage_log table.
+interface WastageEntry {
+  id: string;
+  ingredient_id: string | null;
+  lot_id: string | null;
+  julian_code: string;
+  ingredient_name: string;
+  adjusted_from_g: number;
+  adjusted_to_g: number;
+  quantity_written_off_g: number;
+  reason: string;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+const RECON_REASON_LABELS: Record<string, string> = {
+  wastage: "Wastage",
+  damaged: "Damaged / contaminated",
+  expired: "Expired",
+  other:   "Other",
+};
+
 // The "Recalculate stock" button was a stop-gap for stock bugs that are now fixed.
 // Hidden until a customer needs it; the handler is kept intact behind this flag.
 const SHOW_RECALCULATE = false;
@@ -104,7 +130,8 @@ export default function RawMaterialsPage() {
   const [items, setItems]           = useState<IngredientWithLots[]>([]);
   const [suppliers, setSuppliers]   = useState<Supplier[]>([]);
   const [loading, setLoading]       = useState(true);
-  const [activeTab, setActiveTab]   = useState<ItemType>("ingredient");
+  const [activeTab, setActiveTab]   = useState<View>("ingredient");
+  const [wastageLog, setWastageLog] = useState<WastageEntry[]>([]);
   const [expanded, setExpanded]     = useState<Record<string, boolean>>({});
   const [hasDoc, setHasDoc]         = useState<Set<string>>(new Set());
   // Lot id → grams held by in-progress batch drafts (not yet deducted from stock)
@@ -249,15 +276,17 @@ export default function RawMaterialsPage() {
   });
 
   async function load() {
-    const [lotsRes, ingsRes, supRes, docsRes, draftsRes] = await Promise.all([
+    const [lotsRes, ingsRes, supRes, docsRes, draftsRes, wastageRes] = await Promise.all([
       supabase.from("ingredient_lots").select("*, ingredient:ingredients(*)").order("julian_code"),
       supabase.from("ingredients").select("*").order("name"),
       supabase.from("suppliers").select("id, name").order("name"),
       supabase.from("documents").select("entity_id, doc_type").in("entity_type", ["ingredient", "packaging", "supply"]),
       supabase.from("batch_drafts").select("id, answers"),
+      supabase.from("wastage_log").select("*").order("created_at", { ascending: false }),
     ]);
 
     setReservedByLot(reservedFromDrafts((draftsRes.data ?? []) as { answers: Record<string, unknown> | null }[]));
+    setWastageLog((wastageRes.data ?? []) as WastageEntry[]);
 
     const sups = (supRes.data ?? []) as Supplier[];
     setSuppliers(sups);
@@ -306,10 +335,12 @@ export default function RawMaterialsPage() {
   }
 
   function openCreate() {
-    const defaultUnit = activeTab === "ingredient" ? "g" : "units";
-    setEditing({ ...EMPTY_ITEM, type: activeTab, unit: defaultUnit });
+    // Reconciliation is a read-only view; fall back to Ingredient when adding.
+    const t: ItemType = activeTab === "reconciliation" ? "ingredient" : activeTab;
+    const defaultUnit = t === "ingredient" ? "g" : "units";
+    setEditing({ ...EMPTY_ITEM, type: t, unit: defaultUnit });
     setEditName("");
-    setEditType(activeTab);
+    setEditType(t);
     setEditUnit(defaultUnit);
     setEditPrice("");
     setEditSupplier("");
@@ -445,6 +476,12 @@ export default function RawMaterialsPage() {
       const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
       return sortDir === "asc" ? cmp : -cmp;
     });
+  // Reconciliation view: history grouped per ingredient, and the full item list
+  // (all types) mirrored so every raw material is expandable to its own history.
+  const reconByIng: Record<string, WastageEntry[]> = {};
+  for (const w of wastageLog) if (w.ingredient_id) (reconByIng[w.ingredient_id] ??= []).push(w);
+  const reconItems = [...items].sort((a, b) => a.name.localeCompare(b.name));
+
   const totalRemainingG = items.filter(i => i.type === "ingredient").reduce((s, i) => s + i.lots.reduce((a, l) => a + l.quantity_remaining_g, 0), 0);
   const totalValue = items.reduce((s, ing) => {
     if (!ing.price_per_kg) return s;
@@ -477,9 +514,11 @@ export default function RawMaterialsPage() {
                   {recalculating ? "Recalculating…" : "Recalculate stock"}
                 </button>
               )}
-              <button data-tour="add-ingredient" onClick={openCreate} className="btn-primary text-sm">
-                + Add {ADD_LABELS[activeTab]}
-              </button>
+              {activeTab !== "reconciliation" && (
+                <button data-tour="add-ingredient" onClick={openCreate} className="btn-primary text-sm">
+                  + Add {ADD_LABELS[activeTab]}
+                </button>
+              )}
             </div>
           </div>
           {recalcResult && (
@@ -531,12 +570,129 @@ export default function RawMaterialsPage() {
                 </span>
               </button>
             ))}
+            <button
+              onClick={() => setActiveTab("reconciliation")}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                activeTab === "reconciliation"
+                  ? "border-brand text-gray-900"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <span>♻️</span>
+              Reconciliation
+              <span className={`text-xs rounded-full px-1.5 py-0.5 font-semibold ${
+                activeTab === "reconciliation" ? "bg-brand text-gray-900" : "bg-gray-100 text-gray-500"
+              }`}>
+                {wastageLog.length}
+              </span>
+            </button>
           </div>
 
         {/* Main content */}
         <div className="flex-1 min-w-0">
           {loading ? (
             <div className="card p-8 text-center text-sm text-gray-500">Loading…</div>
+          ) : activeTab === "reconciliation" ? (
+            <div className="card overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-700">
+                  Reconciliation history
+                  <span className="ml-2 text-gray-400 font-normal">({wastageLog.length} logged)</span>
+                </h2>
+              </div>
+              {reconItems.length === 0 ? (
+                <div className="p-10 text-center text-sm text-gray-400">No raw materials yet.</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="border-b border-gray-200 bg-gray-50">
+                    <tr>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Last reconciled</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Reconciliations</th>
+                      <th className="px-2" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {reconItems.map(ing => {
+                      const entries = reconByIng[ing.id] ?? [];
+                      const unit = ing.unit ?? "g";
+                      const isOpen = expanded[ing.id];
+                      const hasHistory = entries.length > 0;
+                      return (
+                        <React.Fragment key={ing.id}>
+                          <tr className={`transition-colors ${hasHistory ? "hover:bg-gray-50 cursor-pointer" : ""}`}
+                              onClick={hasHistory ? () => setExpanded(p => ({ ...p, [ing.id]: !p[ing.id] })) : undefined}>
+                            <td className="px-4 py-3">
+                              <p className="font-medium text-gray-900">
+                                {ing.name}
+                                {ing.type === "packaging" && (
+                                  <span className="ml-2 align-middle text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-semibold">Packaging</span>
+                                )}
+                                {ing.type === "supplies" && (
+                                  <span className="ml-2 align-middle text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-semibold">Supply</span>
+                                )}
+                              </p>
+                            </td>
+                            <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">
+                              {hasHistory ? formatDate(entries[0].created_at.slice(0, 10)) : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums">
+                              {hasHistory
+                                ? <span className="font-semibold text-gray-900">{entries.length}</span>
+                                : <span className="text-gray-300">None</span>}
+                            </td>
+                            <td className="px-2 py-3 text-right">
+                              {hasHistory && (
+                                <svg className={`inline h-4 w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                                  viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                  <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              )}
+                            </td>
+                          </tr>
+                          {isOpen && hasHistory && (
+                            <tr key={`${ing.id}-recon`}>
+                              <td colSpan={4} className="bg-gray-50 border-t border-gray-100 px-4 py-3">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="text-gray-500">
+                                      <th className="text-left py-1 font-medium">Date</th>
+                                      <th className="text-left py-1 font-medium">Batch / ref</th>
+                                      <th className="text-right py-1 font-medium">From → To</th>
+                                      <th className="text-right py-1 font-medium">Written off</th>
+                                      <th className="text-left py-1 font-medium pl-4">Reason</th>
+                                      <th className="text-left py-1 font-medium hidden sm:table-cell">Notes</th>
+                                      <th className="text-left py-1 font-medium hidden sm:table-cell">By</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100">
+                                    {entries.map(w => (
+                                      <tr key={w.id}>
+                                        <td className="py-1.5 text-gray-600 whitespace-nowrap">{formatDate(w.created_at.slice(0, 10))}</td>
+                                        <td className="py-1.5 font-mono text-gray-700">{w.julian_code || "—"}</td>
+                                        <td className="py-1.5 text-right tabular-nums text-gray-600 whitespace-nowrap">
+                                          {fmtQty(w.adjusted_from_g, unit)} → {fmtQty(w.adjusted_to_g, unit)}
+                                        </td>
+                                        <td className={`py-1.5 text-right tabular-nums font-semibold whitespace-nowrap ${w.quantity_written_off_g > 0 ? "text-red-600" : "text-gray-500"}`}>
+                                          {w.quantity_written_off_g > 0 ? fmtQty(w.quantity_written_off_g, unit) : "—"}
+                                        </td>
+                                        <td className="py-1.5 pl-4 text-gray-600">{RECON_REASON_LABELS[w.reason] ?? w.reason}</td>
+                                        <td className="py-1.5 text-gray-500 hidden sm:table-cell">{w.notes || "—"}</td>
+                                        <td className="py-1.5 text-gray-500 hidden sm:table-cell">{w.created_by || "—"}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
           ) : (
             <div className="card overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
