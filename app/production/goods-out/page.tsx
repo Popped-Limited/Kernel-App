@@ -155,6 +155,10 @@ export default function GoodsOutPage() {
   // Net units out per batch_submission_id (dispatched − returned). Drives the
   // "remaining" figure when allocating a batch, so returned units free up again.
   const [dispatchedPerBatch, setDispatchedPerBatch] = useState<Record<string, number>>({});
+  // Signed sum of batch-tagged finished-goods adjustments (samples, wastage,
+  // count corrections) per batch_submission_id — a −1 sample lowers what's
+  // available to dispatch, mirroring the Finished Goods per-batch figure.
+  const [adjustedPerBatch, setAdjustedPerBatch] = useState<Record<string, number>>({});
 
   // Returns
   const [recentReturns, setRecentReturns] = useState<GoodsReturn[]>([]);
@@ -223,7 +227,7 @@ export default function GoodsOutPage() {
     // Use production checklist IDs to fetch only production submissions (no wasted limit)
     const productionChecklistIds = (clData ?? []).map(cl => cl.id);
 
-    const [dispRes, subRes, batchDispRes, returnsRes] = await Promise.all([
+    const [dispRes, subRes, batchDispRes, returnsRes, adjRes] = await Promise.all([
       supabase
         .from("dispatches")
         .select("*")
@@ -244,6 +248,10 @@ export default function GoodsOutPage() {
         .from("goods_returns")
         .select("*")
         .order("return_date", { ascending: false }),
+      supabase
+        .from("finished_goods_adjustments")
+        .select("batch_code, quantity")
+        .not("batch_code", "is", null),
     ]);
 
     if (dispRes.data) setRecentDispatches(dispRes.data as Dispatch[]);
@@ -262,19 +270,54 @@ export default function GoodsOutPage() {
     }
     setReturnedByDispatch(returnedByDisp);
 
-    if (batchDispRes.data) {
-      // Net out per batch = dispatched − returned, so returned units become available again
-      const totals: Record<string, number> = {};
-      for (const d of batchDispRes.data) {
-        if (d.batch_submission_id) {
-          totals[d.batch_submission_id] = (totals[d.batch_submission_id] ?? 0) + (d.total_units ?? 0);
-        }
+    // Net out per batch = dispatched − returned, so returned units become available again
+    const dispatchedTotals: Record<string, number> = {};
+    for (const d of (batchDispRes.data ?? [])) {
+      if (d.batch_submission_id) {
+        dispatchedTotals[d.batch_submission_id] = (dispatchedTotals[d.batch_submission_id] ?? 0) + (d.total_units ?? 0);
       }
-      for (const [batchId, qty] of Object.entries(returnedByBatch)) {
-        totals[batchId] = (totals[batchId] ?? 0) - qty;
-      }
-      setDispatchedPerBatch(totals);
     }
+    for (const [batchId, qty] of Object.entries(returnedByBatch)) {
+      dispatchedTotals[batchId] = (dispatchedTotals[batchId] ?? 0) - qty;
+    }
+    setDispatchedPerBatch(dispatchedTotals);
+
+    // Batch-tagged adjustments (samples, wastage, count corrections) are keyed by
+    // batch CODE, but a code can span several production submissions (multi-run)
+    // while dispatches link to a specific one. Distribute each code's total
+    // adjustment across its submissions — taking sampled/wasted units off the runs
+    // that still show stock first — so the code's available total matches Finished
+    // Goods and no run keeps phantom stock that's really been removed.
+    const subsByCode: Record<string, string[]> = {};
+    const producedBySub: Record<string, number> = {};
+    for (const s of ((subRes.data ?? []) as any[])) {
+      const { batchCode, totalJars } = batchSummary(s.answers ?? []);
+      producedBySub[s.id] = totalJars;
+      if (batchCode) (subsByCode[batchCode] ??= []).push(s.id);
+    }
+    const codeAdj: Record<string, number> = {};
+    for (const a of ((adjRes.data ?? []) as Array<{ batch_code: string | null; quantity: number | null }>)) {
+      if (!a.batch_code) continue;
+      codeAdj[a.batch_code] = (codeAdj[a.batch_code] ?? 0) + (a.quantity ?? 0);
+    }
+    const adjBySub: Record<string, number> = {};
+    for (const [code, adj] of Object.entries(codeAdj)) {
+      const subIds = subsByCode[code];
+      if (!subIds || subIds.length === 0) continue; // no matching run → stays product-level
+      if (adj >= 0) { adjBySub[subIds[0]] = (adjBySub[subIds[0]] ?? 0) + adj; continue; }
+      // Reduction: consume from the runs with the most stock left first.
+      const ranked = subIds
+        .map(id => ({ id, rem: (producedBySub[id] ?? 0) - (dispatchedTotals[id] ?? 0) }))
+        .sort((x, y) => y.rem - x.rem);
+      let need = -adj;
+      for (const { id, rem } of ranked) {
+        if (need <= 0) break;
+        const take = Math.min(Math.max(0, rem), need);
+        if (take > 0) { adjBySub[id] = (adjBySub[id] ?? 0) - take; need -= take; }
+      }
+      if (need > 0) adjBySub[ranked[0].id] = (adjBySub[ranked[0].id] ?? 0) - need; // over-sampled: pin remainder
+    }
+    setAdjustedPerBatch(adjBySub);
 
     setLoading(false);
   }
@@ -318,7 +361,8 @@ export default function GoodsOutPage() {
     if (!(totalJars > 0)) return null;
     const alreadyDispatched = dispatchedPerBatch[row.batchSubmissionId] ?? 0;
     const otherRowsAlloc = (formAllocatedPerBatch[row.batchSubmissionId] ?? 0) - rowTotal(row);
-    return totalJars - alreadyDispatched - otherRowsAlloc;
+    const adjusted = adjustedPerBatch[row.batchSubmissionId] ?? 0; // signed (samples are negative)
+    return totalJars - alreadyDispatched - otherRowsAlloc + adjusted;
   }
 
   function validate() {
@@ -691,7 +735,8 @@ export default function GoodsOutPage() {
                             const alreadyDispatched = dispatchedPerBatch[s.id] ?? 0;
                             const thisRowAlloc = row.batchSubmissionId === s.id ? total : 0;
                             const otherRowsAlloc = (formAllocatedPerBatch[s.id] ?? 0) - thisRowAlloc;
-                            const remaining = totalJars > 0 ? totalJars - alreadyDispatched - otherRowsAlloc : null;
+                            const adjusted = adjustedPerBatch[s.id] ?? 0; // signed; samples/wastage reduce
+                            const remaining = totalJars > 0 ? totalJars - alreadyDispatched - otherRowsAlloc + adjusted : null;
                             // Hide fully-dispatched batches (0 or negative remaining), unless
                             // this row already has it selected — so the selection never vanishes.
                             const isSelected = row.batchSubmissionId === s.id;
