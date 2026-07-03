@@ -222,6 +222,42 @@ function ChecklistPageInner() {
     return sum;
   }, [answers, runCount]);
 
+  // Live in-record stock reservation. buildIngredientMaps subtracts what OTHER
+  // drafts have reserved but deliberately excludes THIS draft; and the ingredient
+  // table only nets off rows within its own value. So a multi-run record's Run 2
+  // wouldn't see Run 1's usage. Fix: for each lot-linked question, subtract what
+  // every OTHER field of this record has already claimed (ingredients in grams,
+  // jars/lids in units), so each run's dropdown shows what's genuinely left. The
+  // permanent deduction still happens once, on submit.
+  function lotsExcludingKey(excludeKey: string): Record<string, IngredientLot[]> {
+    const used: Record<string, number> = {};
+    for (const [k, val] of Object.entries(answers)) {
+      if (k === excludeKey || typeof val !== "string" || !val) continue;
+      try {
+        const parsed = JSON.parse(val);
+        const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
+        if (!Array.isArray(rows)) continue;
+        for (const row of rows) {
+          for (const lot of (row.lots ?? [])) {
+            if (lot.lot_id && Number(lot.weight_g) > 0) used[lot.lot_id] = (used[lot.lot_id] || 0) + Number(lot.weight_g);
+          }
+          if (row.jar_lot_id && Number(row.jars_used) > 0) used[row.jar_lot_id] = (used[row.jar_lot_id] || 0) + Number(row.jars_used);
+          if (row.lids_lot_id && Number(row.lids_count) > 0) used[row.lids_lot_id] = (used[row.lids_lot_id] || 0) + Number(row.lids_count);
+        }
+      } catch { /* not a lot-linked answer — skip */ }
+    }
+    if (Object.keys(used).length === 0) return ingredientLots;
+    const out: Record<string, IngredientLot[]> = {};
+    for (const [name, lots] of Object.entries(ingredientLots)) {
+      // Keep zeroed lots visible (rather than dropping them) so a lot already
+      // selected in this question still renders, showing "0g left".
+      out[name] = lots.map((l) =>
+        used[l.id] ? { ...l, quantity_remaining_g: Math.max(0, l.quantity_remaining_g - used[l.id]) } : l
+      );
+    }
+    return out;
+  }
+
   function setRunCount(next: number) {
     const n = Math.max(1, next);
     handleAnswerChange(RUN_COUNT_KEY, String(n));
@@ -909,7 +945,13 @@ function ChecklistPageInner() {
                   value={answers[key] ?? ""}
                   onChange={(val) => handleAnswerChange(key, val)}
                   error={errors[key]}
-                  ingredientLots={ingredientLots}
+                  // Lot-linked questions see stock net of what the REST of this
+                  // record has already claimed (e.g. Run 1's usage when in Run 2).
+                  ingredientLots={
+                    q.type === "ingredient_table" || q.type === "packing_runs"
+                      ? lotsExcludingKey(key)
+                      : ingredientLots
+                  }
                   densityByName={densityByName}
                 />
               </div>
