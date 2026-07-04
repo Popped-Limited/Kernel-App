@@ -257,9 +257,9 @@ export default function GoodsOutPage() {
         .select("*")
         .order("return_date", { ascending: false })
         .range(from, to)),
-      fetchAll<{ batch_code: string | null; quantity: number | null }>((from, to) => supabase
+      fetchAll<{ batch_code: string | null; quantity: number | null; product: string }>((from, to) => supabase
         .from("finished_goods_adjustments")
-        .select("batch_code, quantity")
+        .select("batch_code, quantity, product")
         .not("batch_code", "is", null)
         .order("id")
         .range(from, to)),
@@ -297,17 +297,24 @@ export default function GoodsOutPage() {
     // adjustment across its submissions — taking sampled/wasted units off the runs
     // that still show stock first — so the code's available total matches Finished
     // Goods and no run keeps phantom stock that's really been removed.
+    //
+    // A batch code is only unique WITHIN a product (two products can reuse the same
+    // code on the same day), so key everything by product + code — otherwise a
+    // reconciliation lands on another product's run that happens to share the code.
+    const key = (product: string, code: string) => `${product} ${code}`;
     const subsByCode: Record<string, string[]> = {};
     const producedBySub: Record<string, number> = {};
     for (const s of (subData as any[])) {
       const { batchCode, totalJars } = batchSummary(s.answers ?? []);
       producedBySub[s.id] = totalJars;
-      if (batchCode) (subsByCode[batchCode] ??= []).push(s.id);
+      const product = (s.checklist?.name ?? "").replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
+      if (batchCode && product) (subsByCode[key(product, batchCode)] ??= []).push(s.id);
     }
     const codeAdj: Record<string, number> = {};
     for (const a of adjData) {
-      if (!a.batch_code) continue;
-      codeAdj[a.batch_code] = (codeAdj[a.batch_code] ?? 0) + (a.quantity ?? 0);
+      if (!a.batch_code || !a.product) continue;
+      const k = key(a.product, a.batch_code);
+      codeAdj[k] = (codeAdj[k] ?? 0) + (a.quantity ?? 0);
     }
     const adjBySub: Record<string, number> = {};
     for (const [code, adj] of Object.entries(codeAdj)) {
