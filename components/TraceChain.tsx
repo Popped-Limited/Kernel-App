@@ -3,9 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import AnswerRow from "@/components/AnswerRow";
-import { getBatchCode, type BatchInfo, type LotReconciliation, type TraceResult } from "@/lib/traceability";
-
-const g = (n: number) => `${Math.round(n).toLocaleString()} g`;
+import { getBatchCode, type BatchInfo, type TraceResult } from "@/lib/traceability";
 
 /**
  * Renders a full traceability chain (production batches → raw-material lots →
@@ -75,12 +73,9 @@ export default function TraceChain({
         )}
       </Section>
 
-      {/* Ingredient reconciliation */}
-      {result.reconciliation && result.reconciliation.length > 0 && (
-        <Section title="Ingredient reconciliation" count={result.reconciliation.length} defaultOpen={defaultOpen}>
-          <IngredientReconciliation rows={result.reconciliation} />
-        </Section>
-      )}
+      {/* The raw-material mass balance (received = used + written off + remaining
+          + unaccounted) is rendered once by <LotMassBalance>, alongside this
+          chain on every page — deliberately NOT repeated here. */}
 
       {/* Dispatches, returns & stock adjustments — one chronological timeline so
           every unit that left (or came back to) the batch reads top to bottom */}
@@ -262,76 +257,6 @@ function BatchCard({ batch, linkBack, defaultOpen }: { batch: BatchInfo; linkBac
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-/** Per-lot mass balance: where every gram went, with reasons + an unaccounted flag. */
-function IngredientReconciliation({ rows }: { rows: LotReconciliation[] }) {
-  const TOLERANCE = 1; // grams — ignore rounding dust
-  return (
-    <div className="space-y-3">
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs min-w-[640px]">
-          <thead>
-            <tr className="text-gray-500">
-              <th className="text-left py-1 font-medium">Ingredient</th>
-              <th className="text-left py-1 font-medium">Julian code</th>
-              <th className="text-right py-1 font-medium">Received</th>
-              <th className="text-right py-1 font-medium">Used</th>
-              <th className="text-right py-1 font-medium">Written off</th>
-              <th className="text-right py-1 font-medium">Remaining</th>
-              <th className="text-right py-1 font-medium">Unaccounted</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {rows.map((r) => {
-              const flagged = Math.abs(r.unaccounted_g) > TOLERANCE;
-              return (
-                <tr key={r.lot_id}>
-                  <td className="py-1.5 font-medium text-gray-900">{r.ingredient_name}</td>
-                  <td className="py-1.5 font-mono font-semibold text-gray-900">{r.julian_code}</td>
-                  <td className="py-1.5 text-right tabular-nums text-gray-600">{g(r.received_g)}</td>
-                  <td className="py-1.5 text-right tabular-nums text-gray-600">{g(r.used_g)}</td>
-                  <td className="py-1.5 text-right tabular-nums text-gray-600">{r.written_off_g ? g(r.written_off_g) : "—"}</td>
-                  <td className="py-1.5 text-right tabular-nums text-gray-600">{g(r.remaining_g)}</td>
-                  <td className={`py-1.5 text-right tabular-nums font-semibold ${flagged ? "text-red-600" : "text-green-700"}`}>
-                    {flagged ? g(r.unaccounted_g) : "✓ 0 g"}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Write-off reasons */}
-      {rows.some((r) => r.reasons.length > 0) && (
-        <div className="space-y-1.5">
-          {rows.filter((r) => r.reasons.length > 0).map((r) => (
-            <div key={r.lot_id} className="text-xs text-gray-600">
-              <span className="font-medium text-gray-800">{r.ingredient_name} ({r.julian_code}):</span>{" "}
-              {r.reasons.map((reason, i) => (
-                <span key={i}>
-                  {i > 0 && " · "}
-                  {g(reason.grams)} {reason.reason}{reason.notes ? ` — ${reason.notes}` : ""}
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Unaccounted banner */}
-      {rows.some((r) => Math.abs(r.unaccounted_g) > TOLERANCE) ? (
-        <p className="text-xs text-red-700 bg-red-50 rounded px-3 py-2">
-          ⚠ Some ingredient quantities are unaccounted for — received does not equal used + written off + remaining. Record the missing usage or a wastage write-off (with a reason) to close the gap.
-        </p>
-      ) : (
-        <p className="text-xs text-green-700 bg-green-50 rounded px-3 py-2">
-          ✓ All ingredient lots reconcile — every gram received is accounted for as used, written off, or remaining in stock.
-        </p>
-      )}
     </div>
   );
 }

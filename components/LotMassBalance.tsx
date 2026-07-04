@@ -100,6 +100,23 @@ export default function LotMassBalance({ reconciliation }: { reconciliation?: Lo
           </tbody>
         </table>
       </div>
+      {/* Write-off reasons in full text — the tooltip above won't render in a
+          printed/PDF report, so an auditor needs them spelled out here. */}
+      {reconciliation.some(r => r.reasons.length > 0) && (
+        <div className="mt-3 space-y-1">
+          {reconciliation.filter(r => r.reasons.length > 0).map(r => (
+            <div key={r.lot_id} className="text-xs text-gray-600">
+              <span className="font-medium text-gray-800">{r.ingredient_name} ({r.julian_code}):</span>{" "}
+              {r.reasons.map((w, i) => (
+                <span key={i}>
+                  {i > 0 && " · "}
+                  {fmt(w.grams, r.unit)} {REASON_LABELS[w.reason] ?? w.reason}{w.notes ? ` — ${w.notes}` : ""}
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
       {anyUnaccounted && (
         <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
           ⚠ Some material is unaccounted for — received minus production usage, write-offs and remaining stock doesn&apos;t balance. Reconcile the lot (log the wastage) so the trace fully accounts for every gram.

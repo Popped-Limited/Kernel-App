@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, Fragment } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import SaveButton from "@/components/SaveButton";
 import { fetchAll } from "@/lib/fetchAll";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Dispatch, FinishedGoodsAdjustment, GoodsReturn } from "@/lib/types";
@@ -697,9 +698,9 @@ export default function FinishedGoodsPage() {
               {reconError && <div className="mx-6 mb-2 rounded bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{reconError}</div>}
               <div className="border-t border-gray-200 px-6 pt-3 pb-3 flex gap-3">
                 <button onClick={() => setReconProduct(null)} className="btn-secondary flex-1">Cancel</button>
-                <button onClick={saveReconcile} disabled={reconSaving || reconTarget === ""} className="btn-primary flex-1">
-                  {reconSaving ? "Saving…" : "Save"}
-                </button>
+                <SaveButton onClick={saveReconcile} saving={reconSaving} disabled={reconTarget === ""} className="btn-primary flex-1">
+                  Save
+                </SaveButton>
               </div>
             </div>
           </div>

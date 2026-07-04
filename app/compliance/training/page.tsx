@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import SaveButton from "@/components/SaveButton";
 import { fetchAll } from "@/lib/fetchAll";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import TrainingSessionFlow from "@/components/TrainingSessionFlow";
@@ -476,9 +477,9 @@ export default function TrainingPage() {
               ) : <span />}
               <div className="flex gap-2">
                 <button onClick={() => setModal(null)} className="btn-ghost text-sm">Cancel</button>
-                <button onClick={saveRecord} disabled={saving || !modalDate} className="btn-primary text-sm">
-                  {saving ? "Saving…" : "Mark complete"}
-                </button>
+                <SaveButton onClick={saveRecord} saving={saving} disabled={!modalDate} className="btn-primary text-sm">
+                  Mark complete
+                </SaveButton>
               </div>
             </div>
           </div>

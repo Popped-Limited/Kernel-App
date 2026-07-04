@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import SaveButton from "@/components/SaveButton";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Checklist } from "@/lib/types";
 
@@ -410,11 +411,13 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
                   className="input text-sm flex-1"
                   autoFocus
                 />
-                <button
+                <SaveButton
                   onClick={() => addEvent(customTitle.trim(), "custom")}
-                  disabled={!customTitle.trim() || saving}
+                  saving={saving}
+                  savingLabel="Adding…"
+                  disabled={!customTitle.trim()}
                   className="btn-primary text-xs shrink-0 disabled:opacity-40"
-                >{saving ? "…" : "Add"}</button>
+                >Add</SaveButton>
                 <button
                   onClick={() => { setAddingCustom(false); setCustomTitle(""); }}
                   className="text-xs text-gray-400 hover:text-gray-600 transition"

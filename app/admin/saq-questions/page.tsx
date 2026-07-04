@@ -4,6 +4,7 @@ import BackButton from "@/components/BackButton";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import SaveButton from "@/components/SaveButton";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 
 interface SAQQuestion {
@@ -566,13 +567,13 @@ export default function SAQQuestionsPage() {
               )}
 
               <div className="flex items-center gap-3">
-                <button
+                <SaveButton
                   onClick={handleSave}
-                  disabled={saving}
+                  saving={saving}
                   className="btn-primary flex-1 text-sm"
                 >
-                  {saving ? "Saving…" : isNew ? "Add Question" : "Save Changes"}
-                </button>
+                  {isNew ? "Add Question" : "Save Changes"}
+                </SaveButton>
                 <button onClick={closePanel} className="btn-ghost text-sm px-4">
                   Cancel
                 </button>

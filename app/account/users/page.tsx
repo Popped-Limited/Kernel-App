@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import { supabase } from "@/lib/supabase";
+import SaveButton from "@/components/SaveButton";
 
 interface Member {
   user_id:   string;
@@ -47,7 +48,7 @@ export default function UsersPage() {
   // Company name
   const [companyName, setCompanyName]     = useState("");
   const [nameSaving, setNameSaving]       = useState(false);
-  const [nameSuccess, setNameSuccess]     = useState("");
+  const [nameSaved, setNameSaved]         = useState(false);
   const [nameError, setNameError]         = useState("");
 
   useEffect(() => { setCompanyName(orgName ?? ""); }, [orgName]);
@@ -56,6 +57,7 @@ export default function UsersPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole]   = useState("staff");
   const [inviting, setInviting]           = useState(false);
+  const [inviteSaved, setInviteSaved]     = useState(false);
   const [inviteSuccess, setInviteSuccess] = useState("");
   const [inviteError, setInviteError]     = useState("");
   const [removing, setRemoving]           = useState<string | null>(null);
@@ -65,8 +67,8 @@ export default function UsersPage() {
   const [newPassword, setNewPassword]         = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pwSaving, setPwSaving]               = useState(false);
+  const [pwSaved, setPwSaved]                 = useState(false);
   const [pwError, setPwError]                 = useState("");
-  const [pwSuccess, setPwSuccess]             = useState("");
 
   useEffect(() => { load(); }, []);
 
@@ -96,14 +98,14 @@ export default function UsersPage() {
 
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
-    setPwError(""); setPwSuccess("");
+    setPwError(""); setPwSaved(false);
     if (newPassword.length < 8) { setPwError("Password must be at least 8 characters"); return; }
     if (newPassword !== confirmPassword) { setPwError("Passwords don't match"); return; }
     setPwSaving(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setPwSaving(false);
     if (error) { setPwError(error.message); }
-    else { setPwSuccess("Password updated successfully"); setNewPassword(""); setConfirmPassword(""); }
+    else { setPwSaved(true); setNewPassword(""); setConfirmPassword(""); }
   }
 
   async function removeMember(userId: string, name: string) {
@@ -122,7 +124,7 @@ export default function UsersPage() {
 
   async function saveCompanyName(e: React.FormEvent) {
     e.preventDefault();
-    setNameError(""); setNameSuccess("");
+    setNameError(""); setNameSaved(false);
     if (!companyName.trim()) { setNameError("Company name can't be blank"); return; }
     setNameSaving(true);
     const { error } = await supabase
@@ -131,12 +133,13 @@ export default function UsersPage() {
       .eq("id", orgId!);
     setNameSaving(false);
     if (error) { setNameError(error.message); }
-    else { setOrgName(companyName.trim()); setNameSuccess("Saved"); }
+    else { setOrgName(companyName.trim()); setNameSaved(true); }
   }
 
   async function sendInvite(e: React.FormEvent) {
     e.preventDefault();
     setInviting(true);
+    setInviteSaved(false);
     setInviteError("");
     setInviteSuccess("");
 
@@ -150,6 +153,7 @@ export default function UsersPage() {
     if (!res.ok) {
       setInviteError(data.error ?? "Failed to send invite");
     } else {
+      setInviteSaved(true);
       setInviteSuccess(`Invite sent to ${inviteEmail.trim()}`);
       setInviteEmail("");
       load();
@@ -185,18 +189,17 @@ export default function UsersPage() {
               <input
                 type="text"
                 value={companyName}
-                onChange={e => { setCompanyName(e.target.value); setNameSuccess(""); setNameError(""); }}
+                onChange={e => { setCompanyName(e.target.value); setNameError(""); }}
                 className="input"
                 placeholder="e.g. Popped Limited"
                 disabled={nameSaving}
               />
             </div>
-            <button type="submit" disabled={nameSaving || !companyName.trim()} className="btn-primary px-5 py-2 shrink-0">
-              {nameSaving ? "Saving…" : "Save"}
-            </button>
+            <SaveButton type="submit" saving={nameSaving} saved={nameSaved} disabled={!companyName.trim()} className="btn-primary px-5 py-2 shrink-0">
+              Save
+            </SaveButton>
           </form>
-          {nameError   && <p className="text-sm text-red-600 mt-2">{nameError}</p>}
-          {nameSuccess && <p className="text-sm text-green-700 mt-2">{nameSuccess}</p>}
+          {nameError && <p className="text-sm text-red-600 mt-2">{nameError}</p>}
         </div>
       )}
 
@@ -308,9 +311,9 @@ export default function UsersPage() {
             {inviteError   && <p className="text-sm text-red-600">{inviteError}</p>}
             {inviteSuccess && <p className="text-sm text-green-700">{inviteSuccess}</p>}
 
-            <button type="submit" disabled={inviting || !inviteEmail.trim()} className="btn-primary px-5 py-2">
-              {inviting ? "Sending…" : "Send invite"}
-            </button>
+            <SaveButton type="submit" saving={inviting} saved={inviteSaved} disabled={!inviteEmail.trim()} savingLabel="Sending…" savedLabel="Invite sent" className="btn-primary px-5 py-2">
+              Send invite
+            </SaveButton>
           </form>
           <p className="mt-3 text-xs text-brown/40">
             They&apos;ll receive an email with a link to join your Kernel account.
@@ -345,11 +348,10 @@ export default function UsersPage() {
               autoComplete="new-password"
             />
           </div>
-          {pwError   && <p className="text-sm text-red-600">{pwError}</p>}
-          {pwSuccess && <p className="text-sm text-green-700">{pwSuccess}</p>}
-          <button type="submit" disabled={pwSaving || !newPassword || !confirmPassword} className="btn-primary px-5 py-2">
-            {pwSaving ? "Updating…" : "Update password"}
-          </button>
+          {pwError && <p className="text-sm text-red-600">{pwError}</p>}
+          <SaveButton type="submit" saving={pwSaving} saved={pwSaved} disabled={!newPassword || !confirmPassword} savingLabel="Updating…" savedLabel="Password updated" className="btn-primary px-5 py-2">
+            Update password
+          </SaveButton>
         </form>
       </div>
     </main>

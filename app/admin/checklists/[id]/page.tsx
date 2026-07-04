@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import SaveButton from "@/components/SaveButton";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Checklist, ChecklistReminder, ReminderFrequency, Question, QuestionType, ChecklistFrequency } from "@/lib/types";
 import { FREQUENCIES, QUESTION_TYPES } from "@/lib/constants";
@@ -284,7 +285,7 @@ export default function EditChecklistPage() {
                 <textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} rows={2} className="input resize-none" />
               </div>
               <div className="flex gap-2">
-                <button onClick={saveMeta} disabled={saving} className="btn-primary">{saving ? "Saving…" : "Save"}</button>
+                <SaveButton onClick={saveMeta} saving={saving}>Save</SaveButton>
                 <button onClick={() => setEditingMeta(false)} className="btn-secondary">Cancel</button>
                 <button onClick={deleteChecklist} className="ml-auto text-sm text-red-500 hover:text-red-700 transition">Delete checklist</button>
               </div>
@@ -721,9 +722,9 @@ function RemindersCard({ checklistId, orgId }: { checklistId: string; orgId: str
           )}
 
           <div className="flex gap-2 pt-1">
-            <button onClick={addReminder} disabled={saving || !canSave} className="btn-primary text-sm">
-              {saving ? "Saving…" : "Save reminder"}
-            </button>
+            <SaveButton onClick={addReminder} saving={saving} disabled={!canSave} className="btn-primary text-sm">
+              Save reminder
+            </SaveButton>
             <button onClick={resetForm} className="btn-secondary text-sm">Cancel</button>
           </div>
         </div>
@@ -1165,9 +1166,9 @@ function QuestionEditor({ question, isNew, saving, onChange, onSave, onCancel, c
         </div>
 
         <div className="flex gap-3 pt-1">
-          <button onClick={onSave} disabled={saving || !question.label?.trim()} className="btn-primary flex-1">
-            {saving ? "Saving…" : isNew ? "Add question" : "Save changes"}
-          </button>
+          <SaveButton onClick={onSave} saving={saving} disabled={!question.label?.trim()} className="btn-primary flex-1">
+            {isNew ? "Add question" : "Save changes"}
+          </SaveButton>
           <button onClick={onCancel} className="btn-secondary">Cancel</button>
         </div>
       </div>

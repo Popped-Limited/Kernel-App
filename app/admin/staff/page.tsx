@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import SaveButton from "@/components/SaveButton";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import { useGuidedTour } from "@/lib/useGuidedTour";
 
@@ -331,9 +332,9 @@ export default function StaffPage() {
 
             <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
               <button onClick={close} className="btn-ghost">Cancel</button>
-              <button data-tour="staff-save" onClick={save} disabled={saving} className="btn-primary">
-                {saving ? "Saving…" : isNew ? "Add Member" : "Save Changes"}
-              </button>
+              <SaveButton data-tour="staff-save" onClick={save} saving={saving}>
+                {isNew ? "Add Member" : "Save Changes"}
+              </SaveButton>
             </div>
           </div>
         </div>

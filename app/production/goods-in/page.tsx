@@ -8,6 +8,7 @@ import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Ingredient, IngredientLot, Question } from "@/lib/types";
 import { formatDate, todayJulianCode } from "@/lib/utils";
 import PhotoCapture from "@/components/PhotoCapture";
+import SaveButton from "@/components/SaveButton";
 import { uploadPhotoAnswers } from "@/lib/photoUpload";
 import { fetchAll } from "@/lib/fetchAll";
 
@@ -261,6 +262,7 @@ function validate() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
+    setSaved(false);
     setSaving(true);
 
     const supplierName = suppliers.find(s => s.id === supplierId)?.name ?? null;
@@ -339,7 +341,6 @@ function validate() {
     setReceivedDateTime(nowLocalDateTime());
     setErrors({});
     await load();
-    setTimeout(() => setSaved(false), 3000);
   }
 
   return (
@@ -581,10 +582,9 @@ function validate() {
             )}
 
             <div className="flex items-center gap-3 pt-1">
-              <button type="submit" disabled={saving} className="btn-primary">
-                {saving ? "Saving…" : "Save delivery"}
-              </button>
-              {saved && <span className="text-sm text-brown/70 font-medium">Saved ✓</span>}
+              <SaveButton type="submit" saving={saving} saved={saved} savedLabel="Delivery saved">
+                Save delivery
+              </SaveButton>
             </div>
           </form>
         </div>
@@ -729,9 +729,9 @@ function validate() {
             <div className="border-t border-gray-200 px-6 pt-3 pb-3">
               <div className="flex gap-3">
                 <button onClick={() => setEditingLot(null)} className="btn-ghost flex-1">Cancel</button>
-                <button onClick={saveEditLot} disabled={editSaving} className="btn-primary flex-1">
-                  {editSaving ? "Saving…" : "Save changes"}
-                </button>
+                <SaveButton onClick={saveEditLot} saving={editSaving} className="btn-primary flex-1">
+                  Save changes
+                </SaveButton>
               </div>
             </div>
           </div>

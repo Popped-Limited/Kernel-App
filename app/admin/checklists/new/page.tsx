@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import SaveButton from "@/components/SaveButton";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { ChecklistFrequency } from "@/lib/types";
 import { FREQUENCIES } from "@/lib/constants";
@@ -94,9 +95,9 @@ export default function NewChecklistPage() {
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex gap-3 pt-1">
-            <button type="submit" disabled={saving} className="btn-primary flex-1">
-              {saving ? "Creating…" : "Create & add questions →"}
-            </button>
+            <SaveButton type="submit" saving={saving} savingLabel="Creating…" className="btn-primary flex-1">
+              Create &amp; add questions →
+            </SaveButton>
             <Link href="/admin/checklists" className="btn-secondary">Cancel</Link>
           </div>
         </form>

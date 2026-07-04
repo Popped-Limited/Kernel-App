@@ -4,6 +4,7 @@ import BackButton from "@/components/BackButton";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import SaveButton from "@/components/SaveButton";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import DocUploader from "@/components/DocUploader";
 import RiskCalculator from "@/components/RiskCalculator";
@@ -795,9 +796,9 @@ export default function SuppliersPage() {
               )}
               <div className="flex gap-3">
                 <button onClick={closePanel} className="btn-ghost flex-1">Cancel</button>
-                <button data-tour="supplier-save" onClick={save} disabled={saving || missingRequired.length > 0} className="btn-primary flex-1">
-                  {saving ? "Saving…" : isNew ? "Add Supplier" : "Save Changes"}
-                </button>
+                <SaveButton data-tour="supplier-save" onClick={save} saving={saving} disabled={missingRequired.length > 0} className="btn-primary flex-1">
+                  {isNew ? "Add Supplier" : "Save Changes"}
+                </SaveButton>
               </div>
             </div>
           </div>

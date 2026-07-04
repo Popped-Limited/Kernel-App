@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import SaveButton from "@/components/SaveButton";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Ingredient, IngredientLot } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
@@ -1156,13 +1157,14 @@ export default function RawMaterialsPage() {
               <div className="border-t border-gray-200 px-6 pt-3 pb-3">
                 <div className="flex gap-3">
                   <button onClick={() => setReconLot(null)} className="btn-ghost flex-1">Cancel</button>
-                  <button
+                  <SaveButton
                     onClick={saveReconcile}
-                    disabled={reconSaving || reconInput === "" || overRemove || overVariance}
+                    saving={reconSaving}
+                    disabled={reconInput === "" || overRemove || overVariance}
                     className="btn-primary flex-1"
                   >
-                    {reconSaving ? "Saving…" : isVariance ? "Log variance" : "Save reconciliation"}
-                  </button>
+                    {isVariance ? "Log variance" : "Save reconciliation"}
+                  </SaveButton>
                 </div>
               </div>
             </div>
@@ -1377,9 +1379,9 @@ export default function RawMaterialsPage() {
               )}
               <div className="flex gap-3">
                 <button onClick={() => setEditing(null)} className="btn-ghost flex-1">Cancel</button>
-                <button data-tour="ingredient-save" onClick={saveEdit} disabled={saving} className="btn-primary flex-1">
-                  {saving ? "Saving…" : isNew ? "Create" : "Save"}
-                </button>
+                <SaveButton data-tour="ingredient-save" onClick={saveEdit} saving={saving} className="btn-primary flex-1">
+                  {isNew ? "Create" : "Save"}
+                </SaveButton>
               </div>
             </div>
           </div>

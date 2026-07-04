@@ -8,6 +8,7 @@ import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Dispatch, Submission, Checklist, Question, GoodsReturn } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import PhotoCapture from "@/components/PhotoCapture";
+import SaveButton from "@/components/SaveButton";
 import { uploadPhotoAnswers } from "@/lib/photoUpload";
 import { expandRunValues } from "@/lib/production-runs";
 import { fetchAll } from "@/lib/fetchAll";
@@ -301,7 +302,7 @@ export default function GoodsOutPage() {
     // A batch code is only unique WITHIN a product (two products can reuse the same
     // code on the same day), so key everything by product + code — otherwise a
     // reconciliation lands on another product's run that happens to share the code.
-    const key = (product: string, code: string) => `${product} ${code}`;
+    const key = (product: string, code: string) => `${product}\u0000${code}`;
     const subsByCode: Record<string, string[]> = {};
     const producedBySub: Record<string, number> = {};
     for (const s of (subData as any[])) {
@@ -403,6 +404,7 @@ export default function GoodsOutPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
+    setSaved(false);
     setSaving(true);
 
     const dispatchDate = dispatchDateTime.slice(0, 10);
@@ -489,7 +491,6 @@ export default function GoodsOutPage() {
     setDispatchDateTime(nowLocalDateTime());
     setErrors({});
     await load();
-    setTimeout(() => setSaved(false), 3000);
   }
 
   // Units still out for a dispatch = dispatched − already returned (the cap on a new return)
@@ -860,10 +861,9 @@ export default function GoodsOutPage() {
             )}
 
             <div className="flex items-center gap-3 pt-1">
-              <button type="submit" disabled={saving} className="btn-primary">
-                {saving ? "Saving…" : `Log dispatch (${rows.length} product${rows.length !== 1 ? "s" : ""})`}
-              </button>
-              {saved && <span className="text-sm text-brown/70 font-medium">Saved ✓</span>}
+              <SaveButton type="submit" saving={saving} saved={saved} savedLabel="Dispatch saved">
+                {`Log dispatch (${rows.length} product${rows.length !== 1 ? "s" : ""})`}
+              </SaveButton>
             </div>
           </form>
         </div>
@@ -1025,9 +1025,9 @@ export default function GoodsOutPage() {
 
             <div className="border-t border-gray-200 px-6 pt-3 pb-3 flex gap-3">
               <button onClick={() => setEditingDispatch(null)} className="btn-ghost flex-1">Cancel</button>
-              <button onClick={saveEditDispatch} disabled={editSaving} className="btn-primary flex-1">
-                {editSaving ? "Saving…" : "Save changes"}
-              </button>
+              <SaveButton onClick={saveEditDispatch} saving={editSaving} className="btn-primary flex-1">
+                Save changes
+              </SaveButton>
             </div>
           </div>
         </div>
@@ -1083,9 +1083,9 @@ export default function GoodsOutPage() {
 
               <div className="border-t border-gray-200 px-6 pt-3 pb-3 flex gap-3">
                 <button onClick={() => setReturnDispatch(null)} className="btn-ghost flex-1">Cancel</button>
-                <button onClick={saveReturn} disabled={returnSaving || returnQty === ""} className="btn-primary flex-1">
-                  {returnSaving ? "Saving…" : "Record return"}
-                </button>
+                <SaveButton onClick={saveReturn} saving={returnSaving} disabled={returnQty === ""} className="btn-primary flex-1">
+                  Record return
+                </SaveButton>
               </div>
             </div>
           </div>

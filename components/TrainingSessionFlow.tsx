@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import SaveButton from "@/components/SaveButton";
 
 interface TeamMember { id: string; name: string; position: string | null; active: boolean; }
 interface TrainingItem { id: string; name: string; sort_order: number; active: boolean; document_path?: string | null; }
@@ -258,9 +259,9 @@ export default function TrainingSessionFlow({ members, items, records, orgId, on
             {docItems.length > 0 ? (
               <button onClick={() => setStep("slides")} className="btn-ghost text-sm">← Back to documents</button>
             ) : <span />}
-            <button onClick={saveSession} disabled={saving || !signBy.trim() || !signDate} className="btn-primary text-sm">
-              {saving ? "Saving…" : "Complete training"}
-            </button>
+            <SaveButton onClick={saveSession} saving={saving} disabled={!signBy.trim() || !signDate} className="btn-primary text-sm">
+              Complete training
+            </SaveButton>
           </div>
         </div>
       )}

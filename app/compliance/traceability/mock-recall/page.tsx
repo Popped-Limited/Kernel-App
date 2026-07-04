@@ -4,6 +4,7 @@ import BackButton from "@/components/BackButton";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import SaveButton from "@/components/SaveButton";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import TraceChain from "@/components/TraceChain";
 import LotMassBalance from "@/components/LotMassBalance";
@@ -558,9 +559,9 @@ export default function MockRecallPage() {
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex justify-end gap-2">
-            <button onClick={handleSave} disabled={!canSave} className="btn-primary">
-              {saving ? "Saving…" : "Save mock recall"}
-            </button>
+            <SaveButton onClick={handleSave} saving={saving} disabled={!canSave}>
+              Save mock recall
+            </SaveButton>
           </div>
         </div>
       )}

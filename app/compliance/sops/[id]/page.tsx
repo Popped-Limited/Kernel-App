@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import SaveButton from "@/components/SaveButton";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { SOP, SOPStep } from "@/lib/types";
 const CATEGORIES = ["Production", "Cleaning", "Fulfilment", "Health & Safety", "Allergen Management", "Other"];
@@ -218,9 +219,9 @@ export default function SOPBuilderPage() {
               />
             ))}
 
-            <button onClick={addStep} disabled={saving} className="btn-secondary w-full">
-              {saving ? "Adding…" : "+ Add step"}
-            </button>
+            <SaveButton onClick={addStep} saving={saving} savingLabel="Adding…" className="btn-secondary w-full">
+              + Add step
+            </SaveButton>
           </div>
 
           {/* Danger zone */}

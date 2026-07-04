@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import SaveButton from "@/components/SaveButton";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import { useGuidedTour } from "@/lib/useGuidedTour";
 import type { Ingredient } from "@/lib/types";
@@ -820,9 +821,9 @@ export default function ProductionBuilderPage() {
           {step < STEPS.length ? (
             <button data-tour="prod-next" type="button" onClick={next} className="btn-primary">Next →</button>
           ) : (
-            <button type="button" onClick={create} disabled={saving} className="btn-primary">
-              {saving ? "Creating…" : "Create production run →"}
-            </button>
+            <SaveButton type="button" onClick={create} saving={saving} savingLabel="Creating…">
+              Create production run →
+            </SaveButton>
           )}
         </div>
       </div>
