@@ -27,16 +27,31 @@ export default function PhotoCapture({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
+  const [ready, setReady] = useState(false); // video has a real frame to capture
   const [camErr, setCamErr] = useState<string | null>(null);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     setCameraOn(false);
+    setReady(false);
   }, []);
 
   // Always release the camera when the component unmounts.
   useEffect(() => stopCamera, [stopCamera]);
+
+  // Attach the stream once the <video> is actually mounted. Doing this in an
+  // effect (rather than a one-shot requestAnimationFrame right after setState)
+  // guarantees the element exists, so the first "Take photo" reliably shows the
+  // live feed instead of a black frame that only fixed itself on a second try.
+  useEffect(() => {
+    if (!cameraOn) return;
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!video || !stream) return;
+    video.srcObject = stream;
+    video.play().catch(() => {});
+  }, [cameraOn]);
 
   async function startCamera() {
     setCamErr(null);
@@ -50,14 +65,8 @@ export default function PhotoCapture({
         audio: false,
       });
       streamRef.current = stream;
-      setCameraOn(true);
-      // The <video> only exists after this state change renders.
-      requestAnimationFrame(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(() => {});
-        }
-      });
+      setReady(false);
+      setCameraOn(true); // the effect above wires the stream into the <video>
     } catch {
       setCamErr("Couldn't access the camera. Check browser permissions, or use Upload.");
     }
@@ -65,10 +74,11 @@ export default function PhotoCapture({
 
   function capture() {
     const video = videoRef.current;
-    if (!video) return;
+    // Guard against capturing before the first frame has decoded (black image).
+    if (!video || !video.videoWidth || video.readyState < 2) return;
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -89,13 +99,27 @@ export default function PhotoCapture({
     return (
       <div className="overflow-hidden rounded-xl border-2 border-brand/40 bg-black">
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <video ref={videoRef} autoPlay playsInline muted className="max-h-72 w-full bg-black object-contain" />
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          onLoadedMetadata={() => videoRef.current?.play().catch(() => {})}
+          onCanPlay={() => setReady(true)}
+          onPlaying={() => setReady(true)}
+          className="max-h-72 w-full bg-black object-contain"
+        />
         <div className="flex items-center justify-between gap-2 bg-gray-900 px-3 py-2">
           <button type="button" onClick={stopCamera} className="text-xs font-medium text-gray-300 hover:text-white">
             Cancel
           </button>
-          <button type="button" onClick={capture} className="rounded-full bg-brand px-5 py-1.5 text-sm font-semibold text-brown">
-            Capture
+          <button
+            type="button"
+            onClick={capture}
+            disabled={!ready}
+            className="rounded-full bg-brand px-5 py-1.5 text-sm font-semibold text-brown disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {ready ? "Capture" : "Starting camera…"}
           </button>
         </div>
       </div>
