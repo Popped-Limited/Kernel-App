@@ -1,3 +1,5 @@
+"use client";
+import { useState } from "react";
 import type { LotReconciliation } from "@/lib/traceability";
 
 const REASON_LABELS: Record<string, string> = {
@@ -24,12 +26,35 @@ function isUnaccounted(r: LotReconciliation) {
  * auditor can see every gram is accounted for.
  */
 export default function LotMassBalance({ reconciliation }: { reconciliation?: LotReconciliation[] }) {
+  // Collapsed by default — the header carries the verdict (✓ or ⚠ count) so
+  // nothing important is hidden; expand for the per-lot breakdown.
+  const [open, setOpen] = useState(false);
   if (!reconciliation || reconciliation.length === 0) return null;
-  const anyUnaccounted = reconciliation.some(isUnaccounted);
+  const unaccountedCount = reconciliation.filter(isUnaccounted).length;
+  const anyUnaccounted = unaccountedCount > 0;
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Raw-material mass balance</p>
+    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left transition hover:bg-gray-50 focus:outline-none"
+      >
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 flex-1">Raw-material mass balance</span>
+        {anyUnaccounted ? (
+          <span className="text-xs font-medium rounded-full px-2 py-0.5 bg-amber-100 text-amber-800">
+            ⚠ {unaccountedCount} lot{unaccountedCount !== 1 ? "s" : ""} unaccounted
+          </span>
+        ) : (
+          <span className="text-xs font-medium rounded-full px-2 py-0.5 bg-green-100 text-green-700">✓ all reconcile</span>
+        )}
+        <span className="text-xs font-medium rounded-full px-2 py-0.5 bg-gray-100 text-gray-500">{reconciliation.length}</span>
+        <svg className={`h-4 w-4 opacity-60 transition-transform print:hidden ${open ? "rotate-90" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 4l4 4-4 4" />
+        </svg>
+      </button>
+      {/* Collapsed content stays in the DOM (hidden) so Print / save PDF always includes it */}
+      <div className={`px-4 pb-4 ${open ? "" : "hidden print:block"}`}>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="text-gray-500 border-b border-gray-200">
@@ -80,6 +105,7 @@ export default function LotMassBalance({ reconciliation }: { reconciliation?: Lo
           ⚠ Some material is unaccounted for — received minus production usage, write-offs and remaining stock doesn&apos;t balance. Reconcile the lot (log the wastage) so the trace fully accounts for every gram.
         </p>
       )}
+      </div>
     </div>
   );
 }

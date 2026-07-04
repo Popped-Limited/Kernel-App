@@ -253,17 +253,15 @@ function BatchCard({ batch, linkBack, defaultOpen }: { batch: BatchInfo; linkBac
         </button>
         <Link href={`/submission/${batch.id}?back=${linkBack}`} className="btn-ghost text-xs shrink-0 print:hidden">Open ↗</Link>
       </div>
-      {open && (
-        <div className="border-t border-gray-100">
-          {answers.length === 0 ? (
-            <p className="px-5 py-3 text-xs text-gray-400">No answers recorded.</p>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {answers.map((a) => <AnswerRow key={a.id} answer={a} />)}
-            </div>
-          )}
-        </div>
-      )}
+      <div className={`border-t border-gray-100 ${open ? "" : "hidden print:block"}`}>
+        {answers.length === 0 ? (
+          <p className="px-5 py-3 text-xs text-gray-400">No answers recorded.</p>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {answers.map((a) => <AnswerRow key={a.id} answer={a} />)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -364,7 +362,9 @@ function Section({
           <path d="M6 4l4 4-4 4" />
         </svg>
       </button>
-      {open && <div className="px-4 py-3 overflow-x-auto">{children}</div>}
+      {/* Collapsed content stays in the DOM (hidden) so Print / save PDF always
+          includes the full chain regardless of what's expanded on screen. */}
+      <div className={`px-4 py-3 overflow-x-auto ${open ? "" : "hidden print:block"}`}>{children}</div>
     </div>
   );
 }

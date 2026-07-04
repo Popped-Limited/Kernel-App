@@ -429,8 +429,8 @@ export default function MockRecallPage() {
           {/* Raw-material mass balance (received = used + written off + remaining + unaccounted) */}
           <LotMassBalance reconciliation={result.reconciliation} />
 
-          {/* The chain */}
-          <TraceChain result={result} defaultOpen linkBack="/compliance/traceability/mock-recall" />
+          {/* The chain — sections start collapsed; expand only what you need to inspect */}
+          <TraceChain result={result} linkBack="/compliance/traceability/mock-recall" />
 
           {/* Findings */}
           <div className="card p-5 space-y-4">

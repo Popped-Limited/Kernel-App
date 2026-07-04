@@ -106,8 +106,8 @@ export default function RecallReportPage() {
       {/* Raw-material mass balance, frozen at recall time */}
       <LotMassBalance reconciliation={recall.trace_snapshot?.reconciliation} />
 
-      {/* The frozen chain */}
-      <TraceChain result={recall.trace_snapshot} defaultOpen linkBack={`/compliance/traceability/recalls/${recall.id}`} />
+      {/* The frozen chain — collapsed on screen; printing always includes everything */}
+      <TraceChain result={recall.trace_snapshot} linkBack={`/compliance/traceability/recalls/${recall.id}`} />
 
       {/* Findings */}
       <div className="card p-5 space-y-4">
