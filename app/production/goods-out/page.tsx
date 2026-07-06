@@ -562,20 +562,29 @@ export default function GoodsOutPage() {
   }
 
   /**
-   * Units a batch can still supply to the dispatch being edited: produced −
-   * net dispatched (excluding this dispatch's own units when it's already
-   * linked to that batch) + signed adjustments. null = no produced figure.
+   * Live units left in a batch right now (same figure as Finished Goods):
+   * produced − net dispatched + signed adjustments. null = no produced figure.
    */
-  function editBatchRemaining(batchSubmissionId: string): number | null {
+  function liveBatchRemaining(batchSubmissionId: string): number | null {
     const s = batchSubmissions.find(b => b.id === batchSubmissionId);
     if (!s) return null;
     const { totalJars } = batchSummary((s as any).answers ?? []);
     if (totalJars <= 0) return null;
+    return totalJars - (dispatchedPerBatch[batchSubmissionId] ?? 0) + (adjustedPerBatch[batchSubmissionId] ?? 0);
+  }
+
+  /**
+   * Units a batch can supply to the dispatch being edited: live stock PLUS this
+   * dispatch's own units when it's already linked there (they come back on save).
+   * Used for validation — the dropdown shows the live figure to match Finished Goods.
+   */
+  function editBatchRemaining(batchSubmissionId: string): number | null {
+    const live = liveBatchRemaining(batchSubmissionId);
+    if (live === null) return null;
     const ownUnits = editingDispatch?.batch_submission_id === batchSubmissionId
       ? (editingDispatch.total_units ?? 0)
       : 0;
-    const netOthers = (dispatchedPerBatch[batchSubmissionId] ?? 0) - ownUnits;
-    return totalJars - netOthers + (adjustedPerBatch[batchSubmissionId] ?? 0);
+    return live + ownUnits;
   }
 
   async function saveEditDispatch() {
@@ -1032,13 +1041,18 @@ export default function GoodsOutPage() {
                     <option value="">No batch linked</option>
                     {batchesForProduct(editProduct).map(s => {
                       const { batchCode } = batchSummary((s as any).answers ?? []);
-                      const remaining = editBatchRemaining(s.id);
+                      // Show LIVE stock (matches Finished Goods); validate against
+                      // capacity (live + this dispatch's own units on its current batch).
+                      const live = liveBatchRemaining(s.id);
+                      const capacity = editBatchRemaining(s.id);
                       const isSelected = editBatchId === s.id;
-                      // Hide fully-dispatched batches unless already selected
-                      if (remaining !== null && remaining <= 0 && !isSelected) return null;
+                      const isCurrent = editingDispatch.batch_submission_id === s.id;
+                      // Hide batches with nothing to give this dispatch, unless selected/current
+                      if (capacity !== null && capacity <= 0 && !isSelected && !isCurrent) return null;
                       const label = [
                         batchCode ? `Batch ${batchCode}` : formatDate(s.submitted_at.slice(0, 10)),
-                        remaining !== null ? `${remaining.toLocaleString()} remaining` : null,
+                        live !== null ? `${live.toLocaleString()} in stock` : null,
+                        isCurrent ? "currently linked" : null,
                       ].filter(Boolean).join(" · ");
                       return <option key={s.id} value={s.id}>{label}</option>;
                     })}
