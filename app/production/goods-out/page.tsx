@@ -184,6 +184,10 @@ export default function GoodsOutPage() {
   const [editRef, setEditRef]                 = useState("");
   const [editDispatchedBy, setEditDispatchedBy] = useState("");
   const [editNotes, setEditNotes]             = useState("");
+  // The linked batch is editable too (a mis-linked batch silently corrupts the
+  // per-batch stock figures). Stock is computed live from dispatch links, so
+  // re-pointing this automatically restocks the old batch and draws down the new.
+  const [editBatchId, setEditBatchId]         = useState("");
   const [editSaving, setEditSaving]           = useState(false);
   const [editError, setEditError]             = useState("");
 
@@ -544,7 +548,34 @@ export default function GoodsOutPage() {
     setEditRef(d.reference ?? "");
     setEditDispatchedBy(d.dispatched_by);
     setEditNotes(d.notes ?? "");
+    setEditBatchId(d.batch_submission_id ?? "");
     setEditError("");
+  }
+
+  /** Production batches whose checklist matches a product name (same rule as the create form). */
+  function batchesForProduct(product: string) {
+    if (!product) return [];
+    return batchSubmissions.filter(s => {
+      const name = (s.checklist?.name ?? "").replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
+      return name.toLowerCase() === product.toLowerCase();
+    });
+  }
+
+  /**
+   * Units a batch can still supply to the dispatch being edited: produced −
+   * net dispatched (excluding this dispatch's own units when it's already
+   * linked to that batch) + signed adjustments. null = no produced figure.
+   */
+  function editBatchRemaining(batchSubmissionId: string): number | null {
+    const s = batchSubmissions.find(b => b.id === batchSubmissionId);
+    if (!s) return null;
+    const { totalJars } = batchSummary((s as any).answers ?? []);
+    if (totalJars <= 0) return null;
+    const ownUnits = editingDispatch?.batch_submission_id === batchSubmissionId
+      ? (editingDispatch.total_units ?? 0)
+      : 0;
+    const netOthers = (dispatchedPerBatch[batchSubmissionId] ?? 0) - ownUnits;
+    return totalJars - netOthers + (adjustedPerBatch[batchSubmissionId] ?? 0);
   }
 
   async function saveEditDispatch() {
@@ -554,21 +585,14 @@ export default function GoodsOutPage() {
     if (!editDispatchedBy.trim()) { setEditError("Dispatched by is required"); return; }
     const total = Number(editCasesOf6) * 6 + Number(editCasesOf3) * 3 + Number(editSingles);
     if (total <= 0) { setEditError("Enter at least one unit"); return; }
-    // Hard block: editing must not push the batch over what it produced.
-    // Cap = produced − (net dispatched/returned for the batch EXCLUDING this dispatch).
-    const batchId = editingDispatch.batch_submission_id;
-    if (batchId) {
-      const s = batchSubmissions.find(b => b.id === batchId);
-      if (s) {
-        const { totalJars } = batchSummary((s as any).answers ?? []);
-        if (totalJars > 0) {
-          const netOthers = (dispatchedPerBatch[batchId] ?? 0) - (editingDispatch.total_units ?? 0);
-          const cap = totalJars - netOthers;
-          if (total > cap) {
-            setEditError(`Only ${Math.max(0, cap).toLocaleString()} unit${cap === 1 ? "" : "s"} left in this batch — can't set ${total.toLocaleString()}. If the batch made more, correct the production record's units produced.`);
-            return;
-          }
-        }
+    // Hard block: editing must not push the (possibly newly selected) batch over
+    // what it produced. Cap = produced − net dispatched excluding this dispatch's
+    // own contribution + adjustments — see editBatchRemaining.
+    if (editBatchId) {
+      const cap = editBatchRemaining(editBatchId);
+      if (cap !== null && total > cap) {
+        setEditError(`Only ${Math.max(0, cap).toLocaleString()} unit${cap === 1 ? "" : "s"} left in this batch — can't set ${total.toLocaleString()}. If the batch made more, correct the production record's units produced.`);
+        return;
       }
     }
     setEditSaving(true);
@@ -583,9 +607,27 @@ export default function GoodsOutPage() {
       reference: editRef.trim() || null,
       dispatched_by: editDispatchedBy.trim(),
       notes: editNotes.trim() || null,
+      batch_submission_id: editBatchId || null,
     }).eq("id", editingDispatch.id);
+    if (error) { setEditSaving(false); setEditError(error.message); return; }
+
+    // Returns carry a copy of the dispatch's batch link (they credit units back
+    // to that batch). If the batch changed, move this dispatch's returns with it
+    // — otherwise the old batch keeps phantom returned stock.
+    if ((editBatchId || null) !== (editingDispatch.batch_submission_id ?? null)) {
+      const { error: retErr } = await supabase
+        .from("goods_returns")
+        .update({ batch_submission_id: editBatchId || null })
+        .eq("dispatch_id", editingDispatch.id);
+      if (retErr) {
+        setEditSaving(false);
+        setEditError("Dispatch updated, but its returns couldn't be re-linked to the new batch: " + retErr.message);
+        await load();
+        return;
+      }
+    }
+
     setEditSaving(false);
-    if (error) { setEditError(error.message); return; }
     setEditingDispatch(null);
     await load();
   }
@@ -959,7 +1001,15 @@ export default function GoodsOutPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Product</label>
-                  <select className="input w-full" value={editProduct} onChange={e => setEditProduct(e.target.value)}>
+                  <select
+                    className="input w-full"
+                    value={editProduct}
+                    onChange={e => {
+                      setEditProduct(e.target.value);
+                      // A batch belongs to one product — changing product invalidates the link
+                      setEditBatchId("");
+                    }}
+                  >
                     <option value="">Select product…</option>
                     {productChecklists.map(cl => {
                       const name = cl.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
@@ -970,6 +1020,40 @@ export default function GoodsOutPage() {
                       <option value={editProduct}>{editProduct} (not in product list)</option>
                     )}
                   </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Batch record (traceability)</label>
+                  <select
+                    className="input w-full"
+                    value={editBatchId}
+                    onChange={e => setEditBatchId(e.target.value)}
+                    disabled={!editProduct}
+                  >
+                    <option value="">No batch linked</option>
+                    {batchesForProduct(editProduct).map(s => {
+                      const { batchCode } = batchSummary((s as any).answers ?? []);
+                      const remaining = editBatchRemaining(s.id);
+                      const isSelected = editBatchId === s.id;
+                      // Hide fully-dispatched batches unless already selected
+                      if (remaining !== null && remaining <= 0 && !isSelected) return null;
+                      const label = [
+                        batchCode ? `Batch ${batchCode}` : formatDate(s.submitted_at.slice(0, 10)),
+                        remaining !== null ? `${remaining.toLocaleString()} remaining` : null,
+                      ].filter(Boolean).join(" · ");
+                      return <option key={s.id} value={s.id}>{label}</option>;
+                    })}
+                    {/* Keep a link to a batch of another product visible (mis-link being corrected) */}
+                    {editBatchId && !batchesForProduct(editProduct).some(s => s.id === editBatchId) && (() => {
+                      const s = batchSubmissions.find(b => b.id === editBatchId);
+                      const { batchCode } = s ? batchSummary((s as any).answers ?? []) : { batchCode: "" };
+                      return <option value={editBatchId}>{batchCode ? `Batch ${batchCode}` : "Current batch"} (different product)</option>;
+                    })()}
+                  </select>
+                  {editingDispatch.batch_submission_id && editBatchId !== editingDispatch.batch_submission_id && (
+                    <p className="mt-1 text-xs text-amber-700">
+                      The {editingDispatch.total_units} unit{editingDispatch.total_units === 1 ? "" : "s"} will be restocked to the previous batch and drawn from the one selected here.
+                    </p>
+                  )}
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Customer</label>
