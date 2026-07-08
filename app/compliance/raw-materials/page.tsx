@@ -157,6 +157,8 @@ export default function RawMaterialsPage() {
   const [reconError, setReconError]     = useState("");
   // received − used − written off − remaining for the open lot (null while loading)
   const [reconUnaccounted, setReconUnaccounted] = useState<number | null>(null);
+  // The used/written-off figures behind that gap, so the panel can show the maths
+  const [reconBalance, setReconBalance] = useState<{ used: number; writtenOff: number } | null>(null);
   // Who is reconciling — stamped onto every wastage_log row for the audit trail
   const [userName, setUserName] = useState("");
 
@@ -433,12 +435,14 @@ export default function RawMaterialsPage() {
     // Compute this lot's mass-balance gap so the panel can offer to close it:
     // unaccounted = received − used in production − written off − remaining.
     setReconUnaccounted(null);
+    setReconBalance(null);
     Promise.all([fetchLotUsage([lot.id]), fetchWastage([lot.id])])
       .then(([usage, wastage]) => {
         const used = usage[lot.id] ?? 0;
         const writtenOff = (wastage[lot.id] ?? []).reduce((s, w) => s + w.grams, 0);
         const unaccounted = (lot.quantity_received_g ?? 0) - used - writtenOff - lot.quantity_remaining_g;
         setReconUnaccounted(unaccounted);
+        setReconBalance({ used, writtenOff });
         // A depleted lot has nothing left to write off or count — if it has a
         // gap, explaining the variance is the only useful action, so jump there.
         const tolerance = (ing.unit ?? "g") === "units" ? 0.5 : 5;
@@ -844,6 +848,25 @@ export default function RawMaterialsPage() {
                         <React.Fragment key={ing.id}>
                           <tr className="hover:bg-gray-50 transition-colors">
                             <td className="px-4 py-3">
+                              <div className="flex items-start gap-1.5">
+                              {noLots ? (
+                                <span className="shrink-0 p-0.5 -ml-0.5" aria-hidden="true"><span className="block h-4 w-4" /></span>
+                              ) : (
+                                <button
+                                  onClick={() => setExpanded(p => ({ ...p, [ing.id]: !p[ing.id] }))}
+                                  aria-label={isOpen ? "Hide lots" : "Show lots"}
+                                  aria-expanded={isOpen}
+                                  className="shrink-0 text-gray-400 hover:text-brown p-0.5 -ml-0.5 mt-0.5"
+                                >
+                                  <svg
+                                    className={`h-4 w-4 transition-transform ${isOpen ? "rotate-90" : ""}`}
+                                    viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"
+                                  >
+                                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clipRule="evenodd" />
+                                  </svg>
+                                </button>
+                              )}
+                              <div>
                               <p className="font-medium text-gray-900">
                                 {ing.name}
                                 {ing.type === "packaging" && ing.is_primary_packaging && (
@@ -869,6 +892,8 @@ export default function RawMaterialsPage() {
                                   ))}
                                 </div>
                               )}
+                              </div>
+                              </div>
                             </td>
                             <td className="px-4 py-3 hidden sm:table-cell">
                               {ing.supplier?.name
@@ -914,22 +939,10 @@ export default function RawMaterialsPage() {
                               )}
                             </td>
                             <td className="px-2 py-3">
-                              <div className="flex items-center justify-end gap-1">
-                                <button onClick={() => openEdit(ing)} className="btn-ghost text-xs px-2">Details</button>
+                              <div className="flex items-center justify-end gap-3 pr-2">
+                                <button onClick={() => openEdit(ing)} className="text-xs text-brown/60 hover:text-brown hover:underline">Details</button>
                                 {!noLots && (
-                                  <button onClick={() => openReconcilePanel(ing)} className="btn-ghost text-xs px-2">Reconcile</button>
-                                )}
-                                {!noLots && (
-                                  <button
-                                    onClick={() => setExpanded(p => ({ ...p, [ing.id]: !p[ing.id] }))}
-                                    className="p-1 rounded hover:bg-gray-200 transition"
-                                    title={isOpen ? "Hide lots" : "Show lots"}
-                                  >
-                                    <svg className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                                      viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                      <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                  </button>
+                                  <button onClick={() => openReconcilePanel(ing)} className="text-xs text-brown/60 hover:text-brown hover:underline">Reconcile</button>
                                 )}
                               </div>
                             </td>
@@ -1058,12 +1071,23 @@ export default function RawMaterialsPage() {
 
                 {/* Unaccounted banner — offers to close a historical mass-balance gap */}
                 {hasVariance && (
-                  <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 space-y-1">
-                    <p className="text-xs text-red-700 font-medium">Unaccounted on this lot</p>
-                    <p className="text-lg font-bold text-red-900">{fmtQty(reconUnaccounted!, unit)}</p>
+                  <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 space-y-2">
+                    <p className="text-xs text-red-700 font-medium">
+                      {fmtQty(reconUnaccounted!, unit)} of this lot is missing from the records
+                    </p>
+                    {reconBalance && (
+                      <div className="text-xs text-red-800 space-y-0.5">
+                        <div className="flex justify-between"><span>Received</span><span className="tabular-nums">{fmtQty(lot.quantity_received_g, unit)}</span></div>
+                        <div className="flex justify-between"><span>Used in production</span><span className="tabular-nums">− {fmtQty(reconBalance.used, unit)}</span></div>
+                        <div className="flex justify-between"><span>Written off</span><span className="tabular-nums">− {fmtQty(reconBalance.writtenOff, unit)}</span></div>
+                        <div className="flex justify-between"><span>Still in stock</span><span className="tabular-nums">− {fmtQty(lot.quantity_remaining_g, unit)}</span></div>
+                        <div className="flex justify-between border-t border-red-200 pt-1 font-bold text-red-900"><span>Not recorded anywhere</span><span className="tabular-nums">{fmtQty(reconUnaccounted!, unit)}</span></div>
+                      </div>
+                    )}
                     <p className="text-xs text-red-600">
-                      Received minus production usage, write-offs and remaining stock doesn&apos;t balance —
-                      usually a reconciliation made before the wastage log existed. Use &ldquo;Explain variance&rdquo; to log it.
+                      This amount was used up at some point without being logged — usually prep waste
+                      (peeling, trimming) from before wastage logging existed. Choose &ldquo;Explain variance&rdquo;
+                      to record it, so this lot&apos;s history adds up in traces and mock recalls.
                     </p>
                   </div>
                 )}
