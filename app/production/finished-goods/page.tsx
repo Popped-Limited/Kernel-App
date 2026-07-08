@@ -466,6 +466,7 @@ export default function FinishedGoodsPage() {
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Dispatched</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">In Stock</th>
                   <th className="px-4 py-3" />
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -493,15 +494,7 @@ export default function FinishedGoodsPage() {
                               <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clipRule="evenodd" />
                             </svg>
                           </button>
-                          <Link
-                            href={`/production/finished-goods/${encodeURIComponent(product)}`}
-                            className="group inline-flex items-center gap-1 font-medium text-gray-900 underline decoration-brand decoration-2 underline-offset-4 hover:text-brown hover:decoration-brand-dark"
-                          >
-                            {product}
-                            <svg className="h-3.5 w-3.5 text-brand-dark opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 transition" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                              <path fillRule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clipRule="evenodd" />
-                            </svg>
-                          </Link>
+                          <span className="font-medium text-gray-900">{product}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-gray-700">
@@ -514,6 +507,14 @@ export default function FinishedGoodsPage() {
                         <span className={`text-base font-bold ${stock === 0 ? "text-gray-300" : "text-gray-900"}`}>
                           {stock.toLocaleString()}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={`/production/finished-goods/${encodeURIComponent(product)}`}
+                          className="text-xs text-brown/60 hover:text-brown hover:underline"
+                        >
+                          Details
+                        </Link>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
@@ -529,16 +530,13 @@ export default function FinishedGoodsPage() {
                       // batches accumulate forever and belong on the product page,
                       // not in this at-a-glance list.
                       const inStock = batches.filter(b => b.remaining > 0);
-                      const soldOut = batches.length - inStock.length;
                       return (
                       <tr className="bg-gray-50/60">
-                        <td colSpan={5} className="px-4 py-3">
+                        <td colSpan={6} className="px-4 py-3">
                           {batches.length === 0 ? (
                             <p className="text-xs text-gray-400 pl-6">No batch codes recorded for this product yet.</p>
                           ) : inStock.length === 0 ? (
-                            <p className="text-xs text-gray-400 pl-6">
-                              All {batches.length.toLocaleString()} batches sold out.
-                            </p>
+                            <p className="text-xs text-gray-400 pl-6">All batches sold out.</p>
                           ) : (
                             <div className="ml-6 rounded-lg border border-gray-200 overflow-hidden bg-white">
                               <table className="w-full text-xs">
@@ -560,18 +558,7 @@ export default function FinishedGoodsPage() {
                                     </tr>
                                   ))}
                                 </tbody>
-                                <tfoot className="border-t border-gray-200 bg-gray-50">
-                                  <tr>
-                                    <td className="px-3 py-2 font-semibold text-gray-700" colSpan={3}>Total in stock</td>
-                                    <td className="px-3 py-2 text-right tabular-nums font-bold text-gray-900">{stock.toLocaleString()}</td>
-                                  </tr>
-                                </tfoot>
                               </table>
-                              {soldOut > 0 && (
-                                <p className="px-3 py-1.5 text-[11px] text-gray-400 border-t border-gray-100">
-                                  {soldOut.toLocaleString()} sold-out {soldOut === 1 ? "batch" : "batches"} hidden
-                                </p>
-                              )}
                             </div>
                           )}
                         </td>
