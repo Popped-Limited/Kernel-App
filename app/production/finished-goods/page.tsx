@@ -495,9 +495,12 @@ export default function FinishedGoodsPage() {
                           </button>
                           <Link
                             href={`/production/finished-goods/${encodeURIComponent(product)}`}
-                            className="font-medium text-gray-900 hover:text-brown hover:underline"
+                            className="group inline-flex items-center gap-1 font-medium text-gray-900 underline decoration-brand decoration-2 underline-offset-4 hover:text-brown hover:decoration-brand-dark"
                           >
                             {product}
+                            <svg className="h-3.5 w-3.5 text-brand-dark opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 transition" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                              <path fillRule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clipRule="evenodd" />
+                            </svg>
                           </Link>
                         </div>
                       </td>
@@ -521,11 +524,21 @@ export default function FinishedGoodsPage() {
                         </button>
                       </td>
                     </tr>
-                    {isOpen && (
+                    {isOpen && (() => {
+                      // Quick view shows only batches with stock left — sold-out
+                      // batches accumulate forever and belong on the product page,
+                      // not in this at-a-glance list.
+                      const inStock = batches.filter(b => b.remaining > 0);
+                      const soldOut = batches.length - inStock.length;
+                      return (
                       <tr className="bg-gray-50/60">
                         <td colSpan={5} className="px-4 py-3">
                           {batches.length === 0 ? (
                             <p className="text-xs text-gray-400 pl-6">No batch codes recorded for this product yet.</p>
+                          ) : inStock.length === 0 ? (
+                            <p className="text-xs text-gray-400 pl-6">
+                              All {batches.length.toLocaleString()} batches sold out.
+                            </p>
                           ) : (
                             <div className="ml-6 rounded-lg border border-gray-200 overflow-hidden bg-white">
                               <table className="w-full text-xs">
@@ -538,16 +551,12 @@ export default function FinishedGoodsPage() {
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                  {batches.map(b => (
+                                  {inStock.map(b => (
                                     <tr key={b.code}>
                                       <td className="px-3 py-2 font-mono text-gray-700">{b.code}</td>
                                       <td className="px-3 py-2 text-gray-500">{formatDate(b.date)}</td>
                                       <td className="px-3 py-2 text-right tabular-nums text-gray-500">{b.produced.toLocaleString()}</td>
-                                      <td className="px-3 py-2 text-right tabular-nums">
-                                        {b.remaining === 0
-                                          ? <span className="text-gray-400">Sold out</span>
-                                          : <span className="font-semibold text-gray-900">{b.remaining.toLocaleString()}</span>}
-                                      </td>
+                                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">{b.remaining.toLocaleString()}</td>
                                     </tr>
                                   ))}
                                 </tbody>
@@ -558,11 +567,17 @@ export default function FinishedGoodsPage() {
                                   </tr>
                                 </tfoot>
                               </table>
+                              {soldOut > 0 && (
+                                <p className="px-3 py-1.5 text-[11px] text-gray-400 border-t border-gray-100">
+                                  {soldOut.toLocaleString()} sold-out {soldOut === 1 ? "batch" : "batches"} hidden
+                                </p>
+                              )}
                             </div>
                           )}
                         </td>
                       </tr>
-                    )}
+                      );
+                    })()}
                     </Fragment>
                   );
                 })}
