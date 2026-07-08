@@ -899,7 +899,7 @@ export default function RawMaterialsPage() {
                             </td>
                             <td className="px-2 py-3">
                               <div className="flex items-center justify-end gap-1">
-                                <button onClick={() => openEdit(ing)} className="btn-ghost text-xs px-2">Edit</button>
+                                <button onClick={() => openEdit(ing)} className="btn-ghost text-xs px-2">Details</button>
                                 {!noLots && (
                                   <button
                                     onClick={() => setExpanded(p => ({ ...p, [ing.id]: !p[ing.id] }))}
