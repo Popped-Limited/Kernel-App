@@ -146,6 +146,8 @@ export default function RawMaterialsPage() {
   //   "count"    → the actual amount left after a stocktake (new remaining = typed)
   //   "variance" → log an unaccounted historical write-off WITHOUT changing
   //                remaining stock (closes a mass-balance gap truthfully)
+  // The item being reconciled — opens the panel; the lot is picked inside it
+  const [reconIng, setReconIng]         = useState<IngredientWithLots | null>(null);
   const [reconLot, setReconLot]         = useState<{ lot: IngredientLot; ing: IngredientWithLots; reserved: number } | null>(null);
   const [reconMode, setReconMode]       = useState<"remove" | "count" | "variance">("remove");
   const [reconInput, setReconInput]     = useState("");
@@ -406,8 +408,22 @@ export default function RawMaterialsPage() {
     await load();
   }
 
-  function openReconcile(lot: IngredientLot, ing: IngredientWithLots, reserved: number, e: React.MouseEvent) {
-    e.stopPropagation();
+  // Open the panel for an item; the lot is chosen inside the panel. With a
+  // single lot there's nothing to choose, so it's picked automatically.
+  function openReconcilePanel(ing: IngredientWithLots) {
+    setReconIng(ing);
+    setReconLot(null);
+    setReconError("");
+    if (ing.lots.length === 1) selectReconLot(ing.lots[0], ing);
+  }
+
+  function closeReconcile() {
+    setReconIng(null);
+    setReconLot(null);
+  }
+
+  function selectReconLot(lot: IngredientLot, ing: IngredientWithLots) {
+    const reserved = reservedByLot[lot.id] ?? 0;
     setReconLot({ lot, ing, reserved });
     setReconMode("remove");
     setReconInput("");
@@ -471,7 +487,7 @@ export default function RawMaterialsPage() {
     });
     setReconSaving(false);
     if (logErr) { setReconError("The variance couldn't be logged: " + logErr.message); return; }
-    setReconLot(null);
+    closeReconcile();
     await load();
   }
 
@@ -536,7 +552,7 @@ export default function RawMaterialsPage() {
     }
 
     setReconSaving(false);
-    setReconLot(null);
+    closeReconcile();
     await load();
   }
 
@@ -901,6 +917,9 @@ export default function RawMaterialsPage() {
                               <div className="flex items-center justify-end gap-1">
                                 <button onClick={() => openEdit(ing)} className="btn-ghost text-xs px-2">Details</button>
                                 {!noLots && (
+                                  <button onClick={() => openReconcilePanel(ing)} className="btn-ghost text-xs px-2">Reconcile</button>
+                                )}
+                                {!noLots && (
                                   <button
                                     onClick={() => setExpanded(p => ({ ...p, [ing.id]: !p[ing.id] }))}
                                     className="p-1 rounded hover:bg-gray-200 transition"
@@ -930,7 +949,6 @@ export default function RawMaterialsPage() {
                                       <th className="text-left py-1 font-medium pl-4 hidden sm:table-cell">Date in</th>
                                       <th className="text-left py-1 font-medium hidden sm:table-cell">Supplier</th>
                                       <th className="text-left py-1 font-medium hidden sm:table-cell">Best before</th>
-                                      <th className="w-20" />
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
@@ -950,16 +968,6 @@ export default function RawMaterialsPage() {
                                         <td className="py-1.5 pl-4 text-gray-500 hidden sm:table-cell">{formatDate(lot.received_date)}</td>
                                         <td className="py-1.5 text-gray-500 hidden sm:table-cell">{lot.supplier ?? "—"}</td>
                                         <td className="py-1.5 text-gray-500 hidden sm:table-cell">{lot.best_before_date ? formatDate(lot.best_before_date) : "—"}</td>
-                                        <td className="py-1.5">
-                                          {/* Depleted lots stay reconcilable — that's where
-                                              historical unaccounted variance lives */}
-                                          <button
-                                            onClick={e => openReconcile(lot, ing, lotReserved, e)}
-                                            className="text-xs text-brand-dark font-medium hover:underline whitespace-nowrap"
-                                          >
-                                            Reconcile
-                                          </button>
-                                        </td>
                                       </tr>
                                       );
                                     })}
@@ -979,15 +987,17 @@ export default function RawMaterialsPage() {
         </div>
         </main>
 
-      {/* Reconcile panel */}
-      {reconLot && (() => {
-        const { lot, ing, reserved } = reconLot;
+      {/* Reconcile panel — opened per item, lot picked inside */}
+      {reconIng && (() => {
+        const ing = reconIng;
         const unit = ing.unit ?? "g";
         const unitLabel = unit === "units" ? "units" : "kg";
-        const onShelfG = Math.max(0, lot.quantity_remaining_g - reserved);
+        const lot = reconLot?.lot ?? null;
+        const reserved = reconLot?.reserved ?? 0;
+        const onShelfG = lot ? Math.max(0, lot.quantity_remaining_g - reserved) : 0;
         const onShelfDisplay = fmtQty(onShelfG, unit);
         const isVariance = reconMode === "variance";
-        const newRemainingG = isVariance ? null : reconNewRemainingG(lot, unit, reserved);
+        const newRemainingG = !lot || isVariance ? null : reconNewRemainingG(lot, unit, reserved);
         // For display: on-shelf figure after the adjustment
         const newOnShelfG = newRemainingG !== null ? newRemainingG - reserved : null;
         const writtenOff = newRemainingG !== null ? onShelfG - (newRemainingG - reserved) : null;
@@ -1002,17 +1012,39 @@ export default function RawMaterialsPage() {
 
         return (
           <div className="fixed inset-0 z-50 flex">
-            <div className="flex-1 bg-black/30" onClick={() => setReconLot(null)} />
+            <div className="flex-1 bg-black/30" onClick={closeReconcile} />
             <div className="w-full max-w-sm bg-white shadow-xl flex flex-col">
               <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                 <div>
                   <h2 className="text-sm font-semibold text-gray-900">Reconcile Stock</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">{lot.julian_code} · {ing.name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{ing.name}{lot ? ` · ${lot.julian_code}` : ""}</p>
                 </div>
-                <button onClick={() => setReconLot(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+                <button onClick={closeReconcile} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
               </div>
 
               <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+                {/* Lot picker. Depleted lots stay listed — historical unaccounted
+                    variance lives on them and "Explain variance" is how it's closed. */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Batch / lot</label>
+                  <select
+                    className="input w-full"
+                    value={lot?.id ?? ""}
+                    onChange={e => {
+                      const picked = ing.lots.find(l => l.id === e.target.value);
+                      if (picked) selectReconLot(picked, ing);
+                    }}
+                  >
+                    <option value="" disabled>Select a lot…</option>
+                    {ing.lots.map(l => (
+                      <option key={l.id} value={l.id}>
+                        {l.julian_code} · {fmtQty(l.quantity_remaining_g, unit)} left · {formatDate(l.received_date)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {lot && (<>
                 {/* Current stock info */}
                 <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 space-y-1">
                   <p className="text-xs text-amber-700 font-medium">On shelf (available to count)</p>
@@ -1146,6 +1178,7 @@ export default function RawMaterialsPage() {
                     onChange={e => setReconNotes(e.target.value)}
                   />
                 </div>
+                </>)}
               </div>
 
               {reconError && (
@@ -1156,11 +1189,11 @@ export default function RawMaterialsPage() {
 
               <div className="border-t border-gray-200 px-6 pt-3 pb-3">
                 <div className="flex gap-3">
-                  <button onClick={() => setReconLot(null)} className="btn-ghost flex-1">Cancel</button>
+                  <button onClick={closeReconcile} className="btn-ghost flex-1">Cancel</button>
                   <SaveButton
                     onClick={saveReconcile}
                     saving={reconSaving}
-                    disabled={reconInput === "" || overRemove || overVariance}
+                    disabled={!lot || reconInput === "" || overRemove || overVariance}
                     className="btn-primary flex-1"
                   >
                     {isVariance ? "Log variance" : "Save reconciliation"}
