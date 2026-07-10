@@ -569,6 +569,38 @@ export default function FinishedGoodsPage() {
                   );
                 })}
               </tbody>
+              {/* Grand totals — sums of the same per-product figures above, so the
+                  Produced/Dispatched totals follow the selected period. */}
+              {(() => {
+                const totals = sortedProducts.reduce(
+                  (t, product) => ({
+                    produced:   t.produced   + producedInPeriod(product),
+                    dispatched: t.dispatched + dispatchedInPeriod(product),
+                    stock:      t.stock      + stockFor(product),
+                  }),
+                  { produced: 0, dispatched: 0, stock: 0 }
+                );
+                return (
+                  <tfoot className="border-t-2 border-gray-200 bg-gray-50/50">
+                    <tr>
+                      <td className="px-4 py-3 font-semibold text-gray-900">Total</td>
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-gray-900">
+                        {totals.produced > 0 ? totals.produced.toLocaleString() : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-gray-900">
+                        {totals.dispatched > 0 ? totals.dispatched.toLocaleString() : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        <span className={`text-base font-bold ${totals.stock === 0 ? "text-gray-300" : "text-gray-900"}`}>
+                          {totals.stock.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3" />
+                      <td className="px-4 py-3" />
+                    </tr>
+                  </tfoot>
+                );
+              })()}
             </table>
           )}
         </div>
