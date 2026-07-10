@@ -4,12 +4,12 @@ Source data for the nutrition/labelling feature: the ingredient-level per-100g
 values users search-and-link from when their raw material is a primary produce
 (chilli, garlic, ginger, sugar, oil…). Compound/branded ingredients (doubanjiang,
 soy sauce) come from supplier spec sheets instead — see the nutrition-labelling
-plan. This is **reference data, not yet wired into the app** — see "Next" below.
+plan.
 
 ## What's here
 
-- `convert_cofid.py` — converts the official CoFID spreadsheet into `cofid_fic.json`.
-- `cofid_fic.json` — 2,887 foods, per 100g, in **UK FIC by-weight** form: the 7
+- `convert_cofid.py` — converts the official CoFID spreadsheet into the bundled dataset.
+- `../../lib/nutrition/cofid.json` (written by this script) — 2,887 foods, per 100g, in **UK FIC by-weight** form: the 7
   mandatory nutrients (energy kJ/kcal, fat, saturates, carbohydrate, sugars,
   protein, salt) + fibre, plus food code, name and CoFID food group.
 
@@ -73,10 +73,11 @@ is absent (1,092 foods).
 Field coverage: carbohydrate 99%, salt 99%, sugars 97%, fibre 91%, saturates 90%.
 Missing values are stored as null (the app must show "not available", never 0).
 
-## Next
+## How the app uses it
 
-Decision pending (Tom): whether this lives as a bundled reference asset or a
-Supabase reference table (the table route needs a one-off `CREATE TABLE` run in
-the SQL editor — DDL can't be applied from the repo). Either way this JSON is the
-seed source. After that: the raw-material nutrition panel with CoFID search +
-per-100g preview before confirm (never auto-match by name).
+Decision (Tom, 10 Jul 2026): bundled reference asset, not a database table — every
+org gets identical, versioned data; no tenant/RLS surface; values are copied onto
+the org's `ingredients` row when the user confirms a match, so a dataset update
+never silently changes an existing label. Search lives in `lib/nutrition/cofid.ts`
+(the raw-materials page loads it on demand); the nutrition columns on `ingredients`
+come from `scripts/add-ingredient-nutrition.sql`.

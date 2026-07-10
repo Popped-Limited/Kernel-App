@@ -130,6 +130,6 @@ for r in rows[3:]:
         "protein": round(protein, 2), "salt": round(salt, 3) if salt is not None else None,
     })
 
-json.dump(out, open("cofid_fic.json", "w"), separators=(",", ":"))
-print(f"Converted {len(out)} foods → cofid_fic.json")
+json.dump(out, open("../../lib/nutrition/cofid.json", "w"), separators=(",", ":"))
+print(f"Converted {len(out)} foods → ../../lib/nutrition/cofid.json")
 print("Flags:", flags)

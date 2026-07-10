@@ -4,7 +4,10 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import SaveButton from "@/components/SaveButton";
 import { useOrganisation } from "@/contexts/OrganisationContext";
-import type { Ingredient, IngredientLot } from "@/lib/types";
+import type { Ingredient, IngredientLot, NutritionPer100g } from "@/lib/types";
+// type-only import — the ~550KB CoFID dataset itself is loaded on demand via
+// dynamic import when the user first searches
+import type { CofidFood } from "@/lib/nutrition/cofid";
 import { formatDate } from "@/lib/utils";
 import DocUploader from "@/components/DocUploader";
 import SortableTh, { type SortDir } from "@/components/SortableTh";
@@ -21,6 +24,25 @@ const TABS: { key: ItemType; label: string; icon: string }[] = [
   { key: "packaging",  label: "Packaging",    icon: "📦" },
   { key: "supplies",   label: "Supplies",     icon: "🧴" },
 ];
+
+// Nutrition inputs, in FIC declaration order. Keys match NutritionPer100g.
+const NUTRITION_FIELDS: { key: keyof NutritionPer100g; label: string }[] = [
+  { key: "energy_kcal",    label: "Energy (kcal)" },
+  { key: "energy_kj",      label: "Energy (kJ)" },
+  { key: "fat_g",          label: "Fat (g)" },
+  { key: "saturates_g",    label: "of which saturates (g)" },
+  { key: "carbohydrate_g", label: "Carbohydrate (g)" },
+  { key: "sugars_g",       label: "of which sugars (g)" },
+  { key: "fibre_g",        label: "Fibre (g)" },
+  { key: "protein_g",      label: "Protein (g)" },
+  { key: "salt_g",         label: "Salt (g)" },
+];
+
+const NUTRITION_SOURCE_LABELS: Record<string, string> = {
+  cofid: "CoFID",
+  spec_sheet: "Spec sheet",
+  manual: "Manual",
+};
 
 // Singular noun for the per-tab "+ Add" button (mirrors "+ Add Supplier").
 const ADD_LABELS: Record<ItemType, string> = {
@@ -180,6 +202,16 @@ export default function RawMaterialsPage() {
     const typedG = unit === "units" ? Math.round(typed) : Math.round(typed * 1000);
     return reconMode === "count" ? typedG + reserved : lot.quantity_remaining_g - typedG;
   }
+
+  // Nutrition (per 100g) — string inputs; the dirty flag gates the save payload
+  // so every other edit keeps working until the nutrition migration has been run
+  const [editNutrition, setEditNutrition] = useState<Record<string, string>>({});
+  const [editNutritionSource, setEditNutritionSource] = useState<"" | "cofid" | "spec_sheet" | "manual">("");
+  const [editNutritionCode, setEditNutritionCode] = useState("");
+  const [nutritionDirty, setNutritionDirty] = useState(false);
+  const [cofidQuery, setCofidQuery] = useState("");
+  const [cofidResults, setCofidResults] = useState<CofidFood[]>([]);
+  const [cofidPreview, setCofidPreview] = useState<CofidFood | null>(null);
 
   // Edit / create panel
   const [editing, setEditing]           = useState<IngredientWithLots | null>(null);
@@ -343,6 +375,22 @@ export default function RawMaterialsPage() {
     setLoading(false);
   }
 
+  function resetNutritionState(ing: IngredientWithLots | null) {
+    const n = ing?.nutrition_per_100g;
+    const vals: Record<string, string> = {};
+    for (const f of NUTRITION_FIELDS) {
+      const v = n?.[f.key];
+      vals[f.key] = v != null ? String(v) : "";
+    }
+    setEditNutrition(vals);
+    setEditNutritionSource(ing?.nutrition_source ?? "");
+    setEditNutritionCode(ing?.nutrition_cofid_code ?? "");
+    setNutritionDirty(false);
+    setCofidQuery("");
+    setCofidResults([]);
+    setCofidPreview(null);
+  }
+
   function openEdit(ing: IngredientWithLots) {
     setEditing(ing);
     setEditName(ing.name);
@@ -356,6 +404,7 @@ export default function RawMaterialsPage() {
     setEditSpecReviewFreq(ing.spec_sheet_review_frequency_years != null ? String(ing.spec_sheet_review_frequency_years) : "");
     setEditSpecReviewDue(ing.spec_sheet_next_review_due ?? "");
     setEditIsPrimary(ing.is_primary_packaging ?? false);
+    resetNutritionState(ing);
     setSaveError("");
     setDeleteConfirm(false);
   }
@@ -376,8 +425,47 @@ export default function RawMaterialsPage() {
     setEditSpecReviewFreq("");
     setEditSpecReviewDue("");
     setEditIsPrimary(false);
+    resetNutritionState(null);
     setSaveError("");
     setDeleteConfirm(false);
+  }
+
+  async function runCofidSearch(q: string) {
+    setCofidQuery(q);
+    setCofidPreview(null);
+    if (q.trim().length < 2) { setCofidResults([]); return; }
+    const { searchCofid } = await import("@/lib/nutrition/cofid");
+    setCofidResults(searchCofid(q, 8));
+  }
+
+  // Copy a confirmed CoFID match into the form. The user has seen the per-100g
+  // preview by this point — never applied without that human check.
+  function applyCofid(f: CofidFood) {
+    setEditNutrition({
+      energy_kcal: String(f.kcal), energy_kj: String(f.kj),
+      fat_g: String(f.fat),
+      saturates_g: f.saturates != null ? String(f.saturates) : "",
+      carbohydrate_g: f.carbohydrate != null ? String(f.carbohydrate) : "",
+      sugars_g: f.sugars != null ? String(f.sugars) : "",
+      fibre_g: f.fibre != null ? String(f.fibre) : "",
+      protein_g: String(f.protein),
+      salt_g: f.salt != null ? String(f.salt) : "",
+    });
+    setEditNutritionSource("cofid");
+    setEditNutritionCode(f.code);
+    setNutritionDirty(true);
+    setCofidQuery("");
+    setCofidResults([]);
+    setCofidPreview(null);
+  }
+
+  function setNutritionField(key: string, value: string) {
+    setEditNutrition(prev => ({ ...prev, [key]: value }));
+    setNutritionDirty(true);
+    // Hand-edited values are no longer a straight CoFID copy; default fresh
+    // typing to spec sheet (the usual source when typing values in).
+    if (editNutritionSource === "cofid") { setEditNutritionSource("manual"); setEditNutritionCode(""); }
+    else if (editNutritionSource === "") setEditNutritionSource("spec_sheet");
   }
 
   async function saveEdit() {
@@ -386,7 +474,7 @@ export default function RawMaterialsPage() {
     setSaving(true);
     setSaveError("");
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       name: editName.trim(),
       type: editType,
       unit: editUnit,
@@ -399,6 +487,23 @@ export default function RawMaterialsPage() {
       spec_sheet_next_review_due: editSpecReviewDue || null,
       is_primary_packaging: editType === "packaging" ? editIsPrimary : false,
     };
+
+    // Nutrition keys ride along only when touched, so saves on every other field
+    // keep working even before scripts/add-ingredient-nutrition.sql has been run.
+    if (nutritionDirty) {
+      const values: Record<string, number | null> = {};
+      let any = false;
+      for (const f of NUTRITION_FIELDS) {
+        const raw = (editNutrition[f.key] ?? "").trim();
+        const n = raw === "" ? null : parseFloat(raw);
+        values[f.key] = n != null && !isNaN(n) ? n : null;
+        if (values[f.key] != null) any = true;
+      }
+      payload.nutrition_per_100g = any ? values : null;
+      payload.nutrition_source = any ? (editNutritionSource || "manual") : null;
+      payload.nutrition_cofid_code = any && editNutritionSource === "cofid" ? editNutritionCode || null : null;
+      payload.nutrition_updated_at = any ? new Date().toISOString() : null;
+    }
 
     const { error } = isNew
       ? await supabase.from("ingredients").insert({ ...payload, organisation_id: orgId })
@@ -1380,6 +1485,104 @@ export default function RawMaterialsPage() {
                   )}
                 </div>
               )}
+
+              {editType === "ingredient" && (() => {
+                const anyValue = NUTRITION_FIELDS.some(f => (editNutrition[f.key] ?? "").trim() !== "");
+                const fmtN = (v: number | null) => (v == null ? "—" : String(v));
+                return (
+                <div className="border-t border-gray-100 pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Nutrition (per 100g)</p>
+                    {anyValue && editNutritionSource ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-800 font-medium">
+                        {NUTRITION_SOURCE_LABELS[editNutritionSource]}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">Not set</span>
+                    )}
+                  </div>
+
+                  {/* CoFID search — pick a match, preview per-100g values, confirm */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      className="input w-full"
+                      placeholder="Search CoFID (UK food database)…"
+                      value={cofidQuery}
+                      onChange={e => runCofidSearch(e.target.value)}
+                    />
+                    {cofidResults.length > 0 && !cofidPreview && (
+                      <ul className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg divide-y divide-gray-50">
+                        {cofidResults.map(f => (
+                          <li key={f.code}>
+                            <button
+                              type="button"
+                              onClick={() => setCofidPreview(f)}
+                              className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-brand/10"
+                            >
+                              {f.name}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {cofidPreview && (
+                    <div className="mt-2 rounded-lg border border-brand bg-brand-cream px-3 py-2.5">
+                      <p className="text-xs font-semibold text-brown">{cofidPreview.name}</p>
+                      <div className="mt-1.5 grid grid-cols-3 gap-x-3 gap-y-1 text-[11px] text-gray-700">
+                        <span>Energy {fmtN(cofidPreview.kcal)} kcal</span>
+                        <span>Fat {fmtN(cofidPreview.fat)}</span>
+                        <span>Saturates {fmtN(cofidPreview.saturates)}</span>
+                        <span>Carbs {fmtN(cofidPreview.carbohydrate)}</span>
+                        <span>Sugars {fmtN(cofidPreview.sugars)}</span>
+                        <span>Fibre {fmtN(cofidPreview.fibre)}</span>
+                        <span>Protein {fmtN(cofidPreview.protein)}</span>
+                        <span>Salt {fmtN(cofidPreview.salt)}</span>
+                      </div>
+                      <div className="mt-2 flex gap-2">
+                        <button type="button" onClick={() => applyCofid(cofidPreview)} className="btn-primary text-xs px-3 py-1.5">
+                          Use these values
+                        </button>
+                        <button type="button" onClick={() => setCofidPreview(null)} className="btn-ghost text-xs px-3 py-1.5">
+                          Back
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {NUTRITION_FIELDS.map(f => (
+                      <div key={f.key}>
+                        <label className="block text-[10px] font-medium text-gray-500 mb-0.5 leading-tight">{f.label}</label>
+                        <input
+                          type="number" step="0.1" min="0"
+                          className="input w-full"
+                          value={editNutrition[f.key] ?? ""}
+                          onChange={e => setNutritionField(f.key, e.target.value)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  {anyValue && (
+                    <div className="mt-2">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Source</label>
+                      <select
+                        className="input w-full"
+                        value={editNutritionSource}
+                        onChange={e => { setEditNutritionSource(e.target.value as typeof editNutritionSource); setNutritionDirty(true); }}
+                      >
+                        <option value="spec_sheet">Supplier spec sheet</option>
+                        <option value="cofid">CoFID (UK food database)</option>
+                        <option value="manual">Manual / other</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+                );
+              })()}
 
               {/* Documents — only shown when editing an existing item */}
               {!isNew && editing && editing.id && (

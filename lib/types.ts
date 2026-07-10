@@ -104,6 +104,19 @@ export interface TeamMember {
   created_at: string;
 }
 
+// Per-100g FIC by-weight values. null = not available (never treat as 0).
+export interface NutritionPer100g {
+  energy_kcal: number | null;
+  energy_kj: number | null;
+  fat_g: number | null;
+  saturates_g: number | null;
+  carbohydrate_g: number | null;
+  sugars_g: number | null;
+  fibre_g: number | null;
+  protein_g: number | null;
+  salt_g: number | null;
+}
+
 export interface Ingredient {
   id: string;
   name: string;
@@ -117,6 +130,10 @@ export interface Ingredient {
   is_primary_packaging: boolean | null;
   spec_sheet_review_frequency_years: number | null;
   spec_sheet_next_review_due: string | null;
+  nutrition_per_100g?: NutritionPer100g | null;
+  nutrition_source?: "cofid" | "spec_sheet" | "manual" | null;
+  nutrition_cofid_code?: string | null;
+  nutrition_updated_at?: string | null;
   created_at: string;
 }
 
