@@ -442,6 +442,20 @@ const FEATURES: Feature[] = [
     ),
   },
   {
+    icon: "🏷️",
+    title: "Nutrition & labels",
+    desc: "Nutrition panel calculated straight from your recipe.",
+    preview: (
+      <AppFrame active="Finished Goods" title="Sichuan Pepper Popcorn">
+        <div className="pv-row"><span>Recipe</span><b>12 ingredients · 4.2 kg batch</b></div>
+        <div className="pv-row"><span>Source</span><b><span className="pv-pill ok">AI + CoFID ✓</span></b></div>
+        <div className="pv-row"><span>Energy</span><b>512 kcal / 100g</b></div>
+        <div className="pv-row"><span>Fat / sugars / salt</span><b>28.4g / 3.1g / 1.2g</b></div>
+        <div className="pv-btn">Export label →</div>
+      </AppFrame>
+    ),
+  },
+  {
     icon: "📦",
     title: "Live inventory",
     desc: "Stock deducts itself as you produce.",
