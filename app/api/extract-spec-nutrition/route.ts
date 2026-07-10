@@ -68,10 +68,11 @@ NUTRITION
 - If the document has no nutrition information at all, return all nutrition values as null and basis "not_found".
 
 ALLERGENS (read the allergen declaration — usually a table listing the 14 UK allergens as present / not present / "may contain", or an allergen list, or bold-emphasised allergens within the ingredients list)
-- allergens_contains: allergens actually present in the product (present as an ingredient or derived from one).
-- allergens_may_contain: allergens named ONLY in a precautionary "may contain" / "produced in a facility that also handles" statement (cross-contamination) — NOT ones actually present. Never put the same allergen in both lists.
+- CRITICAL — presence only: include an allergen ONLY where the document positively states it IS present. A "free from X", "does not contain X", "no X", "absent", "nil", "none", "not present", or a table cell marked No / ✗ / — for an allergen means it is NOT present — do NOT put that allergen in either list. Never treat an allergen as present just because its name appears somewhere in the document; allergen tables routinely list all 14 with a Yes/No column, and many are marked No.
+- allergens_contains: allergens the document marks as actually present (present as an ingredient or derived from one — e.g. "Yes", "Present", ✓, or emphasised in the ingredients list).
+- allergens_may_contain: allergens named ONLY in a precautionary "may contain" / "produced in a facility that also handles" statement (cross-contamination) — NOT ones actually present, and NOT ones declared free-from. Never put the same allergen in both lists.
 - Map the document's wording to this exact list, using only these names: Celery; Gluten (any cereal containing gluten — wheat, rye, barley, oats, spelt, kamut); Crustaceans; Eggs; Fish; Lupin; Milk (including lactose); Molluscs; Mustard; Tree nuts (almond, hazelnut, walnut, cashew, pecan, brazil, pistachio, macadamia); Peanuts; Sesame; Soya; Sulphites (including sulphur dioxide / SO2). Ignore any allergen not on this list.
-- Set allergen_info_found to true ONLY if the document actually contains allergen information. If there is no allergen section at all, set it to false and return empty arrays.
+- Set allergen_info_found to true whenever the document has an allergen declaration at all — INCLUDING one that declares the product free from every allergen (in that case allergen_info_found is true and both arrays are empty). Set it to false only if there is no allergen information whatsoever.
 
 WARNINGS
 - Add a warning string for anything a reviewer should check: per-100ml basis, values that don't look like this ingredient, unreadable/ambiguous numbers, sodium conversion performed, multiple nutrition tables found, an allergen statement that was unclear or hard to interpret, etc.`;
