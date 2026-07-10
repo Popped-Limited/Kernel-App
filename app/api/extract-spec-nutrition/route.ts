@@ -7,14 +7,22 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 // Claude reads the whole PDF; extraction on a multi-page spec can take ~30s.
 export const maxDuration = 60;
 
+// Must match the ALLERGENS list on the Raw Materials page exactly — the extracted
+// names are dropped straight into the allergen chips.
+const ALLERGENS = [
+  "Celery", "Gluten", "Crustaceans", "Eggs", "Fish", "Lupin",
+  "Milk", "Molluscs", "Mustard", "Tree nuts", "Peanuts", "Sesame",
+  "Soya", "Sulphites",
+];
+
 /**
  * POST /api/extract-spec-nutrition  { ingredient_id }
  *
- * Reads the ingredient's most recent spec sheet (PDF/image) and extracts the
- * FIC per-100g nutrition declaration with Claude. Returns the values for the
- * nutrition form to PRE-FILL — nothing is saved here; the user reviews and
- * saves through the normal panel, so a human always confirms what goes on
- * the record.
+ * Reads the ingredient's most recent spec sheet (PDF/image) and extracts both
+ * the FIC per-100g nutrition declaration and the allergen information with
+ * Claude. Returns them for the form to PRE-FILL — nothing is saved here; the
+ * user reviews and saves through the normal panel, so a human always confirms
+ * what goes on the record (allergens especially).
  */
 
 const EXTRACTION_SCHEMA = {
@@ -23,7 +31,9 @@ const EXTRACTION_SCHEMA = {
   required: [
     "energy_kcal", "energy_kj", "fat_g", "saturates_g", "carbohydrate_g",
     "sugars_g", "fibre_g", "protein_g", "salt_g",
-    "basis", "salt_converted_from_sodium", "warnings",
+    "basis", "salt_converted_from_sodium",
+    "allergen_info_found", "allergens_contains", "allergens_may_contain",
+    "warnings",
   ],
   properties: {
     energy_kcal:    { type: ["number", "null"] },
@@ -38,20 +48,33 @@ const EXTRACTION_SCHEMA = {
     // What the numbers were read from — anything but per_100g needs a human look
     basis: { type: "string", enum: ["per_100g", "per_100ml", "per_serving_only", "not_found"] },
     salt_converted_from_sodium: { type: "boolean" },
+    // Allergens — only trust the arrays when allergen_info_found is true, so a
+    // spec with no allergen section never clears existing allergen data
+    allergen_info_found: { type: "boolean" },
+    allergens_contains:    { type: "array", items: { type: "string", enum: ALLERGENS } },
+    allergens_may_contain: { type: "array", items: { type: "string", enum: ALLERGENS } },
     warnings: { type: "array", items: { type: "string" } },
   },
 } as const;
 
-const EXTRACTION_PROMPT = `Extract the nutrition declaration from this supplier specification sheet.
+const EXTRACTION_PROMPT = `Extract the nutrition declaration AND the allergen information from this supplier specification sheet.
 
-Rules:
-- Use the "per 100g" (or "per 100ml") column of the nutrition table — NEVER a per-serving/per-portion column. If only per-serving values exist, return all values as null and set basis to "per_serving_only".
+NUTRITION
+- Use the "per 100g" (or "per 100ml") column of the nutrition table — NEVER a per-serving/per-portion column. If only per-serving values exist, return all nutrition values as null and set basis to "per_serving_only".
 - Values must be for the product as sold, exactly as printed. Do not calculate, estimate or guess a value that is not stated — return null for anything the document doesn't state.
 - Energy: capture both kJ and kcal if printed; if only one is printed, return the other as null.
 - Salt: if the document states salt, use it. If it states only sodium, convert: salt_g = sodium_g × 2.5 (watch the units — sodium is often in mg), and set salt_converted_from_sodium to true.
 - "of which saturates" → saturates_g; "of which sugars" → sugars_g; fibre/dietary fibre → fibre_g.
-- Add a warning string for anything a reviewer should check: per-100ml basis, values that don't look like this ingredient, unreadable/ambiguous numbers, sodium conversion performed, multiple nutrition tables found, etc.
-- If the document has no nutrition information at all, return all values as null and basis "not_found".`;
+- If the document has no nutrition information at all, return all nutrition values as null and basis "not_found".
+
+ALLERGENS (read the allergen declaration — usually a table listing the 14 UK allergens as present / not present / "may contain", or an allergen list, or bold-emphasised allergens within the ingredients list)
+- allergens_contains: allergens actually present in the product (present as an ingredient or derived from one).
+- allergens_may_contain: allergens named ONLY in a precautionary "may contain" / "produced in a facility that also handles" statement (cross-contamination) — NOT ones actually present. Never put the same allergen in both lists.
+- Map the document's wording to this exact list, using only these names: Celery; Gluten (any cereal containing gluten — wheat, rye, barley, oats, spelt, kamut); Crustaceans; Eggs; Fish; Lupin; Milk (including lactose); Molluscs; Mustard; Tree nuts (almond, hazelnut, walnut, cashew, pecan, brazil, pistachio, macadamia); Peanuts; Sesame; Soya; Sulphites (including sulphur dioxide / SO2). Ignore any allergen not on this list.
+- Set allergen_info_found to true ONLY if the document actually contains allergen information. If there is no allergen section at all, set it to false and return empty arrays.
+
+WARNINGS
+- Add a warning string for anything a reviewer should check: per-100ml basis, values that don't look like this ingredient, unreadable/ambiguous numbers, sodium conversion performed, multiple nutrition tables found, an allergen statement that was unclear or hard to interpret, etc.`;
 
 const IMAGE_TYPES: Record<string, "image/jpeg" | "image/png" | "image/gif" | "image/webp"> = {
   jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp",

@@ -216,6 +216,9 @@ export default function RawMaterialsPage() {
   const [extracting, setExtracting] = useState(false);
   const [extractNotes, setExtractNotes] = useState<string[]>([]);
   const [extractError, setExtractError] = useState("");
+  // Live spec-sheet count for the open item, so the Read button appears as soon
+  // as a spec is uploaded in-panel (not only after a reload)
+  const [specDocCount, setSpecDocCount] = useState(0);
 
   // Edit / create panel
   const [editing, setEditing]           = useState<IngredientWithLots | null>(null);
@@ -412,6 +415,7 @@ export default function RawMaterialsPage() {
     setEditSpecReviewDue(ing.spec_sheet_next_review_due ?? "");
     setEditIsPrimary(ing.is_primary_packaging ?? false);
     resetNutritionState(ing);
+    setSpecDocCount(hasDoc.has(ing.id) ? 1 : 0);
     setSaveError("");
     setDeleteConfirm(false);
   }
@@ -433,6 +437,7 @@ export default function RawMaterialsPage() {
     setEditSpecReviewDue("");
     setEditIsPrimary(false);
     resetNutritionState(null);
+    setSpecDocCount(0);
     setSaveError("");
     setDeleteConfirm(false);
   }
@@ -482,37 +487,61 @@ export default function RawMaterialsPage() {
       const data = await res.json();
       if (!res.ok) { setExtractError(data.error ?? "Extraction failed"); return; }
 
-      const ex = data.extraction as Record<string, unknown> & { basis: string; warnings: string[]; salt_converted_from_sodium: boolean };
-      if (ex.basis === "not_found" || ex.basis === "per_serving_only") {
-        setExtractError(ex.basis === "not_found"
-          ? `No nutrition table found in ${data.file_name}`
-          : `${data.file_name} only gives per-serving values — a per-100g column is needed`);
-        return;
+      const ex = data.extraction as Record<string, unknown> & {
+        basis: string; warnings: string[]; salt_converted_from_sodium: boolean;
+        allergen_info_found: boolean; allergens_contains: string[]; allergens_may_contain: string[];
+      };
+
+      const notes: string[] = [];
+      let applied = false;
+
+      // Allergens — only touch them when the spec actually had allergen info, so
+      // a nutrition-only read never wipes existing allergen data. Filter to
+      // Kernel's known list defensively.
+      if (ex.allergen_info_found) {
+        const known = (arr: string[]) => (arr ?? []).filter(a => ALLERGENS.includes(a));
+        setEditAllergens(known(ex.allergens_contains));
+        setEditMayContain(known(ex.allergens_may_contain));
+        applied = true;
+        notes.push("Allergens and 'may contain' set from the spec's allergen table — check every one against the document.");
       }
 
-      const vals: Record<string, string> = {};
-      for (const f of NUTRITION_FIELDS) {
-        const v = ex[f.key];
-        vals[f.key] = typeof v === "number" ? String(v) : "";
+      // Nutrition
+      if (ex.basis === "per_100g" || ex.basis === "per_100ml") {
+        const vals: Record<string, string> = {};
+        for (const f of NUTRITION_FIELDS) {
+          const v = ex[f.key];
+          vals[f.key] = typeof v === "number" ? String(v) : "";
+        }
+        setEditNutrition(vals);
+        setEditNutritionSource("spec_sheet");
+        setEditNutritionCode("");
+        setNutritionDirty(true);
+        applied = true;
+        // Drop model warnings that just restate what the structured fields
+        // already surface (per-100ml basis, sodium→salt) so we don't print twice.
+        const modelWarnings = (ex.warnings ?? []).filter(w => {
+          const lc = w.toLowerCase();
+          if (ex.basis === "per_100ml" && lc.includes("100ml")) return false;
+          if (ex.salt_converted_from_sodium && lc.includes("sodium")) return false;
+          return true;
+        });
+        notes.push(
+          ...(ex.basis === "per_100ml" ? ["Nutrition values are per 100ml, not per 100g (liquid product)."] : []),
+          ...(ex.salt_converted_from_sodium ? ["Salt was converted from the stated sodium (×2.5)."] : []),
+          ...modelWarnings,
+        );
+      } else {
+        notes.push(ex.basis === "per_serving_only"
+          ? "No per-100g nutrition column found (only per-serving) — nutrition left unchanged."
+          : "No nutrition table found — nutrition left unchanged.");
       }
-      setEditNutrition(vals);
-      setEditNutritionSource("spec_sheet");
-      setEditNutritionCode("");
-      setNutritionDirty(true);
-      // Drop model warnings that just restate what the structured fields already
-      // surface (per-100ml basis, sodium→salt) so we don't print each twice.
-      const modelWarnings = (ex.warnings ?? []).filter(w => {
-        const lc = w.toLowerCase();
-        if (ex.basis === "per_100ml" && lc.includes("100ml")) return false;
-        if (ex.salt_converted_from_sodium && lc.includes("sodium")) return false;
-        return true;
-      });
-      setExtractNotes([
-        `Read from ${data.file_name} — check the values against the document before saving.`,
-        ...(ex.basis === "per_100ml" ? ["Values are per 100ml, not per 100g (liquid product)."] : []),
-        ...(ex.salt_converted_from_sodium ? ["Salt was converted from the stated sodium (×2.5)."] : []),
-        ...modelWarnings,
-      ]);
+
+      if (!applied) {
+        setExtractError(`Couldn't read allergens or nutrition from ${data.file_name}`);
+        return;
+      }
+      setExtractNotes([`Read from ${data.file_name} — review before saving.`, ...notes]);
     } catch {
       setExtractError("Extraction failed — try again in a moment");
     } finally {
@@ -1483,6 +1512,42 @@ export default function RawMaterialsPage() {
                 </div>
               )}
 
+              {/* Spec sheet — upload + AI read, above the allergen & nutrition
+                  fields it fills. Only shown once the item exists (upload needs
+                  an id); the Read button is ingredient-only. */}
+              {!isNew && editing && editing.id && (
+                <div className="space-y-2">
+                  <DocUploader
+                    entityType={editType === "supplies" ? "supply" : editType === "packaging" ? "packaging" : "ingredient"}
+                    entityId={editing.id}
+                    orgId={orgId}
+                    docType={editType === "supplies" ? "coshh" : "spec_sheet"}
+                    label={editType === "supplies" ? "COSHH Sheet" : "Spec Sheet"}
+                    onCountChange={setSpecDocCount}
+                  />
+                  {editType === "ingredient" && specDocCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={extractFromSpecSheet}
+                      disabled={extracting}
+                      className="w-full rounded-lg border border-brand bg-brand/10 px-3 py-2 text-xs font-medium text-brown hover:bg-brand/20 transition disabled:opacity-60"
+                    >
+                      {extracting ? "Reading spec sheet…" : "Read allergens & nutrition from the spec sheet"}
+                    </button>
+                  )}
+                  {editType === "ingredient" && extractError && (
+                    <p className="rounded bg-red-50 border border-red-200 px-2.5 py-1.5 text-[11px] text-red-700">{extractError}</p>
+                  )}
+                  {editType === "ingredient" && extractNotes.length > 0 && (
+                    <div className="rounded bg-amber-50 border border-amber-200 px-2.5 py-1.5 space-y-0.5">
+                      {extractNotes.map((n, i) => (
+                        <p key={i} className="text-[11px] text-amber-800">{n}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {editType === "ingredient" && (
                 <div data-tour="ingredient-allergens">
                   <label className="block text-xs font-medium text-gray-700 mb-2">Allergens (contains)</label>
@@ -1563,29 +1628,8 @@ export default function RawMaterialsPage() {
                     )}
                   </div>
 
-                  {/* Fill shortcuts: CoFID search + AI spec-sheet extraction */}
-                  {!isNew && editing?.id && hasDoc.has(editing.id) && (
-                    <button
-                      type="button"
-                      onClick={extractFromSpecSheet}
-                      disabled={extracting}
-                      className="mb-2 w-full rounded-lg border border-brand bg-brand/10 px-3 py-2 text-xs font-medium text-brown hover:bg-brand/20 transition disabled:opacity-60"
-                    >
-                      {extracting ? "Reading spec sheet…" : "Read values from the uploaded spec sheet"}
-                    </button>
-                  )}
-                  {extractError && (
-                    <p className="mb-2 rounded bg-red-50 border border-red-200 px-2.5 py-1.5 text-[11px] text-red-700">{extractError}</p>
-                  )}
-                  {extractNotes.length > 0 && (
-                    <div className="mb-2 rounded bg-amber-50 border border-amber-200 px-2.5 py-1.5 space-y-0.5">
-                      {extractNotes.map((n, i) => (
-                        <p key={i} className="text-[11px] text-amber-800">{n}</p>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* CoFID search — pick a match, preview per-100g values, confirm */}
+                  {/* CoFID search — pick a match, preview per-100g values, confirm.
+                      Spec-sheet reading lives in the Spec Sheet section above. */}
                   <div className="relative">
                     <input
                       type="text"
@@ -1666,17 +1710,6 @@ export default function RawMaterialsPage() {
                 </div>
                 );
               })()}
-
-              {/* Documents — only shown when editing an existing item */}
-              {!isNew && editing && editing.id && (
-                <DocUploader
-                  entityType={editType === "supplies" ? "supply" : editType === "packaging" ? "packaging" : "ingredient"}
-                  entityId={editing.id}
-                  orgId={orgId}
-                  docType={editType === "supplies" ? "coshh" : "spec_sheet"}
-                  label={editType === "supplies" ? "COSHH Sheet" : "Spec Sheet"}
-                />
-              )}
 
               {editType !== "supplies" && (
                 <div className="border-t border-gray-100 pt-4">
