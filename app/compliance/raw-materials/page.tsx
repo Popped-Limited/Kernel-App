@@ -499,11 +499,19 @@ export default function RawMaterialsPage() {
       setEditNutritionSource("spec_sheet");
       setEditNutritionCode("");
       setNutritionDirty(true);
+      // Drop model warnings that just restate what the structured fields already
+      // surface (per-100ml basis, sodium→salt) so we don't print each twice.
+      const modelWarnings = (ex.warnings ?? []).filter(w => {
+        const lc = w.toLowerCase();
+        if (ex.basis === "per_100ml" && lc.includes("100ml")) return false;
+        if (ex.salt_converted_from_sodium && lc.includes("sodium")) return false;
+        return true;
+      });
       setExtractNotes([
         `Read from ${data.file_name} — check the values against the document before saving.`,
-        ...(ex.basis === "per_100ml" ? ["Values are per 100ml (not 100g)."] : []),
+        ...(ex.basis === "per_100ml" ? ["Values are per 100ml, not per 100g (liquid product)."] : []),
         ...(ex.salt_converted_from_sodium ? ["Salt was converted from the stated sodium (×2.5)."] : []),
-        ...(ex.warnings ?? []),
+        ...modelWarnings,
       ]);
     } catch {
       setExtractError("Extraction failed — try again in a moment");
