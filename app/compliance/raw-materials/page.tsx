@@ -212,6 +212,10 @@ export default function RawMaterialsPage() {
   const [cofidQuery, setCofidQuery] = useState("");
   const [cofidResults, setCofidResults] = useState<CofidFood[]>([]);
   const [cofidPreview, setCofidPreview] = useState<CofidFood | null>(null);
+  // AI spec-sheet extraction — pre-fills the form; the user still reviews & saves
+  const [extracting, setExtracting] = useState(false);
+  const [extractNotes, setExtractNotes] = useState<string[]>([]);
+  const [extractError, setExtractError] = useState("");
 
   // Edit / create panel
   const [editing, setEditing]           = useState<IngredientWithLots | null>(null);
@@ -389,6 +393,9 @@ export default function RawMaterialsPage() {
     setCofidQuery("");
     setCofidResults([]);
     setCofidPreview(null);
+    setExtracting(false);
+    setExtractNotes([]);
+    setExtractError("");
   }
 
   function openEdit(ing: IngredientWithLots) {
@@ -457,6 +464,52 @@ export default function RawMaterialsPage() {
     setCofidQuery("");
     setCofidResults([]);
     setCofidPreview(null);
+  }
+
+  // Ask the server to read the uploaded spec sheet with Claude and pre-fill the
+  // form. Values only land in the inputs — the user reviews, then saves.
+  async function extractFromSpecSheet() {
+    if (!editing?.id) return;
+    setExtracting(true);
+    setExtractError("");
+    setExtractNotes([]);
+    try {
+      const res = await fetch("/api/extract-spec-nutrition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ingredient_id: editing.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setExtractError(data.error ?? "Extraction failed"); return; }
+
+      const ex = data.extraction as Record<string, unknown> & { basis: string; warnings: string[]; salt_converted_from_sodium: boolean };
+      if (ex.basis === "not_found" || ex.basis === "per_serving_only") {
+        setExtractError(ex.basis === "not_found"
+          ? `No nutrition table found in ${data.file_name}`
+          : `${data.file_name} only gives per-serving values — a per-100g column is needed`);
+        return;
+      }
+
+      const vals: Record<string, string> = {};
+      for (const f of NUTRITION_FIELDS) {
+        const v = ex[f.key];
+        vals[f.key] = typeof v === "number" ? String(v) : "";
+      }
+      setEditNutrition(vals);
+      setEditNutritionSource("spec_sheet");
+      setEditNutritionCode("");
+      setNutritionDirty(true);
+      setExtractNotes([
+        `Read from ${data.file_name} — check the values against the document before saving.`,
+        ...(ex.basis === "per_100ml" ? ["Values are per 100ml (not 100g)."] : []),
+        ...(ex.salt_converted_from_sodium ? ["Salt was converted from the stated sodium (×2.5)."] : []),
+        ...(ex.warnings ?? []),
+      ]);
+    } catch {
+      setExtractError("Extraction failed — try again in a moment");
+    } finally {
+      setExtracting(false);
+    }
   }
 
   function setNutritionField(key: string, value: string) {
@@ -1501,6 +1554,28 @@ export default function RawMaterialsPage() {
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">Not set</span>
                     )}
                   </div>
+
+                  {/* Fill shortcuts: CoFID search + AI spec-sheet extraction */}
+                  {!isNew && editing?.id && hasDoc.has(editing.id) && (
+                    <button
+                      type="button"
+                      onClick={extractFromSpecSheet}
+                      disabled={extracting}
+                      className="mb-2 w-full rounded-lg border border-brand bg-brand/10 px-3 py-2 text-xs font-medium text-brown hover:bg-brand/20 transition disabled:opacity-60"
+                    >
+                      {extracting ? "Reading spec sheet…" : "Read values from the uploaded spec sheet"}
+                    </button>
+                  )}
+                  {extractError && (
+                    <p className="mb-2 rounded bg-red-50 border border-red-200 px-2.5 py-1.5 text-[11px] text-red-700">{extractError}</p>
+                  )}
+                  {extractNotes.length > 0 && (
+                    <div className="mb-2 rounded bg-amber-50 border border-amber-200 px-2.5 py-1.5 space-y-0.5">
+                      {extractNotes.map((n, i) => (
+                        <p key={i} className="text-[11px] text-amber-800">{n}</p>
+                      ))}
+                    </div>
+                  )}
 
                   {/* CoFID search — pick a match, preview per-100g values, confirm */}
                   <div className="relative">
