@@ -4,7 +4,17 @@ import { useEffect, useState, Suspense } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import BackButton from "@/components/BackButton";
 import LabelArtworkPanel from "@/components/LabelArtworkPanel";
-import ProductNutritionPanel from "@/components/ProductNutritionPanel";
+import ProductRecipeYieldsPanel from "@/components/ProductRecipeYieldsPanel";
+import ProductDeclarationsPanel from "@/components/ProductDeclarationsPanel";
+
+const TABS = [
+  ["stock", "Stock & batches"],
+  ["label-check", "Label check"],
+  ["recipe", "Recipe & yields"],
+  ["declarations", "Declarations"],
+  ["costing", "Costing"],
+] as const;
+type TabKey = (typeof TABS)[number][0];
 import { supabase } from "@/lib/supabase";
 import { fetchAll } from "@/lib/fetchAll";
 import { formatDate } from "@/lib/utils";
@@ -85,7 +95,9 @@ function ProductDetailInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const productName = decodeURIComponent(params.product as string);
-  const tab = searchParams.get("tab") === "labelling" ? "labelling" : "stock";
+  const rawTab = searchParams.get("tab");
+  const tab: TabKey = (TABS.some(([k]) => k === rawTab) ? rawTab : "stock") as TabKey;
+  const tabLabel = TABS.find(([k]) => k === tab)?.[1] ?? "";
 
   const [runs, setRuns] = useState<ProductionRun[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,18 +153,18 @@ function ProductDetailInner() {
           <BackButton />
           <div>
             <h1 className="text-xl font-bold text-gray-900">{productName}</h1>
-            <p className="text-sm text-gray-500 mt-0.5">{tab === "labelling" ? "Labelling" : "Production history"}</p>
+            <p className="text-sm text-gray-500 mt-0.5">{tab === "stock" ? "Production history" : tabLabel}</p>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200 flex gap-6">
-          {([["stock", "Stock & batches"], ["labelling", "Labelling"]] as const).map(([key, label]) => (
+        <div className="border-b border-gray-200 flex gap-5 overflow-x-auto">
+          {TABS.map(([key, label]) => (
             <button
               key={key}
               type="button"
               onClick={() => router.replace(key === "stock" ? pathname : `${pathname}?tab=${key}`, { scroll: false })}
-              className={`pb-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              className={`pb-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
                 tab === key
                   ? "border-brown text-brown"
                   : "border-transparent text-gray-500 hover:text-gray-700"
@@ -163,10 +175,15 @@ function ProductDetailInner() {
           ))}
         </div>
 
-        {tab === "labelling" ? (
-          <div className="space-y-6">
-            <LabelArtworkPanel productName={productName} />
-            <ProductNutritionPanel productName={productName} />
+        {tab === "label-check" ? (
+          <LabelArtworkPanel productName={productName} />
+        ) : tab === "recipe" ? (
+          <ProductRecipeYieldsPanel productName={productName} />
+        ) : tab === "declarations" ? (
+          <ProductDeclarationsPanel productName={productName} />
+        ) : tab === "costing" ? (
+          <div className="card p-8 text-center text-sm text-gray-400">
+            Costing is coming soon — recipe cost per unit, primary packaging and prep-waste insight.
           </div>
         ) : (
 
