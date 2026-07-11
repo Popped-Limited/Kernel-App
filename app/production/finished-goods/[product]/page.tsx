@@ -221,9 +221,9 @@ function ProductDetailInner() {
           </div>
           {loading ? (
             <div className="p-8 text-center text-sm text-gray-400">Loading…</div>
-          ) : batches.length === 0 ? (
+          ) : batches.filter(b => b.remaining > 0).length === 0 ? (
             <div className="p-8 text-center text-sm text-gray-400">
-              No batch-tracked stock. Stock appears here once a production run records a batch code.
+              No batches in stock. Sold-out batches are kept in the production runs below for traceability.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -238,7 +238,7 @@ function ProductDetailInner() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {batches.map(b => {
+                  {batches.filter(b => b.remaining > 0).map(b => {
                     const bbe = runs.find(r => r.batchCode === b.code)?.bbe ?? "";
                     return (
                       <tr key={b.code} className="hover:bg-gray-50 transition-colors">
