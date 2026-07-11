@@ -28,9 +28,9 @@ const CHECK_SCHEMA = {
   required: ["particulars", "overall_notes"],
   properties: {
     particulars: {
+      // Structured-output schemas only allow array minItems/maxItems of 0 or 1,
+      // so the count of 8 is enforced by the prompt + the fixed `key` enum, not here.
       type: "array",
-      minItems: 8,
-      maxItems: 8,
       items: {
         type: "object",
         additionalProperties: false,
@@ -165,7 +165,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ check_result, check_run_at, file_name: artwork.file_name });
   } catch (e) {
     console.error("Label check failed:", e);
-    const detail = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: `Check failed: ${detail}` }, { status: 502 });
+    return NextResponse.json({ error: "Check failed — try again in a moment" }, { status: 502 });
   }
 }
