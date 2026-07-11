@@ -100,6 +100,14 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   results; grants include `service_role` — the check route writes via supabaseAdmin) —
   run 11 Jul 2026. Note: structured-output JSON schemas reject array `minItems`/`maxItems`
   other than 0 or 1 — enforce fixed-length arrays via the prompt + a `key` enum, not the schema.
+- `add-nutrition-calc.sql` (ingredients gain `nutrition_basis` per_100g|per_100ml default
+  per_100g; new `product_nutrition_settings` keyed (org, product_name): net_weight_per_unit_g,
+  units_per_batch, prep_yields jsonb) — **PENDING: run in the Supabase SQL editor** (the
+  Labelling tab's nutrition calc fails to load until then). Powers the recipe→per-100g label
+  calc (`lib/nutrition/recipe-calc.ts`): reads the Production checklist ingredient_table
+  definition, joins raw materials by EXACT name, converts per-100ml→per-100g via density,
+  applies prep yields, gates on any missing data (never treats missing as 0), finished weight
+  = units×net weight, FIC rounding at output.
 - `scripts/clone-yep-to-demo.mjs` clones Yep Kitchen's operational data into the
   Popped demo org (dry-run by default; `--commit` to apply). Skips logins/billing
   and the tables the admin key can't write (SOPs, calendar, wastage, training_sessions).

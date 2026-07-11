@@ -208,6 +208,9 @@ export default function RawMaterialsPage() {
   const [editNutrition, setEditNutrition] = useState<Record<string, string>>({});
   const [editNutritionSource, setEditNutritionSource] = useState<"" | "cofid" | "spec_sheet" | "manual">("");
   const [editNutritionCode, setEditNutritionCode] = useState("");
+  // Basis the values are stored on: liquids may be per 100ml (converted to
+  // per 100g in the label calc using density). CoFID is always per 100g.
+  const [editNutritionBasis, setEditNutritionBasis] = useState<"per_100g" | "per_100ml">("per_100g");
   const [nutritionDirty, setNutritionDirty] = useState(false);
   const [cofidQuery, setCofidQuery] = useState("");
   const [cofidResults, setCofidResults] = useState<CofidFood[]>([]);
@@ -392,6 +395,7 @@ export default function RawMaterialsPage() {
     setEditNutrition(vals);
     setEditNutritionSource(ing?.nutrition_source ?? "");
     setEditNutritionCode(ing?.nutrition_cofid_code ?? "");
+    setEditNutritionBasis(ing?.nutrition_basis ?? "per_100g");
     setNutritionDirty(false);
     setCofidQuery("");
     setCofidResults([]);
@@ -465,6 +469,7 @@ export default function RawMaterialsPage() {
     });
     setEditNutritionSource("cofid");
     setEditNutritionCode(f.code);
+    setEditNutritionBasis("per_100g"); // CoFID is always by-weight per 100g
     setNutritionDirty(true);
     setCofidQuery("");
     setCofidResults([]);
@@ -516,6 +521,7 @@ export default function RawMaterialsPage() {
         setEditNutrition(vals);
         setEditNutritionSource("spec_sheet");
         setEditNutritionCode("");
+        setEditNutritionBasis(ex.basis === "per_100ml" ? "per_100ml" : "per_100g");
         setNutritionDirty(true);
         applied = true;
         // Drop model warnings that just restate what the structured fields
@@ -592,6 +598,7 @@ export default function RawMaterialsPage() {
       payload.nutrition_per_100g = any ? values : null;
       payload.nutrition_source = any ? (editNutritionSource || "manual") : null;
       payload.nutrition_cofid_code = any && editNutritionSource === "cofid" ? editNutritionCode || null : null;
+      payload.nutrition_basis = any ? editNutritionBasis : null;
       payload.nutrition_updated_at = any ? new Date().toISOString() : null;
     }
 
@@ -1694,17 +1701,30 @@ export default function RawMaterialsPage() {
                   </div>
 
                   {anyValue && (
-                    <div className="mt-2">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Source</label>
-                      <select
-                        className="input w-full"
-                        value={editNutritionSource}
-                        onChange={e => { setEditNutritionSource(e.target.value as typeof editNutritionSource); setNutritionDirty(true); }}
-                      >
-                        <option value="spec_sheet">Supplier spec sheet</option>
-                        <option value="cofid">CoFID (UK food database)</option>
-                        <option value="manual">Manual / other</option>
-                      </select>
+                    <div className="mt-2 grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Source</label>
+                        <select
+                          className="input w-full"
+                          value={editNutritionSource}
+                          onChange={e => { setEditNutritionSource(e.target.value as typeof editNutritionSource); setNutritionDirty(true); }}
+                        >
+                          <option value="spec_sheet">Supplier spec sheet</option>
+                          <option value="cofid">CoFID (UK food database)</option>
+                          <option value="manual">Manual / other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Basis</label>
+                        <select
+                          className="input w-full"
+                          value={editNutritionBasis}
+                          onChange={e => { setEditNutritionBasis(e.target.value as typeof editNutritionBasis); setNutritionDirty(true); }}
+                        >
+                          <option value="per_100g">Per 100g</option>
+                          <option value="per_100ml">Per 100ml (liquid)</option>
+                        </select>
+                      </div>
                     </div>
                   )}
                 </div>

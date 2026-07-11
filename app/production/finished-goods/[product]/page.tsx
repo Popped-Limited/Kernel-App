@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import BackButton from "@/components/BackButton";
 import LabelArtworkPanel from "@/components/LabelArtworkPanel";
+import ProductNutritionPanel from "@/components/ProductNutritionPanel";
 import { supabase } from "@/lib/supabase";
 import { fetchAll } from "@/lib/fetchAll";
 import { formatDate } from "@/lib/utils";
@@ -163,7 +164,10 @@ function ProductDetailInner() {
         </div>
 
         {tab === "labelling" ? (
-          <LabelArtworkPanel productName={productName} />
+          <div className="space-y-6">
+            <LabelArtworkPanel productName={productName} />
+            <ProductNutritionPanel productName={productName} />
+          </div>
         ) : (
 
         <div className="card overflow-hidden">

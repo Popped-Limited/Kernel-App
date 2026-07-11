@@ -133,6 +133,7 @@ export interface Ingredient {
   nutrition_per_100g?: NutritionPer100g | null;
   nutrition_source?: "cofid" | "spec_sheet" | "manual" | null;
   nutrition_cofid_code?: string | null;
+  nutrition_basis?: "per_100g" | "per_100ml" | null;
   nutrition_updated_at?: string | null;
   created_at: string;
 }
