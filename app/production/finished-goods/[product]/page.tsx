@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import BackButton from "@/components/BackButton";
+import LabelArtworkPanel from "@/components/LabelArtworkPanel";
 import { supabase } from "@/lib/supabase";
 import { fetchAll } from "@/lib/fetchAll";
 import { formatDate } from "@/lib/utils";
@@ -77,9 +78,13 @@ function extractFields(answers: Array<{ value: string | null; question: { type: 
   return { batchCode, totalUnits, bbe };
 }
 
-export default function ProductDetailPage() {
+function ProductDetailInner() {
   const params = useParams();
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const productName = decodeURIComponent(params.product as string);
+  const tab = searchParams.get("tab") === "labelling" ? "labelling" : "stock";
 
   const [runs, setRuns] = useState<ProductionRun[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,11 +140,32 @@ export default function ProductDetailPage() {
           <BackButton />
           <div>
             <h1 className="text-xl font-bold text-gray-900">{productName}</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Production history</p>
+            <p className="text-sm text-gray-500 mt-0.5">{tab === "labelling" ? "Labelling" : "Production history"}</p>
           </div>
         </div>
 
-        {/* Table */}
+        {/* Tabs */}
+        <div className="border-b border-gray-200 flex gap-6">
+          {([["stock", "Stock & batches"], ["labelling", "Labelling"]] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => router.replace(key === "stock" ? pathname : `${pathname}?tab=${key}`, { scroll: false })}
+              className={`pb-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                tab === key
+                  ? "border-brown text-brown"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "labelling" ? (
+          <LabelArtworkPanel productName={productName} />
+        ) : (
+
         <div className="card overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-700">All production runs</h2>
@@ -192,7 +218,18 @@ export default function ProductDetailPage() {
           )}
         </div>
 
+        )}
+
       </div>
     </main>
+  );
+}
+
+export default function ProductDetailPage() {
+  // useSearchParams requires a Suspense boundary in the App Router
+  return (
+    <Suspense>
+      <ProductDetailInner />
+    </Suspense>
   );
 }

@@ -96,6 +96,9 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
 - `add-may-contain-and-spec-review.sql` (ingredients gain `may_contain_allergens`,
   `spec_sheet_review_frequency_years`, `spec_sheet_next_review_due`) — run 24 Jun 2026.
 - `add-primary-packaging.sql` (ingredients gain `is_primary_packaging`) — run 24 Jun 2026.
+- `add-label-artworks.sql` (versioned label artwork per product + AI FIC-8 presence-check
+  results; grants include `service_role` — the check route writes via supabaseAdmin) —
+  **PENDING: run in the Supabase SQL editor** (Labelling tab fails to load/save until then).
 - `scripts/clone-yep-to-demo.mjs` clones Yep Kitchen's operational data into the
   Popped demo org (dry-run by default; `--commit` to apply). Skips logins/billing
   and the tables the admin key can't write (SOPs, calendar, wastage, training_sessions).
