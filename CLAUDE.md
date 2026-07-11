@@ -98,7 +98,8 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
 - `add-primary-packaging.sql` (ingredients gain `is_primary_packaging`) — run 24 Jun 2026.
 - `add-label-artworks.sql` (versioned label artwork per product + AI FIC-8 presence-check
   results; grants include `service_role` — the check route writes via supabaseAdmin) —
-  **PENDING: run in the Supabase SQL editor** (Labelling tab fails to load/save until then).
+  run 11 Jul 2026. Note: structured-output JSON schemas reject array `minItems`/`maxItems`
+  other than 0 or 1 — enforce fixed-length arrays via the prompt + a `key` enum, not the schema.
 - `scripts/clone-yep-to-demo.mjs` clones Yep Kitchen's operational data into the
   Popped demo org (dry-run by default; `--commit` to apply). Skips logins/billing
   and the tables the admin key can't write (SOPs, calendar, wastage, training_sessions).
