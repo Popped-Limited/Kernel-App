@@ -8,18 +8,12 @@ import { fetchAll } from "@/lib/fetchAll";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Dispatch, FinishedGoodsAdjustment, GoodsReturn } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import { expandRunValues } from "@/lib/production-runs";
+import {
+  parseProductionRecords, computeBatchBreakdown,
+  type ProductionRecord, type BatchRow,
+} from "@/lib/finished-goods";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-interface ProductionRecord {
-  id: string;
-  submitted_at: string;
-  submitted_by: string;
-  product: string;
-  jars: number;
-  batchCode: string | null;
-}
 
 type EventType = "produced" | "dispatched" | "adjustment";
 
@@ -30,13 +24,6 @@ interface HistoryRow {
   units: number;
   by: string;
   submissionId?: string;
-}
-
-interface BatchRow {
-  code: string;
-  date: string;
-  produced: number;
-  remaining: number;
 }
 
 type SortMode = "alpha" | "stock";
@@ -154,42 +141,8 @@ export default function FinishedGoodsPage() {
         .range(from, to)),
     ]);
 
-    // Parse production submissions → prefer "Total units produced" field, fall back to jars_used
-    const prods: ProductionRecord[] = [];
-    for (const sub of (subData as any[])) {
-      const cl = sub.checklist as { name: string; category: string } | null;
-      if (!cl || cl.category !== "Production") continue;
-      const product = cl.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, "").trim();
-      let totalUnits = 0;
-      let jarsUsedFallback = 0;
-      let batchCode: string | null = null;
-      for (const ans of ((sub.answers ?? []) as any[])) {
-        if (!ans.value) continue;
-        const label = (ans.question?.label ?? "").toLowerCase();
-        // Prefer explicit "total units produced" answer
-        if (label.includes("total units produced")) {
-          totalUnits += Number(ans.value) || 0;
-        }
-        // Capture the batch code so reconciliations can be tied to a batch.
-        // Must be a text field — otherwise the checkbox "Labelling verified —
-        // correct batch code…" matches and stores its "true" value as a batch.
-        if (!batchCode && ans.question?.type === "text" && ans.value.trim() &&
-            (label.includes("batch code") || label.includes("julian") || label.includes("batch ref") || label.includes("lot number"))) {
-          batchCode = ans.value.trim();
-        }
-        // Fallback: sum jars_used from packing_runs (across all runs of the record)
-        if (ans.question?.type === "packing_runs") {
-          for (const v of expandRunValues(ans.value)) {
-            try {
-              const rows = JSON.parse(v);
-              if (Array.isArray(rows)) for (const r of rows) jarsUsedFallback += Number(r.jars_used) || 0;
-            } catch { /* ignore */ }
-          }
-        }
-      }
-      const jars = totalUnits > 0 ? totalUnits : jarsUsedFallback;
-      if (jars > 0) prods.push({ id: sub.id, submitted_at: sub.submitted_at, submitted_by: sub.submitted_by, product, jars, batchCode });
-    }
+    // Parse production submissions (shared with the per-product Stock & batches tab)
+    const prods = parseProductionRecords(subData as any[]);
 
     // All active product names from checklists
     const clProducts = clData.map((c: { name: string }) =>
@@ -252,51 +205,7 @@ export default function FinishedGoodsPage() {
   // batch_code. Used by both the expandable per-product breakdown and the reconcile
   // batch picker so the two never disagree.
   function batchBreakdown(product: string): BatchRow[] {
-    const prodList = productions.filter(p => p.product === product && p.batchCode);
-
-    const subToCode: Record<string, string> = {};
-    const producedByCode: Record<string, number> = {};
-    const dateByCode: Record<string, string> = {};
-    for (const p of prodList) {
-      const code = p.batchCode!;
-      subToCode[p.id] = code;
-      producedByCode[code] = (producedByCode[code] ?? 0) + p.jars;
-      if (!dateByCode[code] || new Date(p.submitted_at) > new Date(dateByCode[code])) {
-        dateByCode[code] = p.submitted_at;
-      }
-    }
-
-    // net OUT of each batch (positive = left stock)
-    const netOutByCode: Record<string, number> = {};
-    for (const d of dispatches) {
-      if (d.product !== product || !d.batch_submission_id) continue;
-      const code = subToCode[d.batch_submission_id];
-      if (!code) continue;
-      netOutByCode[code] = (netOutByCode[code] ?? 0) + d.total_units;
-    }
-    for (const r of returns) {
-      if (r.product !== product || !r.batch_submission_id) continue;
-      const code = subToCode[r.batch_submission_id];
-      if (!code) continue;
-      netOutByCode[code] = (netOutByCode[code] ?? 0) - r.quantity;
-    }
-    // Batch-tagged adjustments: negative quantity (e.g. a sample taken) reduces the
-    // batch; positive (a count correction up) increases it. Only apply to batches we
-    // actually produced — an untagged/opening-stock adjustment stays product-level.
-    for (const a of adjustments) {
-      if (a.product !== product || !a.batch_code) continue;
-      if (!(a.batch_code in producedByCode)) continue;
-      netOutByCode[a.batch_code] = (netOutByCode[a.batch_code] ?? 0) - a.quantity;
-    }
-
-    return Object.keys(producedByCode)
-      .map(code => ({
-        code,
-        date: dateByCode[code],
-        produced: producedByCode[code],
-        remaining: Math.max(0, producedByCode[code] - (netOutByCode[code] ?? 0)),
-      }))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return computeBatchBreakdown(product, { productions, dispatches, returns, adjustments });
   }
 
   // Per-product batch breakdown, computed once. Powers the expandable rows, the

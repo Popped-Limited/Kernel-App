@@ -19,6 +19,8 @@ import { supabase } from "@/lib/supabase";
 import { fetchAll } from "@/lib/fetchAll";
 import { formatDate } from "@/lib/utils";
 import { expandRunValues } from "@/lib/production-runs";
+import type { Dispatch, FinishedGoodsAdjustment, GoodsReturn } from "@/lib/types";
+import { parseProductionRecords, computeBatchBreakdown, type BatchRow } from "@/lib/finished-goods";
 
 interface ProductionRun {
   id: string;
@@ -100,6 +102,7 @@ function ProductDetailInner() {
   const tabLabel = TABS.find(([k]) => k === tab)?.[1] ?? "";
 
   const [runs, setRuns] = useState<ProductionRun[]>([]);
+  const [batches, setBatches] = useState<BatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -107,16 +110,30 @@ function ProductDetailInner() {
     async function load() {
       setLoading(true);
 
-      // Fetch all production submissions whose checklist name matches this
-      // product, paginating past PostgREST's 1000-row cap so older runs aren't
-      // silently dropped from the history.
+      // Fetch all production submissions + the stock movement tables, paginating
+      // past PostgREST's 1000-row cap so older runs/dispatches aren't silently
+      // dropped (which would corrupt the stock figures).
       let data: any[];
+      let dispatches: Dispatch[];
+      let returns: GoodsReturn[];
+      let adjustments: FinishedGoodsAdjustment[];
       try {
-        data = await fetchAll<any>((from, to) => supabase
-          .from("submissions")
-          .select("id, submitted_at, checklist:checklists(name, category), answers(value, question:questions(type, label))")
-          .order("submitted_at", { ascending: false })
-          .range(from, to));
+        [data, dispatches, returns, adjustments] = await Promise.all([
+          fetchAll<any>((from, to) => supabase
+            .from("submissions")
+            .select("id, submitted_at, submitted_by, checklist:checklists(name, category), answers(value, question:questions(type, label))")
+            .order("submitted_at", { ascending: false })
+            .range(from, to)),
+          fetchAll<Dispatch>((from, to) => supabase
+            .from("dispatches").select("*").eq("product", productName)
+            .order("dispatch_date", { ascending: false }).range(from, to)),
+          fetchAll<GoodsReturn>((from, to) => supabase
+            .from("goods_returns").select("*").eq("product", productName)
+            .order("return_date", { ascending: false }).range(from, to)),
+          fetchAll<FinishedGoodsAdjustment>((from, to) => supabase
+            .from("finished_goods_adjustments").select("*").eq("product", productName)
+            .order("created_at", { ascending: false }).range(from, to)),
+        ]);
       } catch {
         setError("Failed to load production records."); setLoading(false); return;
       }
@@ -137,6 +154,10 @@ function ProductDetailInner() {
           bbe,
         });
       }
+
+      // Per-batch remaining stock — same shared logic as the finished-goods list.
+      const productions = parseProductionRecords(data).filter(p => p.product === productName);
+      setBatches(computeBatchBreakdown(productName, { productions, dispatches, returns, adjustments }));
 
       setRuns(matched);
       setLoading(false);
@@ -186,6 +207,54 @@ function ProductDetailInner() {
             Costing is coming soon — recipe cost per unit, primary packaging and prep-waste insight.
           </div>
         ) : (
+        <div className="space-y-6">
+
+        {/* In-stock summary + per-batch remaining */}
+        <div className="card overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-700">In stock</h2>
+            {!loading && (
+              <span className="text-sm font-bold text-gray-900 tabular-nums">
+                {batches.reduce((s, b) => s + b.remaining, 0).toLocaleString()} units
+              </span>
+            )}
+          </div>
+          {loading ? (
+            <div className="p-8 text-center text-sm text-gray-400">Loading…</div>
+          ) : batches.length === 0 ? (
+            <div className="p-8 text-center text-sm text-gray-400">
+              No batch-tracked stock. Stock appears here once a production run records a batch code.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-gray-200 bg-gray-50/50">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Batch code</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Made</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Produced</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Remaining</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Best before</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {batches.map(b => {
+                    const bbe = runs.find(r => r.batchCode === b.code)?.bbe ?? "";
+                    return (
+                      <tr key={b.code} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 font-mono text-gray-700">{b.code}</td>
+                        <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{formatDate(b.date.slice(0, 10))}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-gray-700">{b.produced.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right tabular-nums font-bold text-gray-900">{b.remaining.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-gray-700">{bbe || <span className="text-gray-300">—</span>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
         <div className="card overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
@@ -239,6 +308,7 @@ function ProductDetailInner() {
           )}
         </div>
 
+        </div>
         )}
 
       </div>
