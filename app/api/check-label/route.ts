@@ -165,6 +165,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ check_result, check_run_at, file_name: artwork.file_name });
   } catch (e) {
     console.error("Label check failed:", e);
-    return NextResponse.json({ error: "Check failed — try again in a moment" }, { status: 502 });
+    const detail = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: `Check failed: ${detail}` }, { status: 502 });
   }
 }
