@@ -21,6 +21,8 @@ export interface ProductNutritionData {
   recipeFound: boolean;
   recipe: RecipeRow[];
   ingredients: Map<string, IngredientData>;
+  /** Primary packaging mapped on the packing_runs question (for costing). */
+  packaging: { jar: string | null; closure: string | null };
   settings: LoadedSettings;
   orgId: string | null;
   reload: () => Promise<void>;
@@ -52,6 +54,7 @@ export function useProductNutrition(productName: string): ProductNutritionData {
   const [recipeFound, setRecipeFound] = useState(false);
   const [recipe, setRecipe] = useState<RecipeRow[]>([]);
   const [ingredients, setIngredients] = useState<Map<string, IngredientData>>(new Map());
+  const [packaging, setPackaging] = useState<{ jar: string | null; closure: string | null }>({ jar: null, closure: null });
   const [settings, setSettings] = useState<LoadedSettings>(EMPTY_SETTINGS);
 
   const reload = useCallback(async () => {
@@ -59,30 +62,42 @@ export function useProductNutrition(productName: string): ProductNutritionData {
     setLoading(true);
     setError("");
     try {
-      // Recipe: the product's Production checklist ingredient_table definition.
+      // Recipe: the product's Production checklist ingredient_table definition,
+      // plus the packing_runs hint (primary packaging mapping, for costing).
       const { data: checklists } = await supabase
         .from("checklists")
-        .select("name, questions(type, options)")
+        .select("name, questions(type, options, hint)")
         .eq("organisation_id", orgId)
         .eq("category", "Production");
 
       const target = normaliseName(productName);
       let rows: RecipeRow[] = [];
+      let pkg: { jar: string | null; closure: string | null } = { jar: null, closure: null };
       let found = false;
-      for (const cl of (checklists ?? []) as { name: string; questions: { type: string; options: string[] | null }[] }[]) {
+      for (const cl of (checklists ?? []) as { name: string; questions: { type: string; options: string[] | null; hint: string | null }[] }[]) {
         const clProduct = normaliseName(cl.name.replace(/\s*[—–-]+\s*Production Record\s*$/i, ""));
         if (clProduct !== target) continue;
         found = true;
         const q = (cl.questions ?? []).find((x) => x.type === "ingredient_table");
         if (q) rows = parseRecipe(q.options);
+        const pack = (cl.questions ?? []).find((x) => x.type === "packing_runs");
+        if (pack?.hint) {
+          try {
+            const h = JSON.parse(pack.hint) as { jar_ingredient?: string; closure_ingredient?: string };
+            pkg = { jar: h.jar_ingredient?.trim() || null, closure: h.closure_ingredient?.trim() || null };
+          } catch { /* ignore malformed hint */ }
+        }
         break;
       }
       setRecipe(rows);
+      setPackaging(pkg);
       setRecipeFound(found);
 
       // Raw materials, keyed by exact (normalised) name.
       const ings = await fetchAll<{
         name: string;
+        unit: "g" | "units";
+        price_per_kg: number | null;
         nutrition_per_100g: NutritionPer100g | null;
         nutrition_basis: "per_100g" | "per_100ml" | null;
         density_g_per_l: number | null;
@@ -90,7 +105,7 @@ export function useProductNutrition(productName: string): ProductNutritionData {
         may_contain_allergens: string[] | null;
       }>((from, to) => supabase
         .from("ingredients")
-        .select("name, nutrition_per_100g, nutrition_basis, density_g_per_l, allergens, may_contain_allergens")
+        .select("name, unit, price_per_kg, nutrition_per_100g, nutrition_basis, density_g_per_l, allergens, may_contain_allergens")
         .eq("organisation_id", orgId)
         .order("name")
         .range(from, to));
@@ -103,6 +118,8 @@ export function useProductNutrition(productName: string): ProductNutritionData {
           densityGPerL: i.density_g_per_l,
           allergens: i.allergens ?? [],
           mayContain: i.may_contain_allergens ?? [],
+          pricePerKg: i.price_per_kg,
+          unit: i.unit ?? "g",
         });
       }
       setIngredients(map);
@@ -139,5 +156,5 @@ export function useProductNutrition(productName: string): ProductNutritionData {
 
   useEffect(() => { reload(); }, [reload]);
 
-  return { loading, error, recipeFound, recipe, ingredients, settings, orgId, reload };
+  return { loading, error, recipeFound, recipe, ingredients, packaging, settings, orgId, reload };
 }

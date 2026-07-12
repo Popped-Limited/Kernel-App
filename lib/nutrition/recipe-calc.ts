@@ -40,6 +40,9 @@ export interface IngredientData {
   densityGPerL: number | null;
   allergens: string[];
   mayContain: string[];
+  // Costing: price_per_kg for weight items, price-per-unit for `units` items.
+  pricePerKg: number | null;
+  unit: "g" | "units";
 }
 
 export interface CalcInput {
@@ -227,6 +230,89 @@ export function formatNutrient(key: NutrientKey, value: number, rawValue?: numbe
   }
   if (src > 0 && src < 0.5) return "<0.5 g";
   return `${value} g`;
+}
+
+// ── Costing ───────────────────────────────────────────────────────────────
+// Same recipe loop, but on GROSS weights — costing pays for prep waste, so it
+// ignores prep yields (unlike nutrition). Ingredient cost = grams/1000 × £/kg;
+// primary packaging (jar + closure, priced per unit) adds a per-unit cost.
+
+export interface CostLine {
+  name: string;
+  grams: number;
+  pricePerKg: number | null;
+  cost: number | null; // batch cost for this line (null = no price)
+}
+
+export interface PackagingLine {
+  name: string;
+  role: "Container" | "Closure";
+  pricePerUnit: number | null;
+}
+
+export interface CostingInput {
+  recipe: RecipeRow[];
+  ingredients: Map<string, IngredientData>;
+  unitsPerBatch: number | null;
+  /** Primary packaging mapped on the packing_runs question (exact names). */
+  packaging: { jar: string | null; closure: string | null };
+}
+
+export interface CostingResult {
+  lines: CostLine[];
+  packagingLines: PackagingLine[];
+  ingredientBatchCost: number;      // sum of priced lines
+  ingredientPerUnitCost: number | null; // ÷ units per batch
+  packagingPerUnitCost: number;     // jar + closure per unit
+  totalPerUnitCost: number | null;  // ingredient/unit + packaging/unit
+  /** Ingredient/packaging names with no price set — cost is understated until fixed. */
+  missingPrices: string[];
+  hasUnitsPerBatch: boolean;
+}
+
+export function computeCosting(input: CostingInput): CostingResult {
+  const { recipe, ingredients, unitsPerBatch, packaging } = input;
+  const missingPrices: string[] = [];
+
+  const lines: CostLine[] = [];
+  let ingredientBatchCost = 0;
+  for (const row of recipe) {
+    const grams = Number(row.grams) || 0;
+    if (grams <= 0) continue;
+    const ing = ingredients.get(normaliseName(row.name));
+    const pricePerKg = ing?.pricePerKg ?? null;
+    let cost: number | null = null;
+    if (pricePerKg != null) {
+      // Mirror the site's stock valuation: `units` items priced per unit, else per kg.
+      cost = (ing?.unit === "units" ? grams : grams / 1000) * pricePerKg;
+      ingredientBatchCost += cost;
+    } else {
+      missingPrices.push(row.name);
+    }
+    lines.push({ name: row.name, grams, pricePerKg, cost });
+  }
+
+  const packagingLines: PackagingLine[] = [];
+  let packagingPerUnitCost = 0;
+  const addPackaging = (name: string | null, role: PackagingLine["role"]) => {
+    if (!name) return;
+    const ing = ingredients.get(normaliseName(name));
+    const pricePerUnit = ing?.pricePerKg ?? null; // per-unit price for `units` items
+    packagingLines.push({ name, role, pricePerUnit });
+    if (pricePerUnit != null) packagingPerUnitCost += pricePerUnit;
+    else missingPrices.push(name);
+  };
+  addPackaging(packaging.jar, "Container");
+  addPackaging(packaging.closure, "Closure");
+
+  const hasUnitsPerBatch = !!unitsPerBatch && unitsPerBatch > 0;
+  const ingredientPerUnitCost = hasUnitsPerBatch ? ingredientBatchCost / (unitsPerBatch as number) : null;
+  const totalPerUnitCost = ingredientPerUnitCost != null ? ingredientPerUnitCost + packagingPerUnitCost : null;
+
+  return {
+    lines, packagingLines, ingredientBatchCost, ingredientPerUnitCost,
+    packagingPerUnitCost, totalPerUnitCost, missingPrices, hasUnitsPerBatch,
+  };
 }
 
 export const NUTRIENT_LABELS: Record<NutrientKey, string> = {

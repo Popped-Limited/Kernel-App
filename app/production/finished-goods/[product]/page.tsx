@@ -6,6 +6,7 @@ import BackButton from "@/components/BackButton";
 import LabelArtworkPanel from "@/components/LabelArtworkPanel";
 import ProductRecipeYieldsPanel from "@/components/ProductRecipeYieldsPanel";
 import ProductDeclarationsPanel from "@/components/ProductDeclarationsPanel";
+import ProductCostingPanel from "@/components/ProductCostingPanel";
 
 const TABS = [
   ["stock", "Stock & batches"],
@@ -203,9 +204,7 @@ function ProductDetailInner() {
         ) : tab === "declarations" ? (
           <ProductDeclarationsPanel productName={productName} />
         ) : tab === "costing" ? (
-          <div className="card p-8 text-center text-sm text-gray-400">
-            Costing is coming soon — recipe cost per unit, primary packaging and prep-waste insight.
-          </div>
+          <ProductCostingPanel productName={productName} />
         ) : (
         <div className="space-y-6">
 
