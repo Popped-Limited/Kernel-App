@@ -177,6 +177,9 @@ export default function RawMaterialsPage() {
   const [reconNotes, setReconNotes]     = useState("");
   const [reconSaving, setReconSaving]   = useState(false);
   const [reconError, setReconError]     = useState("");
+  // Depleted (0-left) lots are hidden from the picker by default — they're historic
+  // goods-in records. Toggle reveals them so a variance can still be explained.
+  const [reconShowDepleted, setReconShowDepleted] = useState(false);
   // received − used − written off − remaining for the open lot (null while loading)
   const [reconUnaccounted, setReconUnaccounted] = useState<number | null>(null);
   // The used/written-off figures behind that gap, so the panel can show the maths
@@ -618,7 +621,11 @@ export default function RawMaterialsPage() {
     setReconIng(ing);
     setReconLot(null);
     setReconError("");
-    if (ing.lots.length === 1) selectReconLot(ing.lots[0], ing);
+    setReconShowDepleted(false);
+    // Auto-select only when there's exactly one lot worth acting on (has stock);
+    // if all lots are depleted, fall through so the toggle reveals them.
+    const available = ing.lots.filter(l => l.quantity_remaining_g > 0);
+    if (available.length === 1) selectReconLot(available[0], ing);
   }
 
   function closeReconcile() {
@@ -1041,6 +1048,10 @@ export default function RawMaterialsPage() {
                       const isOpen = expanded[ing.id];
                       const hasStock = totalRemaining > 0;
                       const noLots = ing.lots.length === 0;
+                      // Depleted lots are historic goods-in — the batch breakdown
+                      // shows available (has-stock) lots only.
+                      const availableLots = ing.lots.filter(l => l.quantity_remaining_g > 0);
+                      const noAvailableLots = availableLots.length === 0;
                       const unit = ing.unit ?? "g";
                       const value = ing.price_per_kg != null
                         ? (unit === "units" ? totalRemaining : totalRemaining / 1000) * ing.price_per_kg
@@ -1051,7 +1062,7 @@ export default function RawMaterialsPage() {
                           <tr className="hover:bg-gray-50 transition-colors">
                             <td className="px-4 py-3">
                               <div className="flex items-start gap-1.5">
-                              {noLots ? (
+                              {noAvailableLots ? (
                                 <span className="shrink-0 p-0.5 -ml-0.5" aria-hidden="true"><span className="block h-4 w-4" /></span>
                               ) : (
                                 <button
@@ -1150,7 +1161,7 @@ export default function RawMaterialsPage() {
                             </td>
                           </tr>
 
-                          {isOpen && ing.lots.length > 0 && (
+                          {isOpen && !noAvailableLots && (
                             <tr key={`${ing.id}-lots`}>
                               <td colSpan={6} className="bg-gray-50 border-t border-gray-100 px-4 py-3">
                                 <table className="w-full text-xs">
@@ -1167,10 +1178,10 @@ export default function RawMaterialsPage() {
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
-                                    {ing.lots.map(lot => {
+                                    {availableLots.map(lot => {
                                       const lotReserved = reservedByLot[lot.id] ?? 0;
                                       return (
-                                      <tr key={lot.id} className={lot.quantity_remaining_g === 0 ? "opacity-40" : ""}>
+                                      <tr key={lot.id}>
                                         <td className="py-1.5 font-mono font-semibold text-gray-900">{lot.julian_code}</td>
                                         <td className="py-1.5 text-right tabular-nums text-gray-600 hidden sm:table-cell">{fmtQty(lot.quantity_received_g, unit)}</td>
                                         <td className="py-1.5 text-right tabular-nums font-semibold text-gray-900">{fmtQty(lot.quantity_remaining_g, unit)}</td>
@@ -1238,10 +1249,28 @@ export default function RawMaterialsPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-                {/* Lot picker. Depleted lots stay listed — historical unaccounted
-                    variance lives on them and "Explain variance" is how it's closed. */}
+                {/* Lot picker. Available lots only by default; depleted lots are
+                    historic goods-in, revealed by the toggle so a variance can
+                    still be explained (that workflow lives on depleted lots). */}
+                {(() => {
+                  const depletedCount = ing.lots.filter(l => l.quantity_remaining_g <= 0).length;
+                  const pickerLots = reconShowDepleted
+                    ? ing.lots
+                    : ing.lots.filter(l => l.quantity_remaining_g > 0);
+                  return (
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Batch / lot</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-gray-700">Batch / lot</label>
+                    {depletedCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setReconShowDepleted(v => !v)}
+                        className="text-xs text-brown/60 hover:text-brown hover:underline"
+                      >
+                        {reconShowDepleted ? "Hide depleted" : `Show depleted (${depletedCount})`}
+                      </button>
+                    )}
+                  </div>
                   <select
                     className="input w-full"
                     value={lot?.id ?? ""}
@@ -1251,13 +1280,15 @@ export default function RawMaterialsPage() {
                     }}
                   >
                     <option value="" disabled>Select a lot…</option>
-                    {ing.lots.map(l => (
+                    {pickerLots.map(l => (
                       <option key={l.id} value={l.id}>
                         {l.julian_code} · {fmtQty(l.quantity_remaining_g, unit)} left · {formatDate(l.received_date)}
                       </option>
                     ))}
                   </select>
                 </div>
+                  );
+                })()}
 
                 {lot && (<>
                 {/* Current stock info */}
