@@ -85,9 +85,16 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   and set the `sb-dudchdacsrgdnenkqmyo-auth-token` cookie. Use `support@` for writes; only read-only nav as Yep Kitchen logins.
 
 ## Pending / TODO
-- **Supabase is on Pro** (daily backups active). First real paying customer beyond Yep Kitchen
-  signed 13 Jul 2026 — validate changes on the demo account (support@ = Popped) before they go live;
-  don't push untested changes straight to `main`.
+- **Supabase is on Pro** (daily backups active). The 13 Jul 2026 "first customer" (Dynamic Food
+  Safety, a Beacon-referred consultancy) never completed checkout and asked to cancel — Yep Kitchen
+  is still the only paying customer. The demo-first policy stands anyway: validate changes on the
+  demo account (support@ = Popped) before they go live; don't push untested changes straight to `main`.
+- **Billing gate live (13 Jul 2026):** middleware requires a live Stripe sub (`trialing`/`active`/
+  `past_due`) to use the app; everyone else is pinned to `/account/billing?setup=1`. Free access is
+  by exact email only (`support@kernelapp.co.uk`, `katie@beacon-compliance.co.uk`) — never a blanket
+  status. `/account/billing/confirm` reconciles the org synchronously after Stripe checkout
+  (idempotent with the webhook) so just-paid users aren't bounced. NB: DB default `trial` ≠ Stripe's
+  `trialing`.
 
 ## Migrations applied (for reference)
 - `training-documents.sql`, `add-batch-to-finished-goods-adjustments.sql`,
