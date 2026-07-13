@@ -85,7 +85,9 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   and set the `sb-dudchdacsrgdnenkqmyo-auth-token` cookie. Use `support@` for writes; only read-only nav as Yep Kitchen logins.
 
 ## Pending / TODO
-- **Vercel Pro + Supabase Pro upgrades** pending (commercial terms; Supabase Free = no daily backups).
+- **Supabase is on Pro** (daily backups active). First real paying customer beyond Yep Kitchen
+  signed 13 Jul 2026 — validate changes on the demo account (support@ = Popped) before they go live;
+  don't push untested changes straight to `main`.
 
 ## Migrations applied (for reference)
 - `training-documents.sql`, `add-batch-to-finished-goods-adjustments.sql`,
