@@ -111,12 +111,22 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   applies prep yields, gates on any missing data (never treats missing as 0), finished weight
   = units×net weight, FIC rounding at output.
 - `add-costing-settings.sql` (product_nutrition_settings gains `secondary_packaging` jsonb
-  `[{name, qty_per_batch}]`, `labour_staff`, `labour_hours`, `labour_cost_per_hour`) —
+  `[{name, units_per_pack}]` — units per pack, cost/unit = pack price ÷ units_per_pack;
+  `labour_staff`, `labour_hours`, `labour_cost_per_hour`) —
   **PENDING: run in the Supabase SQL editor** (Costing tab's secondary-packaging/labour save
   fails until then). Full cost/unit = ingredients (gross × £/kg) + primary packaging + secondary
   packaging + labour. Recipe & yields and Costing tabs write DIFFERENT columns of the same
   (org, product_name) row via `saveProductSettings` (fresh select → update/insert, never clobbers
   the other tab). Note `price_per_kg` doubles as price-per-unit for `unit:"units"` items.
+- `create-demo-bookings.sql` (new `demo_slots` table for the customer "Book a demo" feature)
+  — **PENDING: run in the Supabase SQL editor** (Book a demo + admin Demo availability fail until
+  then). CROSS-ORG by design: support@ hand-picks bookable slots, ANY org's customer can claim an
+  unbooked upcoming one — so it deliberately does NOT use `organisation_id = get_my_org_id()`
+  isolation. RLS is ON with NO policy (deny-all direct access); everything goes through service-role
+  routes `app/api/demo-slots/{route,book}.ts` (auth + support-only checks). Booking is an atomic claim
+  (`update ... where booked_by_org is null and starts_at > now()`), then emails support@ AND the
+  customer via Resend with an `.ics` invite attached (`lib/ics.ts`) — no Google API/OAuth. Admin page
+  `app/admin/demo-slots` (support-only). Times stored as timestamptz, shown in Europe/London.
 - `scripts/clone-yep-to-demo.mjs` clones Yep Kitchen's operational data into the
   Popped demo org (dry-run by default; `--commit` to apply). Skips logins/billing
   and the tables the admin key can't write (SOPs, calendar, wastage, training_sessions).

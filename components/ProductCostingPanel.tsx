@@ -38,7 +38,7 @@ export default function ProductCostingPanel({ productName }: { productName: stri
     ingredients,
     unitsPerBatch: settings.unitsPerBatch ? parseFloat(settings.unitsPerBatch) : null,
     packaging,
-    secondaryPackaging: secondary.map(s => ({ name: s.name, qtyPerBatch: parseFloat(s.qtyPerBatch) || 0 })),
+    secondaryPackaging: secondary.map(s => ({ name: s.name, unitsPerPack: parseFloat(s.unitsPerPack) || 0 })),
     labour: {
       staff: labourStaff ? parseFloat(labourStaff) : null,
       hours: labourHours ? parseFloat(labourHours) : null,
@@ -59,8 +59,8 @@ export default function ProductCostingPanel({ productName }: { productName: stri
     if (!data.orgId) return;
     setSaving(true); setSaved(false); setError("");
     const secondary_packaging = secondary
-      .filter(s => s.name && (parseFloat(s.qtyPerBatch) || 0) > 0)
-      .map(s => ({ name: s.name, qty_per_batch: parseFloat(s.qtyPerBatch) }));
+      .filter(s => s.name && (parseFloat(s.unitsPerPack) || 0) > 0)
+      .map(s => ({ name: s.name, units_per_pack: parseFloat(s.unitsPerPack) }));
     const res = await saveProductSettings(data.orgId, productName, {
       secondary_packaging,
       labour_staff: labourStaff ? parseFloat(labourStaff) : null,
@@ -72,7 +72,7 @@ export default function ProductCostingPanel({ productName }: { productName: stri
     setSaving(false);
   }
 
-  const addSecondary = () => setSecondary(s => [...s, { name: "", qtyPerBatch: "" }]);
+  const addSecondary = () => setSecondary(s => [...s, { name: "", unitsPerPack: "" }]);
   const setSecondaryRow = (i: number, patch: Partial<SecondaryPackLine>) =>
     setSecondary(s => s.map((r, idx) => idx === i ? { ...r, ...patch } : r));
   const removeSecondary = (i: number) => setSecondary(s => s.filter((_, idx) => idx !== i));
@@ -175,7 +175,7 @@ export default function ProductCostingPanel({ productName }: { productName: stri
             <div className="space-y-2">
               {secondary.map((row, i) => {
                 const priced = row.name ? ingredients.get(normaliseName(row.name))?.pricePerKg : null;
-                const qty = parseFloat(row.qtyPerBatch) || 0;
+                const per = parseFloat(row.unitsPerPack) || 0;
                 return (
                   <div key={i} className="flex items-center gap-2">
                     <select
@@ -188,20 +188,20 @@ export default function ProductCostingPanel({ productName }: { productName: stri
                       {row.name && !secondaryPackagingOptions.includes(row.name) && <option value={row.name}>{row.name}</option>}
                     </select>
                     <input
-                      type="number" step="1" min="0" inputMode="decimal"
-                      className="input w-28 text-base text-right"
-                      value={row.qtyPerBatch}
-                      onChange={e => setSecondaryRow(i, { qtyPerBatch: e.target.value })}
-                      placeholder="qty / batch"
+                      type="number" step="1" min="1" inputMode="decimal"
+                      className="input w-32 text-base text-right"
+                      value={row.unitsPerPack}
+                      onChange={e => setSecondaryRow(i, { unitsPerPack: e.target.value })}
+                      placeholder="units / pack"
                     />
-                    <span className="w-20 text-right text-sm tabular-nums text-gray-600">
-                      {priced != null ? gbp(priced * qty) : "—"}
+                    <span className="w-24 text-right text-sm tabular-nums text-gray-600">
+                      {priced != null && per > 0 ? `${gbp(priced / per)}/unit` : "—"}
                     </span>
                     <button type="button" onClick={() => removeSecondary(i)} className="text-gray-400 hover:text-red-500 px-1" aria-label="Remove">✕</button>
                   </div>
                 );
               })}
-              <p className="text-[11px] text-gray-400">Quantity per standard batch — e.g. 4 outer boxes for a batch of 24 units. Divided across units per batch.</p>
+              <p className="text-[11px] text-gray-400">How many finished units fit in each pack — e.g. an outer box holding 6. Cost per unit = pack price ÷ units per pack.</p>
             </div>
           )}
         </div>

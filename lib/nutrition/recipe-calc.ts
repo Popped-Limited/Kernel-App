@@ -252,14 +252,14 @@ export interface PackagingLine {
 
 export interface SecondaryPackInput {
   name: string;
-  qtyPerBatch: number;
+  unitsPerPack: number; // how many finished units fit in one pack (e.g. box of 6 → 6)
 }
 
 export interface SecondaryPackLineResult {
   name: string;
-  qtyPerBatch: number;
+  unitsPerPack: number;
   pricePerUnit: number | null;
-  batchCost: number | null; // qty × price (null = no price)
+  perUnitCost: number | null; // pack price ÷ units per pack (null = no price)
 }
 
 export interface LabourInput {
@@ -285,8 +285,7 @@ export interface CostingResult {
   ingredientBatchCost: number;      // sum of priced lines
   ingredientPerUnitCost: number | null; // ÷ units per batch
   packagingPerUnitCost: number;     // jar + closure per unit
-  secondaryBatchCost: number;       // Σ(qty × price) per batch
-  secondaryPerUnitCost: number | null; // ÷ units per batch
+  secondaryPerUnitCost: number;     // Σ(pack price ÷ units per pack), intrinsic per unit
   labourBatchCost: number | null;   // staff × hours × £/hour
   labourPerUnitCost: number | null; // ÷ units per batch
   totalPerUnitCost: number | null;  // ingredients + primary + secondary + labour per unit
@@ -330,25 +329,25 @@ export function computeCosting(input: CostingInput): CostingResult {
   addPackaging(packaging.jar, "Container");
   addPackaging(packaging.closure, "Closure");
 
-  // Secondary packaging: priced per unit, entered as a quantity per batch.
+  // Secondary packaging: per-unit cost = pack price ÷ how many units the pack
+  // holds (e.g. a £0.50 box of 6 → £0.083/unit). Independent of batch size.
   const secondaryLines: SecondaryPackLineResult[] = [];
-  let secondaryBatchCost = 0;
+  let secondaryPerUnitCost = 0;
   for (const s of secondaryPackaging) {
-    const qty = Number(s.qtyPerBatch) || 0;
-    if (!s.name || qty <= 0) continue;
+    const per = Number(s.unitsPerPack) || 0;
+    if (!s.name || per <= 0) continue;
     const ing = ingredients.get(normaliseName(s.name));
     const pricePerUnit = ing?.pricePerKg ?? null;
-    const batchCost = pricePerUnit != null ? qty * pricePerUnit : null;
-    if (batchCost != null) secondaryBatchCost += batchCost;
+    const perUnitCost = pricePerUnit != null ? pricePerUnit / per : null;
+    if (perUnitCost != null) secondaryPerUnitCost += perUnitCost;
     else missingPrices.push(s.name);
-    secondaryLines.push({ name: s.name, qtyPerBatch: qty, pricePerUnit, batchCost });
+    secondaryLines.push({ name: s.name, unitsPerPack: per, pricePerUnit, perUnitCost });
   }
 
   const hasUnitsPerBatch = !!unitsPerBatch && unitsPerBatch > 0;
   const perUnit = (batch: number) => (hasUnitsPerBatch ? batch / (unitsPerBatch as number) : null);
 
   const ingredientPerUnitCost = perUnit(ingredientBatchCost);
-  const secondaryPerUnitCost = perUnit(secondaryBatchCost);
 
   const labourBatchCost =
     labour.staff != null && labour.hours != null && labour.costPerHour != null
@@ -356,14 +355,15 @@ export function computeCosting(input: CostingInput): CostingResult {
       : null;
   const labourPerUnitCost = labourBatchCost != null ? perUnit(labourBatchCost) : null;
 
-  // Total per unit needs a per-unit basis; sum the components that are known.
+  // Total per unit needs the batch-based components (ingredients, labour) to have
+  // a per-unit basis; secondary packaging is already per unit.
   const totalPerUnitCost = hasUnitsPerBatch
-    ? (ingredientPerUnitCost ?? 0) + packagingPerUnitCost + (secondaryPerUnitCost ?? 0) + (labourPerUnitCost ?? 0)
+    ? (ingredientPerUnitCost ?? 0) + packagingPerUnitCost + secondaryPerUnitCost + (labourPerUnitCost ?? 0)
     : null;
 
   return {
     lines, packagingLines, secondaryLines, ingredientBatchCost, ingredientPerUnitCost,
-    packagingPerUnitCost, secondaryBatchCost, secondaryPerUnitCost,
+    packagingPerUnitCost, secondaryPerUnitCost,
     labourBatchCost, labourPerUnitCost, totalPerUnitCost, missingPrices, hasUnitsPerBatch,
   };
 }

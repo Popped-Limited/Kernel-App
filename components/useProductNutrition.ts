@@ -7,10 +7,10 @@ import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { NutritionPer100g } from "@/lib/types";
 import { normaliseName, type RecipeRow, type IngredientData } from "@/lib/nutrition/recipe-calc";
 
-/** A secondary-packaging line: an item + how many per standard batch. */
+/** A secondary-packaging line: an item + how many finished units fit in one pack. */
 export interface SecondaryPackLine {
   name: string;
-  qtyPerBatch: string;
+  unitsPerPack: string;
 }
 
 /** Saved per-product calc inputs, as editable strings. */
@@ -161,8 +161,8 @@ export function useProductNutrition(productName: string): ProductNutritionData {
         for (const [k, v] of Object.entries((ps.prep_yields ?? {}) as Record<string, number>)) {
           yields[normaliseName(k)] = String(Math.round((Number(v) || 1) * 100));
         }
-        const secondaryPackaging: SecondaryPackLine[] = ((ps.secondary_packaging ?? []) as { name: string; qty_per_batch: number }[])
-          .map((s) => ({ name: s.name, qtyPerBatch: s.qty_per_batch != null ? String(s.qty_per_batch) : "" }));
+        const secondaryPackaging: SecondaryPackLine[] = ((ps.secondary_packaging ?? []) as { name: string; units_per_pack: number }[])
+          .map((s) => ({ name: s.name, unitsPerPack: s.units_per_pack != null ? String(s.units_per_pack) : "" }));
         setSettings({
           id: ps.id,
           netWeight: ps.net_weight_per_unit_g != null ? String(ps.net_weight_per_unit_g) : "",
