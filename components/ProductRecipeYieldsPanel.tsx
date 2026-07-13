@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { normaliseName } from "@/lib/nutrition/recipe-calc";
 import { useProductNutrition, saveProductSettings, type LoadedSettings } from "@/components/useProductNutrition";
+import { suggestPrepYields, type YieldSuggestion } from "@/lib/nutrition/prep-yield-suggest";
 
 /**
  * Recipe & yields tab — the calc INPUTS: net weight per unit, units per batch,
@@ -18,8 +19,25 @@ export default function ProductRecipeYieldsPanel({ productName }: { productName:
   const [saved_, setSaved] = useState(false);
   const [error, setError] = useState("");
 
+  // Prep-yield suggestions from wastage history (loaded on demand — heavy query).
+  const [suggestions, setSuggestions] = useState<Map<string, YieldSuggestion> | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState("");
+
   // Seed the editable form whenever a fresh load lands.
   useEffect(() => { setForm(saved); }, [saved]);
+
+  async function loadSuggestions() {
+    if (!orgId) return;
+    setSuggesting(true); setSuggestError("");
+    try {
+      setSuggestions(await suggestPrepYields(orgId));
+    } catch {
+      setSuggestError("Couldn't read wastage history.");
+    } finally {
+      setSuggesting(false);
+    }
+  }
 
   if (data.loading) {
     return <div className="card p-8 text-center text-sm text-gray-400">Loading recipe…</div>;
@@ -103,6 +121,17 @@ export default function ProductRecipeYieldsPanel({ productName }: { productName:
           </p>
         )}
 
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Prep yields</p>
+          <div className="flex items-center gap-2">
+            {suggestError && <span className="text-xs text-red-500">{suggestError}</span>}
+            <button type="button" onClick={loadSuggestions} disabled={suggesting}
+              className="text-xs font-medium text-brown hover:underline disabled:opacity-60 disabled:no-underline">
+              {suggesting ? "Reading wastage…" : "Suggest from waste history"}
+            </button>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b border-gray-200">
@@ -114,17 +143,21 @@ export default function ProductRecipeYieldsPanel({ productName }: { productName:
             </thead>
             <tbody className="divide-y divide-gray-100">
               {recipe.map((row) => {
-                const ing = ingredients.get(normaliseName(row.name));
+                const key = normaliseName(row.name);
+                const ing = ingredients.get(key);
                 const complete = ing && ing.nutrition;
+                const sug = suggestions?.get(key);
+                const current = parseFloat(yieldFor(row.name) || "100");
+                const drift = sug != null && Math.abs(current - sug.suggestedPct) >= 2;
                 return (
                   <tr key={row.name}>
-                    <td className="py-2 pr-3 text-gray-900">
+                    <td className="py-2 pr-3 text-gray-900 align-top">
                       {row.name}
                       {!ing && <span className="ml-2 text-[10px] font-semibold text-red-600">no raw material</span>}
                       {ing && !complete && <span className="ml-2 text-[10px] font-semibold text-amber-600">no nutrition</span>}
                     </td>
-                    <td className="py-2 px-3 text-right tabular-nums text-gray-700">{row.grams.toLocaleString()}</td>
-                    <td className="py-2 pl-3 text-right">
+                    <td className="py-2 px-3 text-right tabular-nums text-gray-700 align-top">{row.grams.toLocaleString()}</td>
+                    <td className="py-2 pl-3 text-right align-top">
                       <input
                         type="number" step="1" min="0" max="100" inputMode="decimal"
                         className="input w-20 text-base text-right"
@@ -132,6 +165,15 @@ export default function ProductRecipeYieldsPanel({ productName }: { productName:
                         onChange={(e) => setYield(row.name, e.target.value)}
                         placeholder="100"
                       />
+                      {sug != null && (
+                        <div className="mt-0.5 text-[10px] whitespace-nowrap">
+                          <button type="button" onClick={() => setYield(row.name, String(sug.suggestedPct))}
+                            className={`hover:underline ${drift ? "text-amber-600 font-semibold" : "text-gray-400"}`}
+                            title={`${(sug.wasteG / 1000).toFixed(2)} kg prep waste on ${(sug.usedG / 1000).toFixed(1)} kg used`}>
+                            Suggested {sug.suggestedPct}% · Apply
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -141,6 +183,7 @@ export default function ProductRecipeYieldsPanel({ productName }: { productName:
         </div>
         <p className="text-[11px] text-gray-400">
           Prep yield = net weight into the pot ÷ gross weight in the recipe. Leave at 100% for ingredients that lose nothing in prep.
+          Suggestions come from logged &ldquo;prep, trim, yield loss&rdquo; wastage vs production usage.
         </p>
 
         <div className="flex items-center gap-3">
