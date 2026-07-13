@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 
 function StatusBadge({ status }: { status: string | null }) {
@@ -27,9 +27,12 @@ function formatDate(iso: string | null) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 }
 
-export default function BillingPage() {
+function BillingContent() {
   const { subscriptionStatus, trialEndsAt, stripeCustomerId, loading } = useOrganisation();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Set when the billing gate (middleware) bounced them here — explain why.
+  const gated = searchParams.get("setup") === "1";
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState("");
 
@@ -76,6 +79,19 @@ export default function BillingPage() {
 
   return (
     <main className="flex-1 p-6 lg:p-8 max-w-2xl">
+      {gated && (
+        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-semibold text-amber-900">
+            {isCancelled ? "Your subscription has ended" : "Finish setting up your account"}
+          </p>
+          <p className="text-sm text-amber-800 mt-1">
+            {isCancelled
+              ? "Access to Kernel is paused until you resubscribe. Your records and data are safe — resubscribe below to pick up where you left off."
+              : "Kernel is locked until billing setup is complete. Add your payment details below to start your free trial — you won't be charged until it ends, and you can cancel any time."}
+          </p>
+        </div>
+      )}
+
       <h1 className="text-2xl font-serif text-brown mb-1">Billing</h1>
       <p className="text-sm text-brown/60 mb-8">Manage your Kernel subscription</p>
 
@@ -189,5 +205,14 @@ export default function BillingPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function BillingPage() {
+  // useSearchParams needs a Suspense boundary (same pattern as the signup page)
+  return (
+    <Suspense>
+      <BillingContent />
+    </Suspense>
   );
 }
