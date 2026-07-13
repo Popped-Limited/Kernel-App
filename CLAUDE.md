@@ -108,6 +108,13 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   definition, joins raw materials by EXACT name, converts per-100ml→per-100g via density,
   applies prep yields, gates on any missing data (never treats missing as 0), finished weight
   = units×net weight, FIC rounding at output.
+- `add-costing-settings.sql` (product_nutrition_settings gains `secondary_packaging` jsonb
+  `[{name, qty_per_batch}]`, `labour_staff`, `labour_hours`, `labour_cost_per_hour`) —
+  **PENDING: run in the Supabase SQL editor** (Costing tab's secondary-packaging/labour save
+  fails until then). Full cost/unit = ingredients (gross × £/kg) + primary packaging + secondary
+  packaging + labour. Recipe & yields and Costing tabs write DIFFERENT columns of the same
+  (org, product_name) row via `saveProductSettings` (fresh select → update/insert, never clobbers
+  the other tab). Note `price_per_kg` doubles as price-per-unit for `unit:"units"` items.
 - `scripts/clone-yep-to-demo.mjs` clones Yep Kitchen's operational data into the
   Popped demo org (dry-run by default; `--commit` to apply). Skips logins/billing
   and the tables the admin key can't write (SOPs, calendar, wastage, training_sessions).

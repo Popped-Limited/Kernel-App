@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
 import { normaliseName } from "@/lib/nutrition/recipe-calc";
-import { useProductNutrition, type LoadedSettings } from "@/components/useProductNutrition";
+import { useProductNutrition, saveProductSettings, type LoadedSettings } from "@/components/useProductNutrition";
 
 /**
  * Recipe & yields tab — the calc INPUTS: net weight per unit, units per batch,
@@ -53,24 +52,12 @@ export default function ProductRecipeYieldsPanel({ productName }: { productName:
       if (!isNaN(pct) && pct !== 100) prep_yields[row.name] = pct / 100; // store by recipe name; omit default 100%
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    const updatedBy = (user?.user_metadata?.full_name || user?.email || "").toString();
-
-    const payload = {
-      organisation_id: orgId,
-      product_name: productName,
+    // Shared saver writes only these columns — never clobbers the Costing tab's.
+    const res = await saveProductSettings(orgId, productName, {
       net_weight_per_unit_g: form.netWeight ? parseFloat(form.netWeight) : null,
       units_per_batch: form.unitsPerBatch ? parseFloat(form.unitsPerBatch) : null,
       prep_yields,
-      updated_by: updatedBy,
-      updated_at: new Date().toISOString(),
-    };
-
-    // No usable upsert target (unique index is on lower(product_name)), so
-    // update the known row or insert a fresh one.
-    const res = form.id
-      ? await supabase.from("product_nutrition_settings").update(payload).eq("id", form.id)
-      : await supabase.from("product_nutrition_settings").insert(payload).select("id").single();
+    });
 
     if (res.error) {
       setError("Couldn't save — try again.");

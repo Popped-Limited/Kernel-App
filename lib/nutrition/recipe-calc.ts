@@ -250,28 +250,53 @@ export interface PackagingLine {
   pricePerUnit: number | null;
 }
 
+export interface SecondaryPackInput {
+  name: string;
+  qtyPerBatch: number;
+}
+
+export interface SecondaryPackLineResult {
+  name: string;
+  qtyPerBatch: number;
+  pricePerUnit: number | null;
+  batchCost: number | null; // qty × price (null = no price)
+}
+
+export interface LabourInput {
+  staff: number | null;
+  hours: number | null;
+  costPerHour: number | null;
+}
+
 export interface CostingInput {
   recipe: RecipeRow[];
   ingredients: Map<string, IngredientData>;
   unitsPerBatch: number | null;
   /** Primary packaging mapped on the packing_runs question (exact names). */
   packaging: { jar: string | null; closure: string | null };
+  secondaryPackaging: SecondaryPackInput[];
+  labour: LabourInput;
 }
 
 export interface CostingResult {
   lines: CostLine[];
   packagingLines: PackagingLine[];
+  secondaryLines: SecondaryPackLineResult[];
   ingredientBatchCost: number;      // sum of priced lines
   ingredientPerUnitCost: number | null; // ÷ units per batch
   packagingPerUnitCost: number;     // jar + closure per unit
-  totalPerUnitCost: number | null;  // ingredient/unit + packaging/unit
+  secondaryBatchCost: number;       // Σ(qty × price) per batch
+  secondaryPerUnitCost: number | null; // ÷ units per batch
+  labourBatchCost: number | null;   // staff × hours × £/hour
+  labourPerUnitCost: number | null; // ÷ units per batch
+  totalPerUnitCost: number | null;  // ingredients + primary + secondary + labour per unit
   /** Ingredient/packaging names with no price set — cost is understated until fixed. */
   missingPrices: string[];
   hasUnitsPerBatch: boolean;
 }
 
 export function computeCosting(input: CostingInput): CostingResult {
-  const { recipe, ingredients, unitsPerBatch, packaging } = input;
+  const { recipe, ingredients, unitsPerBatch, packaging, secondaryPackaging, labour } = input;
   const missingPrices: string[] = [];
 
   const lines: CostLine[] = [];
@@ -305,13 +330,41 @@ export function computeCosting(input: CostingInput): CostingResult {
   addPackaging(packaging.jar, "Container");
   addPackaging(packaging.closure, "Closure");
 
+  // Secondary packaging: priced per unit, entered as a quantity per batch.
+  const secondaryLines: SecondaryPackLineResult[] = [];
+  let secondaryBatchCost = 0;
+  for (const s of secondaryPackaging) {
+    const qty = Number(s.qtyPerBatch) || 0;
+    if (!s.name || qty <= 0) continue;
+    const ing = ingredients.get(normaliseName(s.name));
+    const pricePerUnit = ing?.pricePerKg ?? null;
+    const batchCost = pricePerUnit != null ? qty * pricePerUnit : null;
+    if (batchCost != null) secondaryBatchCost += batchCost;
+    else missingPrices.push(s.name);
+    secondaryLines.push({ name: s.name, qtyPerBatch: qty, pricePerUnit, batchCost });
+  }
+
   const hasUnitsPerBatch = !!unitsPerBatch && unitsPerBatch > 0;
-  const ingredientPerUnitCost = hasUnitsPerBatch ? ingredientBatchCost / (unitsPerBatch as number) : null;
-  const totalPerUnitCost = ingredientPerUnitCost != null ? ingredientPerUnitCost + packagingPerUnitCost : null;
+  const perUnit = (batch: number) => (hasUnitsPerBatch ? batch / (unitsPerBatch as number) : null);
+
+  const ingredientPerUnitCost = perUnit(ingredientBatchCost);
+  const secondaryPerUnitCost = perUnit(secondaryBatchCost);
+
+  const labourBatchCost =
+    labour.staff != null && labour.hours != null && labour.costPerHour != null
+      ? labour.staff * labour.hours * labour.costPerHour
+      : null;
+  const labourPerUnitCost = labourBatchCost != null ? perUnit(labourBatchCost) : null;
+
+  // Total per unit needs a per-unit basis; sum the components that are known.
+  const totalPerUnitCost = hasUnitsPerBatch
+    ? (ingredientPerUnitCost ?? 0) + packagingPerUnitCost + (secondaryPerUnitCost ?? 0) + (labourPerUnitCost ?? 0)
+    : null;
 
   return {
-    lines, packagingLines, ingredientBatchCost, ingredientPerUnitCost,
-    packagingPerUnitCost, totalPerUnitCost, missingPrices, hasUnitsPerBatch,
+    lines, packagingLines, secondaryLines, ingredientBatchCost, ingredientPerUnitCost,
+    packagingPerUnitCost, secondaryBatchCost, secondaryPerUnitCost,
+    labourBatchCost, labourPerUnitCost, totalPerUnitCost, missingPrices, hasUnitsPerBatch,
   };
 }
 
