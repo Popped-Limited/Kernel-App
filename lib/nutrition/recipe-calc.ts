@@ -27,6 +27,50 @@ export function normaliseName(name: string): string {
   return name.trim().toLowerCase();
 }
 
+// ── QUID ────────────────────────────────────────────────────────────────────
+// QUID % is declared only for ingredients emphasised in the product's name
+// (FIC Art. 22): "Garlic Chilli Oil" needs a % for garlic, chilli and oil —
+// not for salt. Word-level match with basic plural handling ("chilli" matches
+// "Long red chillies"). Shared by the Declarations tab and the label checker
+// so both surfaces agree on which ingredients need a %.
+
+const TITLE_STOP_WORDS = new Set(["and", "the", "with", "for", "our", "style"]);
+
+function titleWords(s: string): string[] {
+  return s.toLowerCase().split(/[^a-z]+/).filter((w) => w.length >= 3 && !TITLE_STOP_WORDS.has(w));
+}
+
+function wordVariants(w: string): string[] {
+  const v = new Set([w]);
+  if (w.endsWith("ies")) v.add(w.slice(0, -3) + "y"); // berries → berry
+  if (w.endsWith("es")) v.add(w.slice(0, -2));        // chillies → chilli, tomatoes → tomato
+  if (w.endsWith("s")) v.add(w.slice(0, -1));         // onions → onion
+  if (w.endsWith("ed")) {
+    v.add(w.slice(0, -2));                            // salted → salt, smoked → smoke…
+    v.add(w.slice(0, -1));                            // …pickled → pickle
+  }
+  return [...v];
+}
+
+function wordsMatch(a: string, b: string): boolean {
+  for (const va of wordVariants(a)) {
+    for (const vb of wordVariants(b)) {
+      if (va === vb) return true;
+      // Compound nouns: "Strawberries" is named by "Berry" in the title. The
+      // ≥4 guard stops short suffixes ("oil", "nut") matching everything.
+      if (vb.length >= 4 && va.endsWith(vb)) return true;
+      if (va.length >= 4 && vb.endsWith(va)) return true;
+    }
+  }
+  return false;
+}
+
+/** True when any word of the ingredient's name appears in the product title. */
+export function namedInProductTitle(productName: string, ingredientName: string): boolean {
+  const product = titleWords(productName);
+  return titleWords(ingredientName).some((iw) => product.some((pw) => wordsMatch(iw, pw)));
+}
+
 /** A recipe line from the checklist definition. */
 export interface RecipeRow {
   name: string;
@@ -53,13 +97,17 @@ export interface CalcInput {
   prepYields: Map<string, number>;
   netWeightPerUnitG: number | null;
   unitsPerBatch: number | null;
+  /** When set, flags which ingredients need a QUID % (named in the title). */
+  productName?: string;
 }
 
 export interface DeclarationRow {
   name: string;
   effectiveG: number;
-  /** QUID: effectiveG ÷ total effective grams × 100. */
+  /** effectiveG ÷ total effective grams × 100. */
   percent: number;
+  /** True when this ingredient is named in the product title, so its % must be declared (QUID). */
+  quid: boolean;
   allergens: string[];
 }
 
@@ -101,7 +149,7 @@ function nutritionIsComplete(n: NutritionPer100g | null): n is NutritionPer100g 
 }
 
 export function computeNutrition(input: CalcInput): CalcResult {
-  const { recipe, ingredients, prepYields, netWeightPerUnitG, unitsPerBatch } = input;
+  const { recipe, ingredients, prepYields, netWeightPerUnitG, unitsPerBatch, productName } = input;
 
   const gaps: CalcGaps = { unmatched: [], missingNutrition: [], missingDensity: [] };
   const containsSet = new Set<string>();
@@ -154,7 +202,13 @@ export function computeNutrition(input: CalcInput): CalcResult {
       }
     }
 
-    declaration.push({ name: row.name, effectiveG, percent: 0, allergens: ing?.allergens ?? [] });
+    declaration.push({
+      name: row.name,
+      effectiveG,
+      percent: 0,
+      quid: productName ? namedInProductTitle(productName, row.name) : false,
+      allergens: ing?.allergens ?? [],
+    });
     totalEffectiveG += effectiveG;
   }
 

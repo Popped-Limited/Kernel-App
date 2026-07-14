@@ -26,8 +26,9 @@ export default function ProductDeclarationsPanel({ productName }: { productName:
       prepYields: prepMap,
       netWeightPerUnitG: settings.netWeight ? parseFloat(settings.netWeight) : null,
       unitsPerBatch: settings.unitsPerBatch ? parseFloat(settings.unitsPerBatch) : null,
+      productName,
     });
-  }, [recipe, ingredients, settings]);
+  }, [recipe, ingredients, settings, productName]);
 
   if (data.loading) {
     return <div className="card p-8 text-center text-sm text-gray-400">Loading…</div>;
@@ -64,12 +65,13 @@ export default function ProductDeclarationsPanel({ productName }: { productName:
               {result.declaration.map((d, i) => (
                 <span key={d.name}>
                   <span className={d.allergens.length ? "font-bold" : ""}>{d.name}</span>
-                  {" "}({d.percent.toFixed(d.percent < 10 ? 1 : 0)}%){i < result.declaration.length - 1 ? ", " : "."}
+                  {d.quid && <> ({d.percent.toFixed(d.percent < 10 ? 1 : 0)}%)</>}
+                  {i < result.declaration.length - 1 ? ", " : "."}
                 </span>
               ))}
             </p>
             <p className="mt-1 text-[11px] text-gray-400">
-              Descending weight order (at mixing); allergen-bearing ingredients shown in bold. QUID % is each ingredient ÷ total mix.
+              Descending weight order (at mixing); allergen-bearing ingredients shown in bold. QUID % appears only for ingredients named in the product title.
             </p>
           </div>
         )}
