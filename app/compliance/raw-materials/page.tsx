@@ -570,6 +570,26 @@ export default function RawMaterialsPage() {
   async function saveEdit() {
     if (!editing) return;
     if (!editName.trim()) { setSaveError("Name is required"); return; }
+
+    // Nutrition is all-or-nothing: a partial set of values saves as gaps that
+    // silently withhold the finished-goods nutrition table, so block the save
+    // until every value is filled in (or all are cleared).
+    if (editType === "ingredient") {
+      const isFilled = (key: string) => {
+        const raw = (editNutrition[key] ?? "").trim();
+        return raw !== "" && !isNaN(parseFloat(raw));
+      };
+      const filledCount = NUTRITION_FIELDS.filter(f => isFilled(f.key)).length;
+      if (filledCount > 0 && filledCount < NUTRITION_FIELDS.length) {
+        const missing = NUTRITION_FIELDS.filter(f => !isFilled(f.key)).map(f => f.label);
+        setSaveError(
+          `Nutrition values can't be left blank — the label calculation needs all ${NUTRITION_FIELDS.length}. ` +
+          `Missing: ${missing.join(", ")}. Enter 0 where the spec sheet lists none, or clear every value.`
+        );
+        return;
+      }
+    }
+
     setSaving(true);
     setSaveError("");
 
@@ -1723,13 +1743,18 @@ export default function RawMaterialsPage() {
                         <label className="block text-[10px] font-medium text-gray-500 mb-0.5 leading-tight">{f.label}</label>
                         <input
                           type="number" step="0.1" min="0"
-                          className="input w-full"
+                          className={`input w-full ${anyValue && !(editNutrition[f.key] ?? "").trim() ? "border-amber-400 bg-amber-50" : ""}`}
                           value={editNutrition[f.key] ?? ""}
                           onChange={e => setNutritionField(f.key, e.target.value)}
                         />
                       </div>
                     ))}
                   </div>
+                  {anyValue && NUTRITION_FIELDS.some(f => !(editNutrition[f.key] ?? "").trim()) && (
+                    <p className="mt-1.5 text-xs text-amber-700">
+                      All {NUTRITION_FIELDS.length} values are needed before the nutrition table can calculate — enter 0 where the spec sheet lists none.
+                    </p>
+                  )}
 
                   {anyValue && (
                     <div className="mt-2 grid grid-cols-2 gap-3">
