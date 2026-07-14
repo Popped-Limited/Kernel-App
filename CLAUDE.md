@@ -105,10 +105,13 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
 - `add-may-contain-and-spec-review.sql` (ingredients gain `may_contain_allergens`,
   `spec_sheet_review_frequency_years`, `spec_sheet_next_review_due`) — run 24 Jun 2026.
 - `add-primary-packaging.sql` (ingredients gain `is_primary_packaging`) — run 24 Jun 2026.
-- `add-label-artworks.sql` (versioned label artwork per product + AI FIC-8 presence-check
-  results; grants include `service_role` — the check route writes via supabaseAdmin) —
+- `add-label-artworks.sql` (versioned label artwork per product + AI FIC-8 check results;
+  grants include `service_role` — the check route writes via supabaseAdmin) —
   run 11 Jul 2026. Note: structured-output JSON schemas reject array `minItems`/`maxItems`
   other than 0 or 1 — enforce fixed-length arrays via the prompt + a `key` enum, not the schema.
+  The check (14 Jul 2026) is presence AND consistency: the route loads the product's recipe
+  declaration/allergens/QUID/net weight (via the user's RLS client, degrading to presence-only
+  if unavailable) and a wrong-product label returns `mismatch`, never a green tick.
 - `add-nutrition-calc.sql` (ingredients gain `nutrition_basis` per_100g|per_100ml default
   per_100g; new `product_nutrition_settings` keyed (org, product_name): net_weight_per_unit_g,
   units_per_batch, prep_yields jsonb) — **PENDING: run in the Supabase SQL editor** (the
@@ -116,7 +119,12 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   calc (`lib/nutrition/recipe-calc.ts`): reads the Production checklist ingredient_table
   definition, joins raw materials by EXACT name, converts per-100ml→per-100g via density,
   applies prep yields, gates on any missing data (never treats missing as 0), finished weight
-  = units×net weight, FIC rounding at output.
+  = units×net weight, FIC rounding at output. Raw-material nutrition is **all-or-nothing**:
+  the edit panel blocks saves with a partial set of the 9 values (blanks would silently
+  withhold the product's nutrition table). **QUID % is only declared for ingredients named
+  in the product title** (`namedInProductTitle` in recipe-calc — word match with
+  plural/compound/-ed forms; garlic/chilli/oil for "Garlic Chilli Oil", never salt) —
+  don't regress to a % on every ingredient.
 - `add-costing-settings.sql` (product_nutrition_settings gains `secondary_packaging` jsonb
   `[{name, units_per_pack}]` — units per pack, cost/unit = pack price ÷ units_per_pack;
   `labour_staff`, `labour_hours`, `labour_cost_per_hour`) —
