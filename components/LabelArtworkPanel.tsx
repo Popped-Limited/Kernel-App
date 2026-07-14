@@ -5,10 +5,10 @@ import { supabase } from "@/lib/supabase";
 import { fetchAll } from "@/lib/fetchAll";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 
-/** One FIC mandatory particular's presence result from the AI check */
+/** One FIC mandatory particular's result from the AI check */
 interface Particular {
   key: string;
-  status: "included" | "not_found" | "unclear";
+  status: "included" | "mismatch" | "not_found" | "unclear";
   evidence: string;
 }
 
@@ -58,21 +58,24 @@ function StatusMark({ status }: { status: Particular["status"] }) {
   if (status === "included") {
     return <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100 text-green-700 text-xs font-bold shrink-0">✓</span>;
   }
-  if (status === "not_found") {
+  if (status === "not_found" || status === "mismatch") {
     return <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-red-600 text-xs font-bold shrink-0">✕</span>;
   }
   return <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-700 text-xs font-bold shrink-0">?</span>;
 }
 
 function statusLabel(status: Particular["status"]) {
-  return status === "included" ? "Included" : status === "not_found" ? "Not found" : "Unclear";
+  if (status === "included") return "Included";
+  if (status === "mismatch") return "Doesn't match";
+  if (status === "not_found") return "Not found";
+  return "Unclear";
 }
 
-/** The presence check is exactly that — never a legal opinion. Shown wherever results render. */
+/** The check is presence + consistency with your recipe data — never a legal opinion. Shown wherever results render. */
 function Disclaimer() {
   return (
     <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-      This checks that each section is present on the artwork — it is not a legal compliance review.
+      This checks each section is present and matches this product&apos;s recipe data in Kernel — it is not a legal compliance review.
       Verify everything before print.
     </p>
   );
@@ -91,7 +94,9 @@ function CheckResults({ artwork }: { artwork: LabelArtwork }) {
               <p className="text-sm text-gray-900">
                 {PARTICULAR_LABELS[p.key] ?? p.key}
                 <span className={`ml-2 text-xs font-semibold ${
-                  p.status === "included" ? "text-green-700" : p.status === "not_found" ? "text-red-600" : "text-amber-700"
+                  p.status === "included" ? "text-green-700"
+                    : p.status === "not_found" || p.status === "mismatch" ? "text-red-600"
+                    : "text-amber-700"
                 }`}>{statusLabel(p.status)}</span>
               </p>
               {p.evidence && <p className="text-xs text-gray-500 mt-0.5">{p.evidence}</p>}
