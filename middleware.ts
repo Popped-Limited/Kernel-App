@@ -10,6 +10,7 @@ const PUBLIC_PREFIXES = [
   "/api/signup",
   "/api/stripe-webhook",
   "/api/reminders",
+  "/api/trial-reminders",
   "/_next",
   "/robots.txt",
   "/sitemap.xml",

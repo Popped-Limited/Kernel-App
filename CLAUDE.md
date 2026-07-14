@@ -95,6 +95,13 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   status. `/account/billing/confirm` reconciles the org synchronously after Stripe checkout
   (idempotent with the webhook) so just-paid users aren't bounced. NB: DB default `trial` ≠ Stripe's
   `trialing`.
+- **Trial-end reminder (14 Jul 2026):** hourly Vercel cron `/api/trial-reminders` emails every
+  `trialing` Stripe sub ONCE, 48h before trial end — when the charge happens and how to cancel
+  (policy: never let a trial roll into a charge unannounced). Stripe is the source of truth;
+  idempotency via sub metadata `trial_reminder_sent_at` (no DB table); `cancel_at_period_end` subs
+  are skipped. Trial lengths: Beacon referral 30 days, direct 7 — checkout falls back to the org's
+  stored `referral_source` when resumed from the billing page (no body), so a Beacon signup who
+  abandoned checkout still gets their 30 days.
 
 ## Migrations applied (for reference)
 - `training-documents.sql`, `add-batch-to-finished-goods-adjustments.sql`,

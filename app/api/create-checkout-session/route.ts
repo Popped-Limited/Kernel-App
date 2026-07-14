@@ -9,7 +9,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const referralSource: string | null = body.referral_source === "beacon" ? "beacon" : null;
+    let referralSource: string | null = body.referral_source === "beacon" ? "beacon" : null;
 
     // Get the authenticated user from their session cookie
     const cookieStore = await cookies();
@@ -33,6 +33,19 @@ export async function POST(req: NextRequest) {
 
     if (memberError || !member) {
       return NextResponse.json({ error: "No organisation found for this account" }, { status: 400 });
+    }
+
+    // The referral only rides in the request body when checkout starts from the
+    // signup flow. If the user abandons checkout and resumes later from the
+    // billing page (which posts no body), the org row still remembers the
+    // referral — honour it, or a Beacon signup silently loses their 30-day trial.
+    if (!referralSource) {
+      const { data: org } = await supabaseAdmin
+        .from("organisations")
+        .select("referral_source")
+        .eq("id", member.organisation_id)
+        .single();
+      if (org?.referral_source === "beacon") referralSource = "beacon";
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://kernelapp.co.uk";
