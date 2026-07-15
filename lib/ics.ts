@@ -27,23 +27,28 @@ interface DemoICSOptions {
   uid: string;
   start: Date;
   durationMins: number;
-  organiserEmail: string;
-  // Every recipient who should see a proper event card must appear here — Gmail
-  // only renders the invite for addresses listed as an attendee (or organiser is
-  // not enough on its own). So we list BOTH the support inbox and the customer.
-  attendees: { email: string; name?: string }[];
   summary: string;
   description?: string;
+  // REQUEST = a formal invitation (organiser + attendees, RSVP). Gmail renders a
+  //   Yes/No/Maybe card — but ONLY for a recipient who is an attendee, never for
+  //   the organiser receiving their own invite.
+  // PUBLISH = a plain published event (no organiser/attendee). Gmail shows a
+  //   straight "add to calendar" and works for anyone — use this for the copy
+  //   sent to the organiser inbox (support@).
+  method?: "REQUEST" | "PUBLISH";
+  organiserEmail?: string;                       // REQUEST only
+  attendees?: { email: string; name?: string }[]; // REQUEST only
 }
 
 export function buildDemoICS(opts: DemoICSOptions): string {
+  const method = opts.method ?? "REQUEST";
   const end = new Date(opts.start.getTime() + opts.durationMins * 60000);
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Kernel//Demo Booking//EN",
     "CALSCALE:GREGORIAN",
-    "METHOD:REQUEST",
+    `METHOD:${method}`,
     "BEGIN:VEVENT",
     `UID:${opts.uid}`,
     `DTSTAMP:${toICSDate(new Date())}`,
@@ -51,10 +56,12 @@ export function buildDemoICS(opts: DemoICSOptions): string {
     `DTEND:${toICSDate(end)}`,
     `SUMMARY:${esc(opts.summary)}`,
     opts.description ? `DESCRIPTION:${esc(opts.description)}` : "",
-    `ORGANIZER;CN=Kernel:mailto:${opts.organiserEmail}`,
-    ...opts.attendees.map(
-      (a) => `ATTENDEE;CN=${esc(a.name || a.email)};ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:${a.email}`
-    ),
+    ...(method === "REQUEST" && opts.organiserEmail ? [`ORGANIZER;CN=Kernel:mailto:${opts.organiserEmail}`] : []),
+    ...(method === "REQUEST" && opts.attendees
+      ? opts.attendees.map(
+          (a) => `ATTENDEE;CN=${esc(a.name || a.email)};ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:${a.email}`
+        )
+      : []),
     "STATUS:CONFIRMED",
     "SEQUENCE:0",
     "END:VEVENT",

@@ -72,24 +72,31 @@ export async function POST(req: NextRequest) {
     const notifyEmail = process.env.DEMO_NOTIFY_EMAIL ?? "support@kernelapp.co.uk";
     const fromEmail = process.env.FROM_EMAIL ?? "support@kernelapp.co.uk";
 
-    const ics = buildDemoICS({
-      uid: `demo-${claimed.id}@kernelapp.co.uk`,
-      start,
-      durationMins: claimed.duration_mins,
-      organiserEmail: notifyEmail,
-      // List both so each recipient (support + customer) gets a real event card.
-      attendees: [
-        { email: notifyEmail, name: "Kernel" },
-        { email: user.email!, name: userName },
-      ],
-      summary: `Kernel demo — ${orgName}`,
-      description: cleanNote
-        ? `Demo with ${userName} (${orgName}). Note: ${cleanNote}`
-        : `Demo with ${userName} (${orgName}).`,
-    });
-    const icsAttachment = {
+    const uid = `demo-${claimed.id}@kernelapp.co.uk`;
+    const summary = `Kernel demo — ${orgName}`;
+    const description = cleanNote
+      ? `Demo with ${userName} (${orgName}). Note: ${cleanNote}`
+      : `Demo with ${userName} (${orgName}).`;
+
+    // Support copy: PUBLISH — a plain "add to calendar" event. REQUEST fails in
+    // Gmail here because support@ is the organiser receiving its own invite.
+    const supportIcs = buildDemoICS({ uid, start, durationMins: claimed.duration_mins, summary, description, method: "PUBLISH" });
+    const supportAttachment = {
       filename: "kernel-demo.ics",
-      content: Buffer.from(ics).toString("base64"),
+      content: Buffer.from(supportIcs).toString("base64"),
+      content_type: "text/calendar; method=PUBLISH",
+    };
+
+    // Customer copy: REQUEST — a proper invitation (customer is the attendee).
+    const customerIcs = buildDemoICS({
+      uid, start, durationMins: claimed.duration_mins, summary, description,
+      method: "REQUEST",
+      organiserEmail: notifyEmail,
+      attendees: [{ email: user.email!, name: userName }],
+    });
+    const customerAttachment = {
+      filename: "kernel-demo.ics",
+      content: Buffer.from(customerIcs).toString("base64"),
       content_type: "text/calendar; method=REQUEST",
     };
 
@@ -102,7 +109,7 @@ export async function POST(req: NextRequest) {
         to: notifyEmail,
         reply_to: user.email,
         subject: `[Demo booked] ${orgName} — ${whenLabel}`,
-        attachments: [icsAttachment],
+        attachments: [supportAttachment],
         html: `
           <div style="font-family: sans-serif; max-width: 600px; color: #333;">
             <h2 style="color: #5C4A1E;">New demo booking</h2>
@@ -123,7 +130,7 @@ export async function POST(req: NextRequest) {
         to: user.email!,
         reply_to: notifyEmail,
         subject: `Your Kernel demo is booked — ${whenLabel}`,
-        attachments: [icsAttachment],
+        attachments: [customerAttachment],
         html: `
           <div style="font-family: sans-serif; max-width: 600px; color: #333;">
             <h2 style="color: #5C4A1E;">You're booked in 🎉</h2>
