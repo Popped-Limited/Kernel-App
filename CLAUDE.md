@@ -162,9 +162,15 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   unbooked upcoming one — so it deliberately does NOT use `organisation_id = get_my_org_id()`
   isolation. RLS is ON with NO policy (deny-all direct access); everything goes through service-role
   routes `app/api/demo-slots/{route,book}.ts` (auth + support-only checks). Booking is an atomic claim
-  (`update ... where booked_by_org is null and starts_at > now()`), then emails support@ AND the
+  (`update ... where booked_at is null and starts_at > now()`), then emails support@ AND the
   customer via Resend with an `.ics` invite attached (`lib/ics.ts`) — no Google API/OAuth. Admin page
-  `app/admin/demo-slots` (support-only). Times stored as timestamptz, shown in Europe/London.
+  `app/admin/demo-slots` (support-only) is a **month calendar**: click a day, set an availability
+  window (from/to) + demo length, and it bulk-generates the discrete slot rows (customers still book
+  one discrete slot; the calendar is just a nicer creation tool). `booked_at` (NOT `booked_by_org`) is
+  the "is booked" marker — a booking with a null org must still count as taken. API: `POST` accepts
+  `{ slots: ISO[], duration_mins }` (bulk, upsert `onConflict: starts_at, ignoreDuplicates`) or single
+  `{ starts_at }`; `GET ?admin=1&from&to` returns a date range; `DELETE ?id=` (one) or `?from&to`
+  (clear unbooked in range). Times stored as timestamptz, shown/generated in Europe/London (browser tz).
 - `scripts/clone-yep-to-demo.mjs` clones Yep Kitchen's operational data into the
   Popped demo org (dry-run by default; `--commit` to apply). Skips logins/billing
   and the tables the admin key can't write (SOPs, calendar, wastage, training_sessions).

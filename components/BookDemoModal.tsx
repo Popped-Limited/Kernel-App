@@ -125,7 +125,7 @@ export default function BookDemoModal({ open, onClose }: Props) {
         ) : (
           <>
             <div className="px-6 py-4 overflow-y-auto space-y-4">
-              <p className="text-sm text-brown/60">Pick a time that suits you — the demo runs about 30 minutes over video call.</p>
+              <p className="text-sm text-brown/60">Pick a time that suits you — the demo runs over a video call.</p>
               {[...byDay.entries()].map(([day, daySlots]) => (
                 <div key={day}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-brown/50 mb-2">{day}</p>
@@ -140,7 +140,7 @@ export default function BookDemoModal({ open, onClose }: Props) {
                             : "border-brown/20 text-brown hover:bg-brand/20"
                         }`}
                       >
-                        {timeLabel(s.starts_at)}
+                        {timeLabel(s.starts_at)} · {s.duration_mins} min
                       </button>
                     ))}
                   </div>
