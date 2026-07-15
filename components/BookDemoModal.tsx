@@ -168,6 +168,10 @@ export default function BookDemoModal({ open, onClose }: Props) {
         ) : (
           <>
             <div className="px-5 py-4 overflow-y-auto">
+              <p className="text-sm text-brown/70 mb-4">
+                Book a session with our tech team to explore everything Kernel can do and make sure you&apos;re getting the most out of it.
+              </p>
+
               {/* Month calendar */}
               <div className="flex items-center justify-between mb-3">
                 <button onClick={() => shiftMonth(-1)} disabled={!canGoBack} className="p-1.5 rounded-md text-brown hover:bg-brand/20 disabled:opacity-30 disabled:hover:bg-transparent" aria-label="Previous month">
