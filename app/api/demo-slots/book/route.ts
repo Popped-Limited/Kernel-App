@@ -76,9 +76,12 @@ export async function POST(req: NextRequest) {
       uid: `demo-${claimed.id}@kernelapp.co.uk`,
       start,
       durationMins: claimed.duration_mins,
-      organiserEmail: "support@kernelapp.co.uk",
-      attendeeEmail: user.email!,
-      attendeeName: userName,
+      organiserEmail: notifyEmail,
+      // List both so each recipient (support + customer) gets a real event card.
+      attendees: [
+        { email: notifyEmail, name: "Kernel" },
+        { email: user.email!, name: userName },
+      ],
       summary: `Kernel demo — ${orgName}`,
       description: cleanNote
         ? `Demo with ${userName} (${orgName}). Note: ${cleanNote}`

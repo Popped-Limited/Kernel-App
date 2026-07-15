@@ -28,8 +28,10 @@ interface DemoICSOptions {
   start: Date;
   durationMins: number;
   organiserEmail: string;
-  attendeeEmail: string;
-  attendeeName?: string;
+  // Every recipient who should see a proper event card must appear here — Gmail
+  // only renders the invite for addresses listed as an attendee (or organiser is
+  // not enough on its own). So we list BOTH the support inbox and the customer.
+  attendees: { email: string; name?: string }[];
   summary: string;
   description?: string;
 }
@@ -50,7 +52,9 @@ export function buildDemoICS(opts: DemoICSOptions): string {
     `SUMMARY:${esc(opts.summary)}`,
     opts.description ? `DESCRIPTION:${esc(opts.description)}` : "",
     `ORGANIZER;CN=Kernel:mailto:${opts.organiserEmail}`,
-    `ATTENDEE;CN=${esc(opts.attendeeName || opts.attendeeEmail)};ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:${opts.attendeeEmail}`,
+    ...opts.attendees.map(
+      (a) => `ATTENDEE;CN=${esc(a.name || a.email)};ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:${a.email}`
+    ),
     "STATUS:CONFIRMED",
     "SEQUENCE:0",
     "END:VEVENT",
