@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import SupportModal from "@/components/SupportModal";
+import BookDemoModal from "@/components/BookDemoModal";
 import type { Checklist } from "@/lib/types";
 
 function SvgIcon({ d }: { d: string }) {
@@ -116,6 +117,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
   const pathname = usePathname();
   const { role, loading } = useOrganisation();
   const [supportOpen, setSupportOpen] = useState(false);
+  const [bookDemoOpen, setBookDemoOpen] = useState(false);
   const [batchChecklists, setBatchChecklists] = useState<Checklist[]>([]);
   const [beginProdOpen, setBeginProdOpen] = useState(false);
   const [isSupportAccount, setIsSupportAccount] = useState(false);
@@ -247,6 +249,24 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
               Beacon Referrals
             </Link>
           )}
+          {isSupportAccount && (
+            <Link
+              href="/admin/demo-slots"
+              className={`flex items-center gap-2 px-2.5 py-2 rounded-md text-sm transition-colors ${
+                pathname === "/admin/demo-slots" ? "bg-brand text-brown font-semibold" : "text-brown/70 hover:bg-brand/30 hover:text-brown"
+              }`}
+            >
+              <SvgIcon d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+              Demo availability
+            </Link>
+          )}
+          <button
+            onClick={() => setBookDemoOpen(true)}
+            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-brown/70 hover:bg-brand/30 hover:text-brown transition-colors text-left"
+          >
+            <SvgIcon d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+            Book a demo
+          </button>
           <button
             onClick={() => setSupportOpen(true)}
             className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-brown/70 hover:bg-brand/30 hover:text-brown transition-colors text-left"
@@ -380,6 +400,25 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
                 Beacon Referrals
               </Link>
             )}
+            {isSupportAccount && (
+              <Link
+                href="/admin/demo-slots"
+                onClick={onClose}
+                className={`flex items-center gap-2 px-2.5 py-2 rounded-md text-sm transition-colors ${
+                  pathname === "/admin/demo-slots" ? "bg-brand text-brown font-semibold" : "text-brown/70 hover:bg-brand/30 hover:text-brown"
+                }`}
+              >
+                <SvgIcon d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                Demo availability
+              </Link>
+            )}
+            <button
+              onClick={() => { setBookDemoOpen(true); onClose(); }}
+              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-brown/70 hover:bg-brand/30 hover:text-brown transition-colors text-left"
+            >
+              <SvgIcon d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+              Book a demo
+            </button>
             <button
               onClick={() => { setSupportOpen(true); onClose(); }}
               className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-brown/70 hover:bg-brand/30 hover:text-brown transition-colors text-left"
@@ -393,6 +432,7 @@ export default function AppSidebar({ mobileOpen, onClose }: Props) {
       )}
 
       <SupportModal open={supportOpen} onClose={() => setSupportOpen(false)} />
+      <BookDemoModal open={bookDemoOpen} onClose={() => setBookDemoOpen(false)} />
     </>
   );
 }
