@@ -98,7 +98,7 @@ export async function POST() {
   if (goChecklist) {
     const dispatches = await fetchAll<any>((from, to) => supabaseAdmin
       .from("dispatches")
-      .select("id, dispatch_date, product, customer, cases_of_6, cases_of_3, singles, total_units, reference, dispatched_by, notes, created_at, organisation_id")
+      .select("id, dispatch_date, product, customer, cases_of_6, cases_of_3, singles, total_units, reference, dispatched_by, notes, created_at, organisation_id, status")
       .order("dispatch_date", { ascending: true })
       .order("created_at", { ascending: true })
       .range(from, to));
@@ -107,6 +107,8 @@ export async function POST() {
       // Group by (dispatch_date, customer, dispatched_by, reference)
       const groups = new Map<string, typeof dispatches>();
       for (const d of dispatches) {
+        // Packed-not-shipped orders get their Goods Out record at Mark shipped
+        if (d.status === "packed") continue;
         const key = `${d.dispatch_date}|${d.customer}|${d.dispatched_by}|${d.reference ?? ""}`;
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key)!.push(d);

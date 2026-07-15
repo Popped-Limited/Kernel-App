@@ -72,6 +72,9 @@ export interface DispatchInfo {
   dispatched_by: string;
   notes: string | null;
   batch_submission_id: string | null;
+  // Optional pre-migration; undefined reads as "shipped". Packed = units have
+  // left stock but the order is still on site awaiting dispatch.
+  status?: "packed" | "shipped";
 }
 
 export interface ReturnInfo {

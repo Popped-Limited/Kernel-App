@@ -166,6 +166,12 @@ export interface Dispatch {
   notes: string | null;
   batch_submission_id: string | null;
   created_at: string;
+  // Optional so rows fetched before the add-dispatch-status migration still
+  // typecheck — an undefined status is treated as "shipped" everywhere.
+  status?: "packed" | "shipped";
+  packed_date?: string | null;
+  packed_by?: string | null;
+  pack_group_id?: string | null;
   batch_submission?: Submission;
 }
 

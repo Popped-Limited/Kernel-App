@@ -199,6 +199,18 @@ export default function GoodsOutPage() {
   const [notes, setNotes] = useState("");
   const [goodsOutQuestions, setGoodsOutQuestions] = useState<Question[]>([]);
   const [complianceAnswers, setComplianceAnswers] = useState<Record<string, string>>({});
+  // "shipped" = today's behaviour. "packed" logs the dispatch rows now (stock
+  // leaves the warehouse at packing) but defers the dispatch date, dispatch
+  // checks and the Goods Out compliance record to the Mark shipped step.
+  const [logMode, setLogMode] = useState<"shipped" | "packed">("shipped");
+
+  // Mark shipped panel (promotes a packed order to shipped)
+  const [shippingGroup, setShippingGroup] = useState<Dispatch[] | null>(null);
+  const [shipDateTime, setShipDateTime] = useState("");
+  const [shipBy, setShipBy]             = useState("");
+  const [shipAnswers, setShipAnswers]   = useState<Record<string, string>>({});
+  const [shipSaving, setShipSaving]     = useState(false);
+  const [shipError, setShipError]       = useState("");
 
   useEffect(() => { if (orgId) load(); }, [orgId]);
 
@@ -412,7 +424,13 @@ export default function GoodsOutPage() {
     setSaving(true);
 
     const dispatchDate = dispatchDateTime.slice(0, 10);
+    const isPacked = logMode === "packed";
+    // One group id per save, so a multi-product pallet is marked shipped (and
+    // gets its single compliance record) as one order later.
+    const packGroupId = isPacked ? crypto.randomUUID() : null;
     const inserts = rows.map(row => ({
+      // For a packed order this is a placeholder (the packed date) — Mark
+      // shipped overwrites it with the real dispatch date.
       dispatch_date: dispatchDate,
       product: row.product,
       customer,
@@ -425,14 +443,25 @@ export default function GoodsOutPage() {
       notes: notes.trim() || null,
       batch_submission_id: row.batchSubmissionId || null,
       organisation_id: orgId,
+      // Only include the status columns for packed saves, so plain dispatch
+      // logging keeps working even if the add-dispatch-status migration
+      // hasn't run yet (status defaults to 'shipped').
+      ...(isPacked ? {
+        status: "packed" as const,
+        packed_date: dispatchDate,
+        packed_by: dispatchedBy.trim(),
+        pack_group_id: packGroupId,
+      } : {}),
     }));
 
     const { error } = await supabase.from("dispatches").insert(inserts);
     setSaving(false);
     if (error) { alert("Failed to save — please try again."); return; }
 
-    // Also create a Goods Out Record checklist submission for compliance sign-off
-    if (goodsOutChecklistId) {
+    // Also create a Goods Out Record checklist submission for compliance
+    // sign-off — for packed orders this happens at Mark shipped instead,
+    // when the dispatch checks are actually answered.
+    if (goodsOutChecklistId && !isPacked) {
       try {
         const grandTotal = inserts.reduce((s, r) => s + r.total_units, 0);
         const itemLines = inserts.map((r, idx) => {
@@ -495,6 +524,148 @@ export default function GoodsOutPage() {
     setDispatchDateTime(nowLocalDateTime());
     setErrors({});
     await load();
+  }
+
+  // Packed orders awaiting shipment, grouped by pack_group_id (one card per
+  // pallet/order). Rows saved without a group id fall back to their own id.
+  const packedGroups = useMemo(() => {
+    const groups: Record<string, Dispatch[]> = {};
+    for (const d of recentDispatches) {
+      if (d.status !== "packed") continue;
+      (groups[d.pack_group_id ?? d.id] ??= []).push(d);
+    }
+    return Object.values(groups).sort((a, b) =>
+      (b[0].packed_date ?? b[0].dispatch_date).localeCompare(a[0].packed_date ?? a[0].dispatch_date));
+  }, [recentDispatches]);
+
+  const shippedDispatches = useMemo(
+    () => recentDispatches.filter(d => d.status !== "packed"),
+    [recentDispatches]);
+
+  function openMarkShipped(group: Dispatch[]) {
+    setShippingGroup(group);
+    setShipDateTime(nowLocalDateTime());
+    setShipBy(group[0].packed_by ?? "");
+    setShipAnswers({});
+    setShipError("");
+  }
+
+  async function saveMarkShipped() {
+    if (!shippingGroup) return;
+    if (!shipBy.trim()) { setShipError("Enter who dispatched this order"); return; }
+    setShipSaving(true);
+    setShipError("");
+
+    const first = shippingGroup[0];
+    const { error } = await supabase.from("dispatches").update({
+      status: "shipped",
+      dispatch_date: shipDateTime.slice(0, 10),
+      dispatched_by: shipBy.trim(),
+    }).in("id", shippingGroup.map(d => d.id));
+    if (error) { setShipSaving(false); setShipError(error.message); return; }
+
+    // Create the Goods Out compliance record now the order has actually
+    // dispatched — same shape as a directly-logged dispatch.
+    if (goodsOutChecklistId) {
+      try {
+        const total = shippingGroup.reduce((s, d) => s + (d.total_units ?? 0), 0);
+        const itemLines = shippingGroup.map(d => {
+          const parts: string[] = [];
+          if (d.cases_of_6) parts.push(`${d.cases_of_6}×6`);
+          if (d.cases_of_3) parts.push(`${d.cases_of_3}×3`);
+          if (d.singles) parts.push(`${d.singles} singles`);
+          const linkedSub = batchSubmissions.find(b => b.id === d.batch_submission_id);
+          const { batchCode, bbeDate } = linkedSub ? batchSummary((linkedSub as any).answers ?? []) : { batchCode: "", bbeDate: "" };
+          const traceability = [batchCode && `Batch: ${batchCode}`, bbeDate && `BBE: ${bbeDate}`].filter(Boolean).join(" · ");
+          return `  • ${d.product}: ${parts.join(", ")} (${d.total_units} units)${traceability ? ` — ${traceability}` : ""}`;
+        });
+        const batchNotes = [
+          `Customer: ${first.customer}`,
+          `Date & time dispatched: ${shipDateTime.replace("T", " ")}`,
+          ...(first.reference ? [`Reference: ${first.reference}`] : []),
+          ...(first.packed_date ? [`Packed: ${first.packed_date}${first.packed_by ? ` by ${first.packed_by}` : ""}`] : []),
+          `Products:`,
+          ...itemLines,
+          `Total: ${total} units`,
+          ...(first.notes ? [`Notes: ${first.notes}`] : []),
+        ].join("\n");
+
+        const uploaded = await uploadPhotoAnswers(goodsOutQuestions, shipAnswers, goodsOutChecklistId);
+        const answers = goodsOutQuestions.map(q => ({
+          question_id: q.id,
+          value: uploaded[q.id] ?? null,
+        }));
+
+        const compRes = await fetch("/api/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            checklist_id: goodsOutChecklistId,
+            organisation_id: orgId ?? null,
+            submitted_by: shipBy.trim(),
+            answers,
+            batch_notes: batchNotes,
+          }),
+        });
+        if (!compRes.ok) {
+          console.error("Failed to create goods-out submission:", await compRes.text());
+          setComplianceWarning(true);
+        }
+      } catch (e) {
+        console.error("Failed to create goods-out submission:", e);
+        setComplianceWarning(true);
+      }
+    }
+
+    setShipSaving(false);
+    setShippingGroup(null);
+    await load();
+  }
+
+  // Remove a packed order that was logged by mistake — its units flow straight
+  // back to the batch because stock is computed live from dispatch rows. The
+  // status guard means a shipped dispatch can never be deleted this way.
+  async function removePackedGroup(group: Dispatch[]) {
+    const total = group.reduce((s, d) => s + (d.total_units ?? 0), 0);
+    if (!window.confirm(`Remove this packed order? Its ${total} unit${total === 1 ? "" : "s"} will go back into batch stock.`)) return;
+    const { error } = await supabase
+      .from("dispatches")
+      .delete()
+      .in("id", group.map(d => d.id))
+      .eq("status", "packed");
+    if (error) { alert("Failed to remove — please try again."); return; }
+    await load();
+  }
+
+  // One packed order (pallet) awaiting shipment — rendered in the desktop
+  // panel and in the mobile block above the form.
+  function renderPackedGroup(group: Dispatch[]) {
+    const first = group[0];
+    const total = group.reduce((s, d) => s + (d.total_units ?? 0), 0);
+    return (
+      <div key={first.pack_group_id ?? first.id} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-900 truncate">{first.customer}</p>
+            {group.map(d => (
+              <p key={d.id} className="text-xs text-amber-800 mt-0.5">
+                {d.product} — {[d.cases_of_6 && `${d.cases_of_6}×6`, d.cases_of_3 && `${d.cases_of_3}×3`, d.singles && `${d.singles} singles`].filter(Boolean).join(" · ")}
+                <button onClick={() => openEditDispatch(d)} className="ml-2 text-amber-700/70 hover:text-amber-900 underline">Edit</button>
+              </p>
+            ))}
+            {first.reference && <p className="text-xs text-amber-700/80 font-mono mt-0.5">{first.reference}</p>}
+            <p className="text-[11px] text-amber-700 mt-1">
+              Packed {formatDate(first.packed_date ?? first.dispatch_date)}{first.packed_by ? ` · ${first.packed_by}` : ""}
+            </p>
+          </div>
+          <p className="shrink-0 text-xs font-bold tabular-nums text-amber-900">{total}</p>
+        </div>
+        <div className="flex items-center justify-end gap-3 mt-2">
+          <button onClick={() => removePackedGroup(group)} className="text-xs text-amber-700/70 hover:text-red-600">Remove</button>
+          <button onClick={() => openMarkShipped(group)} className="btn-primary text-xs px-3 py-1.5">Mark shipped</button>
+        </div>
+      </div>
+    );
   }
 
   // Units still out for a dispatch = dispatched − already returned (the cap on a new return)
@@ -617,6 +788,12 @@ export default function GoodsOutPage() {
       dispatched_by: editDispatchedBy.trim(),
       notes: editNotes.trim() || null,
       batch_submission_id: editBatchId || null,
+      // A packed order's date/person ARE its packed details (dispatch_date is
+      // a placeholder until Mark shipped) — keep the packed columns in sync.
+      ...(editingDispatch.status === "packed" ? {
+        packed_date: editDate,
+        packed_by: editDispatchedBy.trim(),
+      } : {}),
     }).eq("id", editingDispatch.id);
     if (error) { setEditSaving(false); setEditError(error.message); return; }
 
@@ -653,8 +830,32 @@ export default function GoodsOutPage() {
           </div>
           <Link href="/compliance/traceability" className="btn-secondary text-sm">Traceability</Link>
         </div>
+
+        {/* Awaiting shipment — on mobile the recent-dispatches panel is hidden,
+            so packed orders surface here (Mark shipped must work from a phone
+            in the warehouse). Desktop shows them pinned in the right panel. */}
+        {!loading && packedGroups.length > 0 && (
+          <div className="lg:hidden space-y-2">
+            <h2 className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Awaiting shipment</h2>
+            {packedGroups.map(g => renderPackedGroup(g))}
+          </div>
+        )}
+
         <div className="card p-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">Log dispatch</h2>
+          <h2 className="text-sm font-semibold text-gray-900 mb-3">{logMode === "packed" ? "Log packed order" : "Log dispatch"}</h2>
+
+          <div className="flex gap-1.5 mb-4">
+            {([["shipped", "Shipped"], ["packed", "Packed — awaiting shipment"]] as const).map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setLogMode(m)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${logMode === m ? "bg-brand border-brand/50 text-brown" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Shared fields */}
@@ -671,7 +872,7 @@ export default function GoodsOutPage() {
                 {errors.customer && <p className="mt-1 text-xs text-red-600">{errors.customer}</p>}
               </div>
               <div>
-                <label className="label">Date &amp; time dispatched *</label>
+                <label className="label">{logMode === "packed" ? "Date & time packed *" : "Date & time dispatched *"}</label>
                 <input type="datetime-local" value={dispatchDateTime} onChange={e => setDispatchDateTime(e.target.value)} className="input" />
               </div>
               <div>
@@ -679,7 +880,7 @@ export default function GoodsOutPage() {
                 <input type="text" value={reference} onChange={e => setReference(e.target.value)} className="input" placeholder="Optional" />
               </div>
               <div>
-                <label className="label">Dispatched by *</label>
+                <label className="label">{logMode === "packed" ? "Packed by *" : "Dispatched by *"}</label>
                 <input
                   type="text"
                   value={dispatchedBy}
@@ -862,8 +1063,10 @@ export default function GoodsOutPage() {
               </button>
             </div>
 
-            {/* Dispatch checks */}
-            {goodsOutQuestions.length > 0 && (
+            {/* Dispatch checks — answered at Mark shipped for packed orders,
+                since they describe the actual dispatch (vehicle, final label
+                check on the pallet, etc.) */}
+            {goodsOutQuestions.length > 0 && logMode === "shipped" && (
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-gray-900 border-t border-gray-100 pt-4">Dispatch checks</h3>
                 {goodsOutQuestions.map(q => (
@@ -912,8 +1115,10 @@ export default function GoodsOutPage() {
             )}
 
             <div className="flex items-center gap-3 pt-1">
-              <SaveButton type="submit" saving={saving} saved={saved} savedLabel="Dispatch saved">
-                {`Log dispatch (${rows.length} product${rows.length !== 1 ? "s" : ""})`}
+              <SaveButton type="submit" saving={saving} saved={saved} savedLabel={logMode === "packed" ? "Packed order saved" : "Dispatch saved"}>
+                {logMode === "packed"
+                  ? `Save as packed (${rows.length} product${rows.length !== 1 ? "s" : ""})`
+                  : `Log dispatch (${rows.length} product${rows.length !== 1 ? "s" : ""})`}
               </SaveButton>
             </div>
           </form>
@@ -942,12 +1147,19 @@ export default function GoodsOutPage() {
             ))}
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+        <div className="flex-1 overflow-y-auto">
+          {!loading && packedGroups.length > 0 && (
+            <div className="px-4 py-3 space-y-2 border-b border-amber-200 bg-amber-50/40">
+              <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Awaiting shipment</p>
+              {packedGroups.map(g => renderPackedGroup(g))}
+            </div>
+          )}
+          <div className="divide-y divide-gray-100">
           {loading ? (
             <div className="p-4 text-sm text-gray-400 text-center">Loading…</div>
-          ) : recentDispatches.length === 0 ? (
+          ) : shippedDispatches.length === 0 ? (
             <div className="p-4 text-sm text-gray-400 text-center">No dispatches yet.</div>
-          ) : recentDispatches.filter(d => {
+          ) : shippedDispatches.filter(d => {
               // A search spans all time so dispatches from months ago are findable
               // (e.g. to log a late return); otherwise honour the period window.
               if (!panelSearch && panelPeriod !== "all") {
@@ -992,6 +1204,7 @@ export default function GoodsOutPage() {
               </div>
             </div>
           ))}
+          </div>
         </div>
       </aside>
       </div>
@@ -1002,7 +1215,7 @@ export default function GoodsOutPage() {
           <div className="flex-1 bg-black/30" onClick={() => setEditingDispatch(null)} />
           <div className="w-full max-w-sm bg-white shadow-xl flex flex-col">
             <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900">Edit dispatch</h2>
+              <h2 className="text-sm font-semibold text-gray-900">{editingDispatch.status === "packed" ? "Edit packed order" : "Edit dispatch"}</h2>
               <button onClick={() => setEditingDispatch(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
             </div>
 
@@ -1074,11 +1287,11 @@ export default function GoodsOutPage() {
                   <input type="text" className="input w-full" value={editCustomer} onChange={e => setEditCustomer(e.target.value)} />
                 </div>
                 <div className="min-w-0">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Dispatch date</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">{editingDispatch.status === "packed" ? "Date packed" : "Dispatch date"}</label>
                   <input type="date" className="input w-full max-w-full" value={editDate} onChange={e => setEditDate(e.target.value)} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Dispatched by</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">{editingDispatch.status === "packed" ? "Packed by" : "Dispatched by"}</label>
                   <input type="text" className="input w-full" value={editDispatchedBy} onChange={e => setEditDispatchedBy(e.target.value)} />
                 </div>
               </div>
@@ -1183,6 +1396,87 @@ export default function GoodsOutPage() {
                 <button onClick={() => setReturnDispatch(null)} className="btn-ghost flex-1">Cancel</button>
                 <SaveButton onClick={saveReturn} saving={returnSaving} disabled={returnQty === ""} className="btn-primary flex-1">
                   Record return
+                </SaveButton>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Mark shipped panel — promotes a packed order to shipped, stamps the
+          real dispatch date/dispatcher and creates the Goods Out compliance
+          record (all dispatch checks are answered here, not at packing) */}
+      {shippingGroup && (() => {
+        const first = shippingGroup[0];
+        const total = shippingGroup.reduce((s, d) => s + (d.total_units ?? 0), 0);
+        return (
+          <div className="fixed inset-0 z-40 flex">
+            <div className="flex-1 bg-black/30" onClick={() => setShippingGroup(null)} />
+            <div className="w-full max-w-sm bg-white shadow-xl flex flex-col">
+              <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900">Mark as shipped</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">{first.customer} · {total} unit{total !== 1 ? "s" : ""}</p>
+                </div>
+                <button onClick={() => setShippingGroup(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 space-y-1">
+                  {shippingGroup.map(d => {
+                    const linkedSub = batchSubmissions.find(b => b.id === d.batch_submission_id);
+                    const { batchCode } = linkedSub ? batchSummary((linkedSub as any).answers ?? []) : { batchCode: "" };
+                    return (
+                      <p key={d.id} className="text-xs text-amber-800">
+                        {d.product} — {d.total_units} unit{d.total_units !== 1 ? "s" : ""}{batchCode ? ` · Batch ${batchCode}` : ""}
+                      </p>
+                    );
+                  })}
+                  <p className="text-[11px] text-amber-700 pt-1">
+                    Packed {formatDate(first.packed_date ?? first.dispatch_date)}{first.packed_by ? ` by ${first.packed_by}` : ""}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Date &amp; time shipped *</label>
+                    <input type="datetime-local" className="input w-full max-w-full" value={shipDateTime} onChange={e => setShipDateTime(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Dispatched by *</label>
+                    <input type="text" className="input w-full" value={shipBy} onChange={e => setShipBy(e.target.value)} autoComplete="name" />
+                  </div>
+                </div>
+
+                {goodsOutQuestions.length > 0 && (
+                  <div className="space-y-4 border-t border-gray-100 pt-4">
+                    <h3 className="text-sm font-semibold text-gray-900">Dispatch checks</h3>
+                    {goodsOutQuestions.map(q => (
+                      <div key={q.id}>
+                        <label className="text-xs text-gray-600 block mb-1 font-medium">
+                          {q.label}
+                          {q.required && <span className="text-red-400 ml-0.5">*</span>}
+                        </label>
+                        {q.hint && <p className="text-xs text-gray-400 mb-1">{q.hint}</p>}
+                        {renderComplianceField(
+                          q,
+                          shipAnswers[q.id] ?? "",
+                          v => setShipAnswers(prev => ({ ...prev, [q.id]: v })),
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {shipError && (
+                <div className="mx-6 mb-2 rounded bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{shipError}</div>
+              )}
+
+              <div className="border-t border-gray-200 px-6 pt-3 pb-3 flex gap-3">
+                <button onClick={() => setShippingGroup(null)} className="btn-ghost flex-1">Cancel</button>
+                <SaveButton onClick={saveMarkShipped} saving={shipSaving} className="btn-primary flex-1">
+                  Confirm shipped
                 </SaveButton>
               </div>
             </div>

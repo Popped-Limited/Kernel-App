@@ -140,6 +140,18 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   packaging + labour. Recipe & yields and Costing tabs write DIFFERENT columns of the same
   (org, product_name) row via `saveProductSettings` (fresh select → update/insert, never clobbers
   the other tab). Note `price_per_kg` doubles as price-per-unit for `unit:"units"` items.
+- `add-dispatch-status.sql` (dispatches gain `status` packed|shipped default shipped,
+  `packed_date`, `packed_by`, `pack_group_id`) — **PENDING: run in the Supabase SQL editor**
+  (plain dispatch logging works without it — packed inserts alone include the new columns —
+  but "Save as packed" fails until then). A **packed** goods out deducts stock/batch remaining
+  immediately (stock is computed live from dispatch rows; the pallet has physically left) but
+  has NO Goods Out compliance record and a placeholder `dispatch_date` (= packed date) until
+  **Mark shipped** stamps the real date/dispatcher and creates the compliance submission —
+  ALL dispatch checks are answered at shipping (Tom, 15 Jul 2026: labels are still verifiable
+  in the warehouse). `pack_group_id` groups rows packed together so a multi-product pallet
+  ships as one order with one compliance record. Returns only apply once shipped; packed
+  orders are edited or removed (delete is guarded by `.eq("status","packed")` — never deletes
+  a shipped dispatch). Traceability tags these "Packed — not shipped" (on site, interceptable).
 - `create-demo-bookings.sql` (new `demo_slots` table for the customer "Book a demo" feature)
   — **PENDING: run in the Supabase SQL editor** (Book a demo + admin Demo availability fail until
   then). CROSS-ORG by design: support@ hand-picks bookable slots, ANY org's customer can claim an

@@ -91,12 +91,16 @@ export default function TraceChain({
           units: number;
           by: string;
           ref: string | null;
+          packed?: boolean;
         };
         const movements: Movement[] = [
           ...result.dispatches.map((d) => ({
             kind: "dispatch" as const, id: d.id, date: d.dispatch_date, product: d.product,
             customer: d.customer, batchId: d.batch_submission_id, units: d.total_units,
             by: d.dispatched_by, ref: d.reference,
+            // Packed but not yet shipped — the units have left stock but are
+            // still on site, so a recall can intercept them before dispatch.
+            packed: d.status === "packed",
           })),
           ...(result.returns ?? []).map((r) => ({
             kind: "return" as const, id: r.id, date: r.return_date, product: r.product,
@@ -139,8 +143,8 @@ export default function TraceChain({
                         <tr key={`${m.kind}-${m.id}`}>
                           <td className="py-1.5 text-gray-600 whitespace-nowrap">{formatDate(m.date)}</td>
                           <td className="py-1.5">
-                            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${isReturn ? "bg-amber-100 text-amber-800" : isAdjustment ? "bg-purple-100 text-purple-800" : "bg-gray-100 text-gray-700"}`}>
-                              {isReturn ? "Returned" : isAdjustment ? "Adjustment" : "Dispatched"}
+                            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${isReturn ? "bg-amber-100 text-amber-800" : isAdjustment ? "bg-purple-100 text-purple-800" : m.packed ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-700"}`}>
+                              {isReturn ? "Returned" : isAdjustment ? "Adjustment" : m.packed ? "Packed — not shipped" : "Dispatched"}
                             </span>
                           </td>
                           <td className="py-1.5 font-medium text-gray-900">{m.product}</td>
