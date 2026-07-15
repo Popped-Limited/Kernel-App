@@ -18,11 +18,13 @@ export interface ProductionRecord {
   product: string;
   jars: number;
   batchCode: string | null;
+  bbe: string | null;
 }
 
 export interface BatchRow {
   code: string;
   date: string;
+  bbe: string | null;
   produced: number;
   remaining: number;
 }
@@ -46,6 +48,7 @@ export function parseProductionRecords(subData: any[]): ProductionRecord[] {
     let totalUnits = 0;
     let jarsUsedFallback = 0;
     let batchCode: string | null = null;
+    let bbe: string | null = null;
     for (const ans of ((sub.answers ?? []) as any[])) {
       if (!ans.value) continue;
       const label = (ans.question?.label ?? "").toLowerCase();
@@ -60,6 +63,15 @@ export function parseProductionRecords(subData: any[]): ProductionRecord[] {
           (label.includes("batch code") || label.includes("julian") || label.includes("batch ref") || label.includes("lot number"))) {
         batchCode = ans.value.trim();
       }
+      // Capture the BBE — only an actual date counts, so the checkbox
+      // "Labelling verified — … best before date …" ("true"/"false") and other
+      // non-date answers mentioning "best before" are skipped.
+      if (!bbe && (label.includes("best before") || label.includes("bbe"))) {
+        const v = ans.value.trim();
+        if (ans.question?.type === "date" || /^\d{4}-\d{2}-\d{2}/.test(v)) {
+          bbe = v;
+        }
+      }
       // Fallback: sum jars_used from packing_runs (across all runs of the record)
       if (ans.question?.type === "packing_runs") {
         for (const v of expandRunValues(ans.value)) {
@@ -71,7 +83,7 @@ export function parseProductionRecords(subData: any[]): ProductionRecord[] {
       }
     }
     const jars = totalUnits > 0 ? totalUnits : jarsUsedFallback;
-    if (jars > 0) prods.push({ id: sub.id, submitted_at: sub.submitted_at, submitted_by: sub.submitted_by, product, jars, batchCode });
+    if (jars > 0) prods.push({ id: sub.id, submitted_at: sub.submitted_at, submitted_by: sub.submitted_by, product, jars, batchCode, bbe });
   }
   return prods;
 }
@@ -95,6 +107,7 @@ export function computeBatchBreakdown(product: string, src: StockSources): Batch
   const subToCode: Record<string, string> = {};
   const producedByCode: Record<string, number> = {};
   const dateByCode: Record<string, string> = {};
+  const bbeByCode: Record<string, string | null> = {};
   for (const p of prodList) {
     const code = p.batchCode!;
     subToCode[p.id] = code;
@@ -102,6 +115,7 @@ export function computeBatchBreakdown(product: string, src: StockSources): Batch
     if (!dateByCode[code] || new Date(p.submitted_at) > new Date(dateByCode[code])) {
       dateByCode[code] = p.submitted_at;
     }
+    if (p.bbe && !bbeByCode[code]) bbeByCode[code] = p.bbe;
   }
 
   // net OUT of each batch (positive = left stock)
@@ -128,6 +142,7 @@ export function computeBatchBreakdown(product: string, src: StockSources): Batch
     .map(code => ({
       code,
       date: dateByCode[code],
+      bbe: bbeByCode[code] ?? null,
       produced: producedByCode[code],
       remaining: Math.max(0, producedByCode[code] - (netOutByCode[code] ?? 0)),
     }))

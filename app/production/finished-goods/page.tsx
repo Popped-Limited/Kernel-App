@@ -453,6 +453,7 @@ export default function FinishedGoodsPage() {
                                   <tr>
                                     <th className="text-left px-3 py-2 font-semibold uppercase tracking-wide">Batch</th>
                                     <th className="text-left px-3 py-2 font-semibold uppercase tracking-wide">Produced on</th>
+                                    <th className="text-left px-3 py-2 font-semibold uppercase tracking-wide">BBE</th>
                                     <th className="text-right px-3 py-2 font-semibold uppercase tracking-wide">Produced</th>
                                     <th className="text-right px-3 py-2 font-semibold uppercase tracking-wide">In stock</th>
                                   </tr>
@@ -462,6 +463,7 @@ export default function FinishedGoodsPage() {
                                     <tr key={b.code}>
                                       <td className="px-3 py-2 font-mono text-gray-700">{b.code}</td>
                                       <td className="px-3 py-2 text-gray-500">{formatDate(b.date)}</td>
+                                      <td className="px-3 py-2 text-gray-500">{b.bbe ? formatDate(b.bbe) : <span className="text-gray-300">—</span>}</td>
                                       <td className="px-3 py-2 text-right tabular-nums text-gray-500">{b.produced.toLocaleString()}</td>
                                       <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">{b.remaining.toLocaleString()}</td>
                                     </tr>
