@@ -147,8 +147,12 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   immediately (stock is computed live from dispatch rows; the pallet has physically left) but
   has NO Goods Out compliance record and a placeholder `dispatch_date` (= packed date) until
   **Mark shipped** stamps the real date/dispatcher and creates the compliance submission —
-  ALL dispatch checks are answered at shipping (Tom, 15 Jul 2026: labels are still verifiable
-  in the warehouse). `pack_group_id` groups rows packed together so a multi-product pallet
+  dispatch checks are answered at shipping (Tom, 15 Jul 2026: labels are still verifiable
+  in the warehouse) — EXCEPT photo questions, which show at packing ("Packing photos"): the
+  delivery note is photographed on the pallet when packed, uploaded immediately and stored in
+  `packed_answers` jsonb (question_id → URL), then pre-filled (retakeable) into the Mark
+  shipped checks so the compliance record keeps them. A failed photo upload blocks the packed
+  save — never silently drop the photo. `pack_group_id` groups rows packed together so a multi-product pallet
   ships as one order with one compliance record. Returns only apply once shipped; packed
   orders are edited or removed (delete is guarded by `.eq("status","packed")` — never deletes
   a shipped dispatch). Traceability tags these "Packed — not shipped" (on site, interceptable).

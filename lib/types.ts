@@ -172,6 +172,9 @@ export interface Dispatch {
   packed_date?: string | null;
   packed_by?: string | null;
   pack_group_id?: string | null;
+  // Photo answers captured at packing (question_id → storage URL); pre-filled
+  // into the Mark shipped dispatch checks.
+  packed_answers?: Record<string, string> | null;
   batch_submission?: Submission;
 }
 

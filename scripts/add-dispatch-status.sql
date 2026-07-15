@@ -20,4 +20,9 @@ alter table dispatches
     check (status in ('packed', 'shipped')),
   add column if not exists packed_date date,
   add column if not exists packed_by text,
-  add column if not exists pack_group_id uuid;
+  add column if not exists pack_group_id uuid,
+  -- Photo answers captured at packing (question_id → storage URL). The photo
+  -- (e.g. of the delivery note) is taken when the pallet is packed, not when
+  -- it ships — Mark shipped pre-fills these into the Goods Out compliance
+  -- record, where they can still be retaken/replaced.
+  add column if not exists packed_answers jsonb;

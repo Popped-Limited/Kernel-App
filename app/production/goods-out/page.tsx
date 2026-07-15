@@ -428,6 +428,27 @@ export default function GoodsOutPage() {
     // One group id per save, so a multi-product pallet is marked shipped (and
     // gets its single compliance record) as one order later.
     const packGroupId = isPacked ? crypto.randomUUID() : null;
+
+    // Photo questions ARE answered at packing (the delivery note is
+    // photographed on the pallet, not at the ship date) — upload them now and
+    // carry the URLs on the rows so Mark shipped pre-fills them into the
+    // Goods Out compliance record. Upload BEFORE the insert: a failed upload
+    // must block the save, never silently drop the photo.
+    let packedAnswers: Record<string, string> | null = null;
+    if (isPacked) {
+      const photoQs = goodsOutQuestions.filter(q => q.type === "photo");
+      try {
+        const uploaded = await uploadPhotoAnswers(photoQs, complianceAnswers, goodsOutChecklistId ?? "goods-out");
+        const map: Record<string, string> = {};
+        for (const q of photoQs) if (uploaded[q.id]) map[q.id] = uploaded[q.id];
+        packedAnswers = Object.keys(map).length > 0 ? map : null;
+      } catch (e) {
+        console.error("Failed to upload packing photo:", e);
+        setSaving(false);
+        alert("Photo upload failed — please try again.");
+        return;
+      }
+    }
     const inserts = rows.map(row => ({
       // For a packed order this is a placeholder (the packed date) — Mark
       // shipped overwrites it with the real dispatch date.
@@ -451,6 +472,7 @@ export default function GoodsOutPage() {
         packed_date: dispatchDate,
         packed_by: dispatchedBy.trim(),
         pack_group_id: packGroupId,
+        packed_answers: packedAnswers,
       } : {}),
     }));
 
@@ -546,7 +568,9 @@ export default function GoodsOutPage() {
     setShippingGroup(group);
     setShipDateTime(nowLocalDateTime());
     setShipBy(group[0].packed_by ?? "");
-    setShipAnswers({});
+    // Photos taken at packing pre-fill the dispatch checks (already storage
+    // URLs, so submit passes them straight through); they can be retaken here.
+    setShipAnswers({ ...(group[0].packed_answers ?? {}) });
     setShipError("");
   }
 
@@ -1063,13 +1087,14 @@ export default function GoodsOutPage() {
               </button>
             </div>
 
-            {/* Dispatch checks — answered at Mark shipped for packed orders,
-                since they describe the actual dispatch (vehicle, final label
-                check on the pallet, etc.) */}
-            {goodsOutQuestions.length > 0 && logMode === "shipped" && (
+            {/* Dispatch checks — for packed orders only the PHOTO questions
+                show (the delivery note is photographed on the pallet at
+                packing); the rest are answered at Mark shipped, since they
+                describe the actual dispatch (vehicle condition etc.). */}
+            {(logMode === "packed" ? goodsOutQuestions.filter(q => q.type === "photo") : goodsOutQuestions).length > 0 && (
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-gray-900 border-t border-gray-100 pt-4">Dispatch checks</h3>
-                {goodsOutQuestions.map(q => (
+                <h3 className="text-sm font-semibold text-gray-900 border-t border-gray-100 pt-4">{logMode === "packed" ? "Packing photos" : "Dispatch checks"}</h3>
+                {(logMode === "packed" ? goodsOutQuestions.filter(q => q.type === "photo") : goodsOutQuestions).map(q => (
                   <div key={q.id}>
                     <label className="text-xs text-gray-600 block mb-1 font-medium">
                       {q.label}
