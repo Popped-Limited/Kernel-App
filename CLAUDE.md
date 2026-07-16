@@ -34,6 +34,12 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
 - **`ingredient_table`** recipes store `"Name|grams"` per `options[]` entry; editable in Manage Checklists.
 - **Recipe ingredient → stock** links by **EXACT** (case-insensitive, trimmed) name only. Never fuzzy/substring
   match — similar names like "Long red chilli" vs "Red chilli powder" must not collide. (Tom's explicit rule.)
+- **Stock overdraw is BLOCKED (16 Jul 2026)**: a record may never log more against a goods-in lot than
+  `quantity_remaining_g` (summed across all runs/fields of the record; ingredients in grams, packaging in
+  units). `/api/submit` rejects with 400 BEFORE inserting; the checklist page mirrors the check with field
+  errors + live warnings. The deduction's `Math.max(0, …)` clamp stays only as a race-condition backstop —
+  never rely on it: a clamped excess silently vanishes and leaves phantom stock on the lot actually poured
+  (that's how Yep's rapeseed 26175 absorbed 50kg that belonged to 26182).
 - **Units produced vs jars packed**: prefer the "Total units produced" answer; only fall back to packing-log
   `jars_used` when it's absent. Track them in **separate accumulators** so answer order can't make the fallback win.
 - **Goods In/Out** write structured `batch_notes` that the submission view parses into tables; **production**
