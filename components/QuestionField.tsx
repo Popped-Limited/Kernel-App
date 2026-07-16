@@ -570,8 +570,18 @@ export default function QuestionField({ question, value, onChange, error, ingred
                   <p className="text-sm font-semibold text-gray-900">{ing.name}</p>
                   <span className="text-xs text-gray-500 tabular-nums">Target: {targetLabel}</span>
                 </div>
-                {(row?.lots ?? [emptyLot]).map((lotUse, lotIdx) => (
-                  <div key={lotIdx} className="flex gap-2 items-center">
+                {(row?.lots ?? [emptyLot]).map((lotUse, lotIdx) => {
+                  // Live overdraw check: what the selected lot has left once the
+                  // other rows' claims on it are subtracted. Submission is blocked
+                  // (client + server) when a lot is overdrawn — this warns as you type.
+                  const selectedLot = availableLots.find((l) => l.id === lotUse.lot_id);
+                  const claimedElsewhere = (row?.lots ?? []).reduce((sum, r, j) =>
+                    j !== lotIdx && r.lot_id === lotUse.lot_id ? sum + (Number(r.weight_g) || 0) : sum, 0);
+                  const lotLeft = selectedLot ? Math.max(0, selectedLot.quantity_remaining_g - claimedElsewhere) : null;
+                  const overBy = lotLeft != null ? (Number(lotUse.weight_g) || 0) - lotLeft : 0;
+                  return (
+                  <div key={lotIdx}>
+                  <div className="flex gap-2 items-center">
                     {availableLots.length > 0 ? (
                       <select
                         value={lotUse.lot_id}
@@ -662,7 +672,16 @@ export default function QuestionField({ question, value, onChange, error, ingred
                         className="text-lg text-gray-300 hover:text-red-400 transition leading-none shrink-0">×</button>
                     )}
                   </div>
-                ))}
+                  {overBy > 0 && selectedLot && (
+                    <p className="mt-1 text-[11px] font-medium text-red-600">
+                      Only {lotLeft!.toLocaleString()}g
+                      {density ? ` (${(lotLeft! / density).toFixed(2)}L)` : ""} left in lot {selectedLot.julian_code} —
+                      reduce this weight or split the extra {Math.round(overBy).toLocaleString()}g across another lot.
+                    </p>
+                  )}
+                  </div>
+                  );
+                })}
                 <div className="flex items-start justify-between pt-1">
                   <button type="button" onClick={() => addLot(ingIdx)}
                     className="text-xs text-brand hover:underline mt-0.5">
@@ -773,6 +792,30 @@ export default function QuestionField({ question, value, onChange, error, ingred
       if (runs.length === 1) return;
       onChange(JSON.stringify(runs.filter((_, i) => i !== idx)));
     };
+    // Live overdraw check: units left in a linked stock lot once the other
+    // entries' claims on it are subtracted. Submission is blocked (client +
+    // server) when a lot is overdrawn — this warns as you type.
+    const packLotLeft = (
+      lots: typeof jarLots,
+      lotId: string | undefined,
+      exceptIdx: number,
+      lotKey: "jar_lot_id" | "lids_lot_id",
+      countKey: "jars_used" | "lids_count",
+    ): number | null => {
+      const lot = lots.find((l) => l.id === lotId);
+      if (!lot) return null;
+      const claimedElsewhere = runs.reduce((sum, r, j) =>
+        j !== exceptIdx && r[lotKey] === lotId ? sum + (Number(r[countKey]) || 0) : sum, 0);
+      return Math.max(0, lot.quantity_remaining_g - claimedElsewhere);
+    };
+    const overdrawNote = (left: number | null, count: string) => {
+      const n = Number(count) || 0;
+      return left != null && n > left ? (
+        <p className="text-[11px] font-medium text-red-600 mt-0.5">
+          Only {left.toLocaleString()} left in stock for this batch — reduce the count or split across another batch.
+        </p>
+      ) : null;
+    };
     return (
       <div>
         {/* Render label manually so we don't show raw JSON hint */}
@@ -825,6 +868,7 @@ export default function QuestionField({ question, value, onChange, error, ingred
                     {jarLots.length === 0 && (
                       <p className="text-[11px] text-amber-600 mt-0.5">No {jarIngredient} in stock — log a delivery in Goods In.</p>
                     )}
+                    {overdrawNote(packLotLeft(jarLots, run.jar_lot_id, idx, "jar_lot_id", "jars_used"), run.jars_used)}
                   </div>
                 ) : (
                   <div>
@@ -861,6 +905,7 @@ export default function QuestionField({ question, value, onChange, error, ingred
                     {closureLots.length === 0 && (
                       <p className="text-[11px] text-amber-600 mt-0.5">No {closureIngredient} in stock — log a delivery in Goods In.</p>
                     )}
+                    {overdrawNote(packLotLeft(closureLots, run.lids_lot_id, idx, "lids_lot_id", "lids_count"), run.lids_count)}
                   </div>
                 ) : (
                   <div>

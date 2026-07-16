@@ -22,6 +22,107 @@ export async function POST(req: NextRequest) {
     return [value];
   };
 
+  // ── Stock overdraw guard ────────────────────────────────────────────────────
+  // A record must never log more against a goods-in lot than the lot has
+  // remaining: the deduction below clamps at zero, so any excess would silently
+  // vanish — understating the lot that was really poured and leaving phantom
+  // stock on it. Validate BEFORE the submission is inserted so a rejected
+  // record leaves no trace. Totals are summed across every answer and run, so
+  // splitting the excess across runs can't sneak past.
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const questionIds = answers
+      .filter((a: { value: string | null }) => a.value)
+      .map((a: { question_id: string }) => a.question_id);
+
+    const { data: guardQuestions } = questionIds.length > 0
+      ? await supabaseAdmin.from("questions").select("id, type").in("id", questionIds)
+      : { data: [] };
+    const guardIngQIds = new Set((guardQuestions ?? []).filter((q) => q.type === "ingredient_table").map((q) => q.id));
+    const guardPackQIds = new Set((guardQuestions ?? []).filter((q) => q.type === "packing_runs").map((q) => q.id));
+
+    // Total requested per lot id ("g" for ingredients, "units" for packaging)
+    const requested = new Map<string, { amount: number; unit: "g" | "units" }>();
+    const addRequest = (lotId: string | null | undefined, amount: number, unit: "g" | "units") => {
+      if (!lotId || !(amount > 0)) return;
+      const cur = requested.get(lotId);
+      requested.set(lotId, { amount: (cur?.amount ?? 0) + amount, unit: cur?.unit ?? unit });
+    };
+
+    for (const answer of answers) {
+      if (!answer.value) continue;
+      if (guardIngQIds.has(answer.question_id)) {
+        for (const value of runValues(answer.value)) {
+          if (!value) continue;
+          try {
+            const parsedVal = JSON.parse(value);
+            const rows = (Array.isArray(parsedVal) ? parsedVal : (parsedVal?.rows ?? [])) as Array<{
+              lots: Array<{ lot_id?: string; julian_code?: string; weight_g: string }>;
+            }>;
+            for (const row of rows) {
+              for (const lotUse of row.lots ?? []) {
+                const used = Number(lotUse.weight_g);
+                if (!used || used <= 0) continue;
+                // Mirror the deduction's resolution: lot_id, else julian_code lookup
+                let resolvedLotId = lotUse.lot_id ?? null;
+                if (!resolvedLotId && lotUse.julian_code?.trim()) {
+                  const { data: found } = await supabaseAdmin
+                    .from("ingredient_lots")
+                    .select("id")
+                    .eq("julian_code", lotUse.julian_code.trim())
+                    .eq("organisation_id", organisation_id)
+                    .limit(1)
+                    .single();
+                  if (found) resolvedLotId = found.id;
+                }
+                addRequest(resolvedLotId, used, "g");
+              }
+            }
+          } catch { /* malformed answer — the deduction skips it too */ }
+        }
+      } else if (guardPackQIds.has(answer.question_id)) {
+        for (const value of runValues(answer.value)) {
+          if (!value) continue;
+          try {
+            const runs = JSON.parse(value);
+            if (!Array.isArray(runs)) continue;
+            for (const run of runs) {
+              addRequest(run.jar_lot_id, Number(run.jars_used), "units");
+              addRequest(run.lids_lot_id, Number(run.lids_count), "units");
+            }
+          } catch { /* malformed answer — the deduction skips it too */ }
+        }
+      }
+    }
+
+    if (requested.size > 0) {
+      const { data: lots } = await supabaseAdmin
+        .from("ingredient_lots")
+        .select("id, julian_code, quantity_remaining_g, ingredient:ingredients(name)")
+        .in("id", [...requested.keys()])
+        .eq("organisation_id", organisation_id);
+
+      const overdrawn: string[] = [];
+      for (const lot of lots ?? []) {
+        const req = requested.get(lot.id);
+        if (!req) continue;
+        const remaining = Number(lot.quantity_remaining_g) || 0;
+        if (req.amount > remaining + 0.001) {
+          const name = (lot.ingredient as unknown as { name?: string } | null)?.name ?? "ingredient";
+          const fmt = (n: number) => `${Math.round(n).toLocaleString()}${req.unit === "g" ? "g" : ""}`;
+          overdrawn.push(`${name} lot ${lot.julian_code} has ${fmt(remaining)} left but this record logs ${fmt(req.amount)}`);
+        }
+      }
+      if (overdrawn.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Not enough stock — ${overdrawn.join("; ")}. Check the Julian code (you may be using a newer delivery), split the amount across the lots actually used, or correct the stock in Raw Materials first.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
   // Use a SECURITY DEFINER RPC function to insert submission + answers,
   // bypassing RLS without needing the service role key.
   const { data: submissionId, error: rpcErr } = await supabaseServer.rpc(

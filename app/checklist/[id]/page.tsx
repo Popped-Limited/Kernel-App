@@ -584,8 +584,63 @@ function ChecklistPageInner() {
     return errs;
   }
 
+  // Hard stop: a record must never log more against a goods-in lot than the lot
+  // has left (ingredientLots already nets out other drafts' reservations). Usage
+  // is summed across every field and run of THIS record, so splitting the excess
+  // across runs can't sneak past. The server re-checks on submit as a backstop —
+  // without this, the deduction clamps at zero and the excess silently vanishes,
+  // leaving phantom stock on the lot that was really used.
+  function stockOverdrawErrors(): Record<string, string> {
+    const availById = new Map<string, IngredientLot>();
+    for (const lots of Object.values(ingredientLots)) for (const l of lots) availById.set(l.id, l);
+
+    const used = new Map<string, number>();
+    const refs = new Map<string, { keys: Set<string>; unit: "g" | "units" }>();
+    const add = (lotId: string | undefined, amount: number, key: string, unit: "g" | "units") => {
+      if (!lotId || !(amount > 0)) return;
+      used.set(lotId, (used.get(lotId) ?? 0) + amount);
+      const entry = refs.get(lotId) ?? { keys: new Set<string>(), unit };
+      entry.keys.add(key);
+      refs.set(lotId, entry);
+    };
+
+    for (const { q, key } of expandedFields()) {
+      const val = answers[key];
+      if (!val) continue;
+      if (q.type === "ingredient_table") {
+        try {
+          const parsed = JSON.parse(val);
+          const rows = (Array.isArray(parsed) ? parsed : (parsed?.rows ?? [])) as Array<{ lots?: Array<{ lot_id?: string; weight_g?: string }> }>;
+          for (const row of rows) for (const l of row.lots ?? []) add(l.lot_id, Number(l.weight_g) || 0, key, "g");
+        } catch { /* unparseable — required-field validation reports it */ }
+      } else if (q.type === "packing_runs") {
+        try {
+          const runs = JSON.parse(val) as Array<{ jar_lot_id?: string; jars_used?: string; lids_lot_id?: string; lids_count?: string }>;
+          if (Array.isArray(runs)) for (const run of runs) {
+            add(run.jar_lot_id, Number(run.jars_used) || 0, key, "units");
+            add(run.lids_lot_id, Number(run.lids_count) || 0, key, "units");
+          }
+        } catch { /* unparseable — required-field validation reports it */ }
+      }
+    }
+
+    const errs: Record<string, string> = {};
+    for (const [lotId, total] of used) {
+      const lot = availById.get(lotId);
+      // A selected lot missing from the map has nothing left in stock (or is
+      // fully reserved by another in-progress batch) — zero available.
+      const left = lot?.quantity_remaining_g ?? 0;
+      if (total <= left + 0.001) continue;
+      const { keys, unit } = refs.get(lotId)!;
+      const fmt = (n: number) => `${Math.round(n).toLocaleString()}${unit === "g" ? "g" : ""}`;
+      const msg = `Not enough stock in ${lot ? `lot ${lot.julian_code}` : "a selected lot"} — this record logs ${fmt(total)} but only ${fmt(left)} is left${lot ? "" : " (it may be used up or reserved by another in-progress batch)"}. Check the Julian code (you may be using a newer delivery), split the amount across the lots actually used, or correct the stock in Raw Materials first.`;
+      for (const k of keys) errs[k] = msg;
+    }
+    return errs;
+  }
+
   function validate(): boolean {
-    const errs: Record<string, string> = { ...ingredientLotErrors("full") };
+    const errs: Record<string, string> = { ...ingredientLotErrors("full"), ...stockOverdrawErrors() };
     for (const { q, key } of expandedFields()) {
       if (!q.required) continue;
       const val = answers[key] ?? "";
@@ -706,7 +761,15 @@ function ChecklistPageInner() {
       // isn't hidden behind another run's tab.
       if (hasRunZone && runCount > 1) {
         const bad = expandedFields().find((f) => f.q.required && !isFieldFilled(f.q, answers[f.key] ?? ""));
-        if (bad) setActiveRun(bad.run);
+        if (bad) {
+          setActiveRun(bad.run);
+        } else {
+          // Lot/overdraw errors aren't "unfilled" fields — jump to their run
+          // instead (the key carries the runKey() "::runN" suffix; run 0 is bare).
+          const k = Object.keys({ ...ingredientLotErrors("full"), ...stockOverdrawErrors() })[0];
+          const m = k?.match(/::run(\d+)$/);
+          setActiveRun(m ? Number(m[1]) : 0);
+        }
       }
       setTimeout(() => {
         const firstErr = document.querySelector("[data-error]");
@@ -722,10 +785,10 @@ function ChecklistPageInner() {
   async function handleBatchFailed() {
     // A failed batch still consumes ingredients — they go to waste and must stay
     // traceable. Block if any ingredient that was used lacks a real goods-in lot.
-    const lotErrs = ingredientLotErrors("used");
+    const lotErrs = { ...ingredientLotErrors("used"), ...stockOverdrawErrors() };
     if (Object.keys(lotErrs).length > 0) {
       setErrors(lotErrs);
-      alert("Before ending a failed batch, select a goods-in lot for every ingredient you used. They went to waste and still need to be traceable to stock.");
+      alert("Before ending a failed batch, fix the highlighted ingredient entries — everything used must be traceable to a goods-in lot, and you can't log more than the lot has in stock.");
       return;
     }
 
