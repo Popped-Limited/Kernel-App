@@ -92,14 +92,14 @@ export default function TermsPage() {
 
           <Section title="4. Free trial">
             <p style={{ marginBottom: "12px" }}>
-              New accounts are eligible for a <strong>7-day free trial</strong> of the full Kernel
+              New accounts are eligible for a <strong>30-day free trial</strong> of the full Kernel
               platform. The trial is subject to the following conditions:
             </p>
             <ul style={{ paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "10px" }}>
-              <li>A valid payment card is required to start a trial. You will not be charged until the 7-day trial period ends.</li>
+              <li>A valid payment card is required to start a trial. You will not be charged until the 30-day trial period ends.</li>
               <li>The trial provides full access to all features from day one.</li>
               <li>Free trials are available to new customers only — one trial per business.</li>
-              <li>At the end of the 7-day period, you will be asked to provide payment details to continue. If you choose not to subscribe, your account will be deactivated and your data retained for 30 days before deletion.</li>
+              <li>At the end of the 30-day trial period, your paid subscription starts automatically unless you cancel beforehand. If you choose not to subscribe, your account will be deactivated and your data retained for 30 days before deletion.</li>
               <li>We reserve the right to modify or withdraw the free trial offer at any time for new sign-ups.</li>
             </ul>
           </Section>

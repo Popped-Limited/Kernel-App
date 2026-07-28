@@ -85,7 +85,7 @@ function SignUpForm() {
 
   const trialLabel = referralSource === "beacon"
     ? "Your first month is on us — referred by Beacon Compliance"
-    : "7-day free trial · No charge until day 8 · Cancel any time";
+    : "30-day free trial · No charge until day 31 · Cancel any time";
 
   return (
     <div className="min-h-screen bg-brand-cream flex items-center justify-center px-4 py-8">
@@ -96,7 +96,7 @@ function SignUpForm() {
           <img src="/kernel.png" alt="Kernel" className="h-20 w-auto mx-auto mb-3 drop-shadow-lg" />
           <p className="font-serif text-5xl text-brown leading-none tracking-tight">Kernel</p>
           <p className="text-sm text-brown/60 mt-2">
-            {referralSource === "beacon" ? "Create your account" : "Start your 7-day free trial"}
+            {referralSource === "beacon" ? "Create your account" : "Start your 30-day free trial"}
           </p>
         </div>
 

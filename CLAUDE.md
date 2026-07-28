@@ -105,9 +105,10 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   `trialing` Stripe sub ONCE, 48h before trial end — when the charge happens and how to cancel
   (policy: never let a trial roll into a charge unannounced). Stripe is the source of truth;
   idempotency via sub metadata `trial_reminder_sent_at` (no DB table); `cancel_at_period_end` subs
-  are skipped. Trial lengths: Beacon referral 30 days, direct 7 — checkout falls back to the org's
-  stored `referral_source` when resumed from the billing page (no body), so a Beacon signup who
-  abandoned checkout still gets their 30 days.
+  are skipped. Trial length: **30 days for everyone** (28 Jul 2026 — was Beacon 30 / direct 7; a
+  week was too short to upload everything, and the goal is catching businesses at the start of
+  their SALSA journey). Checkout still falls back to the org's stored `referral_source` when
+  resumed from the billing page (no body), but it now only affects attribution metadata.
 
 ## Migrations applied (for reference)
 - `training-documents.sql`, `add-batch-to-finished-goods-adjustments.sql`,

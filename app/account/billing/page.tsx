@@ -137,8 +137,8 @@ function BillingContent() {
 
         {!isComp && !hasStripe && (subscriptionStatus === "trial" || !subscriptionStatus) && (
           <p className="text-sm text-brown/70 mb-4">
-            {/* Trial length varies (Beacon referrals get 30 days, direct signups 7) — don't hardcode it. */}
-            Complete your billing setup to activate your free trial. No charge until the trial ends.
+            {/* Trial length is set by the checkout route (30 days for everyone since 28 Jul 2026). */}
+            Complete your billing setup to activate your 30-day free trial. No charge until the trial ends.
           </p>
         )}
 

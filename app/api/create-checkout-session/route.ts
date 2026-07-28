@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     // The referral only rides in the request body when checkout starts from the
     // signup flow. If the user abandons checkout and resumes later from the
     // billing page (which posts no body), the org row still remembers the
-    // referral — honour it, or a Beacon signup silently loses their 30-day trial.
+    // referral — honour it so Beacon attribution survives on the subscription.
     if (!referralSource) {
       const { data: org } = await supabaseAdmin
         .from("organisations")
@@ -50,8 +50,9 @@ export async function POST(req: NextRequest) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://kernelapp.co.uk";
 
-    // Beacon referrals get 1 month free (30-day trial); everyone else gets 7 days
-    const trialDays = referralSource === "beacon" ? 30 : 7;
+    // Everyone gets a 30-day trial (raised from 7 on 28 Jul 2026 — SALSA setup
+    // takes longer than a week; referralSource is kept purely for attribution).
+    const trialDays = 30;
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
