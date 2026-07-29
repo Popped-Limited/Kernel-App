@@ -31,6 +31,17 @@ interface SectionDef {
   questions: QuestionDef[];
 }
 
+interface SAQRow {
+  section_number: string;
+  section_title: string;
+  question_id: string;
+  question_text: string;
+  answer_type: QuestionDef["type"];
+  placeholder: string | null;
+  required: boolean | null;
+  for_types: string[] | null;
+}
+
 function visibleSections(sections: SectionDef[], supplierType: SupplierType): SectionDef[] {
   return sections.filter(s => !s.forTypes || s.forTypes.includes(supplierType));
 }
@@ -65,39 +76,52 @@ export default function SAQPage() {
 
   const [supplier, setSupplier] = useState<SupplierRow | null>(null);
   const [sections, setSections] = useState<SectionDef[]>([]);
-  const [status, setStatus] = useState<"loading" | "not_found" | "already_done" | "form" | "submitted">("loading");
+  const [status, setStatus] = useState<"loading" | "not_found" | "already_done" | "form" | "submitted" | "error">("loading");
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     if (!token) { setStatus("not_found"); return; }
     (async () => {
-      const res = await fetch(`/api/saq/${encodeURIComponent(token)}`);
-      if (!res.ok) { setStatus("not_found"); return; }
-      const { supplier: sup, questions: qData } = await res.json();
+      // Anything other than real JSON (a redirect to /login, an outage, an
+      // offline phone) must surface as "we couldn't load it" — never leave the
+      // supplier staring at "Loading questionnaire…" forever.
+      let payload: { supplier?: SupplierRow | null; questions?: SAQRow[] };
+      try {
+        const res = await fetch(`/api/saq/${encodeURIComponent(token)}`);
+        if (!res.ok) { setStatus("not_found"); return; }
+        payload = await res.json();
+      } catch {
+        setStatus("error");
+        return;
+      }
+      const { supplier: sup, questions: qData } = payload;
 
       if (!sup) { setStatus("not_found"); return; }
       setSupplier(sup as SupplierRow);
 
-      if (qData?.length) {
-        const sectionMap = new Map<string, SectionDef>();
-        for (const q of qData) {
-          if (!sectionMap.has(q.section_number)) {
-            sectionMap.set(q.section_number, { number: q.section_number, title: q.section_title, forTypes: undefined, questions: [] });
-          }
-          sectionMap.get(q.section_number)!.questions.push({
-            id: q.question_id,
-            text: q.question_text,
-            type: q.answer_type,
-            placeholder: q.placeholder ?? undefined,
-            required: q.required ?? false,
-            forTypes: q.for_types ?? undefined,
-          });
+      const sectionMap = new Map<string, SectionDef>();
+      for (const q of qData ?? []) {
+        if (!sectionMap.has(q.section_number)) {
+          sectionMap.set(q.section_number, { number: q.section_number, title: q.section_title, forTypes: undefined, questions: [] });
         }
-        setSections(Array.from(sectionMap.values()));
+        sectionMap.get(q.section_number)!.questions.push({
+          id: q.question_id,
+          text: q.question_text,
+          type: q.answer_type,
+          placeholder: q.placeholder ?? undefined,
+          required: q.required ?? false,
+          forTypes: q.for_types ?? undefined,
+        });
       }
+      const built = Array.from(sectionMap.values());
+      setSections(built);
 
-      setStatus((sup as SupplierRow).saq_completed ? "already_done" : "form");
+      if (sup.saq_completed) { setStatus("already_done"); return; }
+      // No questions configured for this org = nothing to render; say so
+      // rather than spin.
+      setStatus(built.length === 0 ? "error" : "form");
     })();
   }, [token]);
 
@@ -109,12 +133,27 @@ export default function SAQPage() {
     e.preventDefault();
     if (!supplier) return;
     setSubmitting(true);
+    setSubmitError("");
 
-    await fetch(`/api/saq/${encodeURIComponent(token)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answers }),
-    });
+    // Only claim "received" if it actually saved — a supplier who sees the
+    // thank-you page will never fill this in again.
+    try {
+      const res = await fetch(`/api/saq/${encodeURIComponent(token)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
+      });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: "" }));
+        setSubmitError(error || "We couldn't save your answers. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+    } catch {
+      setSubmitError("We couldn't reach the server. Check your connection and try again.");
+      setSubmitting(false);
+      return;
+    }
 
     setSubmitting(false);
     setStatus("submitted");
@@ -133,7 +172,7 @@ export default function SAQPage() {
       </div>
 
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        {(status === "loading" || (status === "form" && sections.length === 0)) && (
+        {status === "loading" && (
           <div className="py-24 text-center text-gray-400 text-sm">Loading questionnaire…</div>
         )}
 
@@ -141,6 +180,16 @@ export default function SAQPage() {
           <div className="py-24 text-center space-y-3">
             <p className="text-2xl font-serif text-brown font-bold">Link not found</p>
             <p className="text-sm text-gray-500">This questionnaire link is invalid or has expired. Please contact the team who sent you this link.</p>
+          </div>
+        )}
+
+        {status === "error" && (
+          <div className="py-24 text-center space-y-3">
+            <p className="text-2xl font-serif text-brown font-bold">Couldn&apos;t load the questionnaire</p>
+            <p className="text-sm text-gray-500">Something went wrong at our end. Please refresh the page, or contact the team who sent you this link.</p>
+            <button onClick={() => window.location.reload()} className="btn-primary px-6 py-2 text-sm font-semibold">
+              Try again
+            </button>
           </div>
         )}
 
@@ -236,6 +285,11 @@ export default function SAQPage() {
             })}
 
             <div className="mt-6">
+              {submitError && (
+                <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {submitError}
+                </p>
+              )}
               <button
                 type="submit"
                 disabled={submitting}

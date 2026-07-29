@@ -7,6 +7,7 @@ const PUBLIC_PREFIXES = [
   "/auth/",
   "/api/auth",
   "/api/submit",
+  "/api/saq/",
   "/api/signup",
   "/api/stripe-webhook",
   "/api/reminders",
