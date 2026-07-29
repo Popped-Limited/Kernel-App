@@ -9,6 +9,17 @@ billing, deployed from `Popped-Limited/Kernel-App.git` (main branch) via Vercel 
 **Every piece of data is scoped to `organisation_id`. RLS on every table. No cross-org access, ever.**
 A user from org A must never read/write/edit/delete org B's data. When adding a table or query,
 scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id())`).
+- **A migration existing in `scripts/` does NOT mean it ran in prod.** On 29 Jul 2026 a live
+  cross-org leak surfaced (Yep Kitchen saw The Chocolate Society's "Milk Chocolate Honeycomb"):
+  `finished_goods_adjustments` and `saq_questions` still had leftover `USING(true)` policies
+  because the org-scoping fixes were never applied. Postgres OR's permissive policies, so ONE
+  stray `USING(true)` silently defeats a correct `org_isolation` policy — and most list pages
+  (e.g. Finished Goods) have NO app-level org filter, so they leak everything RLS lets through.
+  Fixed via `scripts/fix-rls-leaks-2026-07-29.sql`.
+- **Verify RLS the hard way, not by reading scripts.** Reproduce as a real login
+  (`admin.generateLink` magiclink → `verifyOtp` with the anon client → query as that user).
+  That has a blind spot (a table where only one org has data can't reveal a `USING(true)` hole),
+  so for the definitive sweep run `scripts/rls-audit.sql` (read-only, inspects live `pg_policies`).
 
 - **Yep Kitchen** (org `15a33d45-…`) is a **paying customer** (£149/mo) — never treat its data as test data.
 - **Popped Limited** (org `00000000-…`, login `support@kernelapp.co.uk`) is the **demo/test account**. Do test writes here, not in Yep Kitchen.
@@ -147,8 +158,7 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   if unavailable) and a wrong-product label returns `mismatch`, never a green tick.
 - `add-nutrition-calc.sql` (ingredients gain `nutrition_basis` per_100g|per_100ml default
   per_100g; new `product_nutrition_settings` keyed (org, product_name): net_weight_per_unit_g,
-  units_per_batch, prep_yields jsonb) — **PENDING: run in the Supabase SQL editor** (the
-  Labelling tab's nutrition calc fails to load until then). Powers the recipe→per-100g label
+  units_per_batch, prep_yields jsonb) — **applied in prod** (verified 29 Jul 2026). Powers the recipe→per-100g label
   calc (`lib/nutrition/recipe-calc.ts`): reads the Production checklist ingredient_table
   definition, joins raw materials by EXACT name, converts per-100ml→per-100g via density,
   applies prep yields, gates on any missing data (never treats missing as 0), finished weight
@@ -161,15 +171,13 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
 - `add-costing-settings.sql` (product_nutrition_settings gains `secondary_packaging` jsonb
   `[{name, units_per_pack}]` — units per pack, cost/unit = pack price ÷ units_per_pack;
   `labour_staff`, `labour_hours`, `labour_cost_per_hour`) —
-  **PENDING: run in the Supabase SQL editor** (Costing tab's secondary-packaging/labour save
-  fails until then). Full cost/unit = ingredients (gross × £/kg) + primary packaging + secondary
+  **applied in prod** (verified 29 Jul 2026). Full cost/unit = ingredients (gross × £/kg) + primary packaging + secondary
   packaging + labour. Recipe & yields and Costing tabs write DIFFERENT columns of the same
   (org, product_name) row via `saveProductSettings` (fresh select → update/insert, never clobbers
   the other tab). Note `price_per_kg` doubles as price-per-unit for `unit:"units"` items.
 - `add-dispatch-status.sql` (dispatches gain `status` packed|shipped default shipped,
-  `packed_date`, `packed_by`, `pack_group_id`) — **PENDING: run in the Supabase SQL editor**
-  (plain dispatch logging works without it — packed inserts alone include the new columns —
-  but "Save as packed" fails until then). A **packed** goods out deducts stock/batch remaining
+  `packed_date`, `packed_by`, `pack_group_id`) — **applied in prod** (verified 29 Jul 2026).
+  A **packed** goods out deducts stock/batch remaining
   immediately (stock is computed live from dispatch rows; the pallet has physically left) but
   has NO Goods Out compliance record and a placeholder `dispatch_date` (= packed date) until
   **Mark shipped** stamps the real date/dispatcher and creates the compliance submission —
@@ -183,8 +191,7 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   orders are edited or removed (delete is guarded by `.eq("status","packed")` — never deletes
   a shipped dispatch). Traceability tags these "Packed — not shipped" (on site, interceptable).
 - `create-demo-bookings.sql` (new `demo_slots` table for the customer "Book a demo" feature)
-  — **PENDING: run in the Supabase SQL editor** (Book a demo + admin Demo availability fail until
-  then). CROSS-ORG by design: support@ hand-picks bookable slots, ANY org's customer can claim an
+  — **applied in prod** (verified 29 Jul 2026). CROSS-ORG by design: support@ hand-picks bookable slots, ANY org's customer can claim an
   unbooked upcoming one — so it deliberately does NOT use `organisation_id = get_my_org_id()`
   isolation. RLS is ON with NO policy (deny-all direct access); everything goes through service-role
   routes `app/api/demo-slots/{route,book}.ts` (auth + support-only checks). Booking is an atomic claim
@@ -202,3 +209,6 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   and the tables the admin key can't write (SOPs, calendar, wastage, training_sessions).
 - Note: `training_sessions` is granted to `authenticated` (app works) but NOT `service_role`,
   so admin/Node scripts can't read/write it — use an authenticated magic-link session for that table.
+- `fix-rls-leaks-2026-07-29.sql` (drops leftover `USING(true)` policies on
+  `finished_goods_adjustments` + `saq_questions`, recreates org-scoped ones) — run 29 Jul 2026,
+  closed a live cross-org leak. `rls-audit.sql` is a read-only whole-schema RLS sweep (keep for reuse).
