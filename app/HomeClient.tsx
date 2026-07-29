@@ -291,6 +291,9 @@ header.nav{position:sticky;top:0;z-index:100;backdrop-filter:saturate(150%) blur
   transform:rotate(-1.6deg);animation:floatPhoto 6.5s ease-in-out infinite;}
 .photo-card img{width:100%;display:block;border-radius:15px;object-fit:cover;aspect-ratio:4/5;}
 @keyframes floatPhoto{0%,100%{transform:rotate(-1.6deg) translateY(0);}50%{transform:rotate(-1.6deg) translateY(-13px);}}
+.weare-flip{grid-template-columns:.9fr 1.1fr;}
+.photo-card-alt{transform:rotate(1.6deg);animation:floatPhotoAlt 6.5s ease-in-out infinite;}
+@keyframes floatPhotoAlt{0%,100%{transform:rotate(1.6deg) translateY(0);}50%{transform:rotate(1.6deg) translateY(-13px);}}
 @media(max-width:860px){.weare-grid{grid-template-columns:1fr;gap:40px;}.photo-card{order:-1;}}
 
 /* ---------- pricing ---------- */
@@ -789,6 +792,35 @@ export default function MarketingPage() {
             <div className="photo-card">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/tom-in-the-factory.jpg" alt="Tom in the Yep Kitchen factory" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* KATIE — ADVISER */}
+      <section>
+        <div className="wrap weare weare-grid weare-flip">
+          <div className="reveal">
+            <div className="photo-card photo-card-alt">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/katie-headshot.jpg" alt="Katie Young, Beacon Compliance founder" />
+            </div>
+          </div>
+          <div className="reveal d1">
+            <blockquote>
+              25 years passing audits.<br />
+              <span className="bq-gold">Now shaping Kernel.</span>
+            </blockquote>
+            <div className="side">
+              <p>
+                I&apos;ve spent over 25 years helping food manufacturers pass audits, solve technical
+                challenges and build robust audit ready systems.
+              </p>
+              <p>
+                Now I&apos;m helping shape Kernel, ensuring it works the way food business owners and
+                auditors actually need it to.
+              </p>
+              <p className="byline">Katie Young, Beacon Compliance Founder</p>
             </div>
           </div>
         </div>
