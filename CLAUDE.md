@@ -18,6 +18,21 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
 - End commit messages with the `Co-Authored-By:` trailer.
 - Verify UI changes in a local preview before pushing when practical.
 
+## Public (unauthenticated) pages — a hard invariant
+**A public page is only public if the API routes it calls are ALSO in `PUBLIC_PREFIXES`** (middleware.ts).
+Outsiders with no login use `/saq/[token]` (supplier questionnaire), `/c/[token]` (public checklist),
+`/accept-invite`, `/signup`. Adding a page to the allowlist is half the job — the moment its data moves
+behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route must be allowlisted too.
+- The failure is silent and looks device-specific: the page renders 200, its `fetch` is 307'd to `/login`,
+  **the login HTML comes back as a 200 so `res.ok` passes**, and `res.json()` throws into an unhandled
+  rejection — the visitor sits on "Loading…" forever. It appears to work for anyone already signed in
+  (i.e. you), so it survives testing. Bitten twice: `/api/submit` (`d2e0cb5`), `/api/saq/` (`3e3e509`,
+  broken 21 Jun–29 Jul 2026 and it silently blocked real suppliers the whole time).
+- These routes are service-role + token-authorised by design; the token is the sole authorisation, so
+  allowlisting them is correct, not a loosening. Never "fix" it by making the table anon-readable.
+- Public forms must **never claim success they haven't got**: check `res.ok` on submit and show an error
+  that keeps the answers. A stranger shown a thank-you page will never fill the form in again.
+
 ## Data conventions (learned the hard way — don't regress these)
 - **NO 1000-row truncation, ever.** PostgREST silently caps un-ranged selects (and `.in()` results) at
   1000 rows. Every query on a table that grows with usage (submissions, answers, dispatches, returns,
