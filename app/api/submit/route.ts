@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { packLotUses } from "@/lib/packing-runs";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -86,8 +87,8 @@ export async function POST(req: NextRequest) {
             const runs = JSON.parse(value);
             if (!Array.isArray(runs)) continue;
             for (const run of runs) {
-              addRequest(run.jar_lot_id, Number(run.jars_used), "units");
-              addRequest(run.lids_lot_id, Number(run.lids_count), "units");
+              // Split entries claim several lots per side — packLotUses covers them all
+              for (const use of packLotUses(run)) addRequest(use.lot_id, use.amount, "units");
             }
           } catch { /* malformed answer — the deduction skips it too */ }
         }
@@ -280,10 +281,7 @@ export async function POST(req: NextRequest) {
           const runs = JSON.parse(value);
           if (!Array.isArray(runs)) continue;
           for (const run of runs) {
-            const jarsUsed = Number(run.jars_used);
-            if (run.jar_lot_id && jarsUsed > 0) await deductLot(run.jar_lot_id, jarsUsed);
-            const lidsUsed = Number(run.lids_count);
-            if (run.lids_lot_id && lidsUsed > 0) await deductLot(run.lids_lot_id, lidsUsed);
+            for (const use of packLotUses(run)) await deductLot(use.lot_id, use.amount);
           }
         } catch (e) {
           console.error("Packaging deduction error:", e);

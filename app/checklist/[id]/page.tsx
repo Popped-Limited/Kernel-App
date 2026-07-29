@@ -11,6 +11,7 @@ import {
   getRunQuestionIds, splitRunZones, findTotalUnitsQuestion,
   runKey, unitsKey, RUN_COUNT_KEY,
 } from "@/lib/production-runs";
+import { packLotUses } from "@/lib/packing-runs";
 
 type AnswerMap = Record<string, string>;
 
@@ -43,12 +44,9 @@ function buildIngredientMaps(
               reservations[lot.lot_id] = (reservations[lot.lot_id] || 0) + Number(lot.weight_g);
             }
           }
-          // packing_runs primary packaging (units)
-          if (row.jar_lot_id && Number(row.jars_used) > 0) {
-            reservations[row.jar_lot_id] = (reservations[row.jar_lot_id] || 0) + Number(row.jars_used);
-          }
-          if (row.lids_lot_id && Number(row.lids_count) > 0) {
-            reservations[row.lids_lot_id] = (reservations[row.lids_lot_id] || 0) + Number(row.lids_count);
+          // packing_runs primary packaging (units), split lots included
+          for (const use of packLotUses(row)) {
+            reservations[use.lot_id] = (reservations[use.lot_id] || 0) + use.amount;
           }
         }
       } catch { /* not a lot-linked answer — skip */ }
@@ -241,8 +239,7 @@ function ChecklistPageInner() {
           for (const lot of (row.lots ?? [])) {
             if (lot.lot_id && Number(lot.weight_g) > 0) used[lot.lot_id] = (used[lot.lot_id] || 0) + Number(lot.weight_g);
           }
-          if (row.jar_lot_id && Number(row.jars_used) > 0) used[row.jar_lot_id] = (used[row.jar_lot_id] || 0) + Number(row.jars_used);
-          if (row.lids_lot_id && Number(row.lids_count) > 0) used[row.lids_lot_id] = (used[row.lids_lot_id] || 0) + Number(row.lids_count);
+          for (const use of packLotUses(row)) used[use.lot_id] = (used[use.lot_id] || 0) + use.amount;
         }
       } catch { /* not a lot-linked answer — skip */ }
     }
@@ -615,10 +612,9 @@ function ChecklistPageInner() {
         } catch { /* unparseable — required-field validation reports it */ }
       } else if (q.type === "packing_runs") {
         try {
-          const runs = JSON.parse(val) as Array<{ jar_lot_id?: string; jars_used?: string; lids_lot_id?: string; lids_count?: string }>;
+          const runs = JSON.parse(val);
           if (Array.isArray(runs)) for (const run of runs) {
-            add(run.jar_lot_id, Number(run.jars_used) || 0, key, "units");
-            add(run.lids_lot_id, Number(run.lids_count) || 0, key, "units");
+            for (const use of packLotUses(run)) add(use.lot_id, use.amount, key, "units");
           }
         } catch { /* unparseable — required-field validation reports it */ }
       }

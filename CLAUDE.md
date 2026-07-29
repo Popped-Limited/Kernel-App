@@ -64,7 +64,11 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   container/closure to a packaging item (`jar_ingredient`/`closure_ingredient` = exact name); when mapped, the packing
   log picks the lot (`jar_lot_id`/`lids_lot_id`) and `/api/submit` deducts `jars_used`/`lids_count` from
   `ingredient_lots`. Traceability + draft reservation treat ingredient_table and packing_runs lot refs uniformly.
-  Secondary packaging (boxes) is never mapped — no link, no deduction. Set the mapping in the production-flow builder
+  A packing entry can be **split across several jar/lid lots** (ran out mid-batch): the breakdown lives in
+  `jar_lots`/`lid_lots`, with `jar_lot_id`/`jar_batch` mirroring the first allocation and `jars_used`/`lids_count`
+  holding the TOTAL (the units-produced fallback reads it). Anything that deducts/reserves/traces packaging must go
+  via `packLotUses` (lib/packing-runs.ts) — reading `jar_lot_id` alone under-deducts a split entry and leaves
+  phantom stock on the second lot. Secondary packaging (boxes) is never mapped — no link, no deduction. Set the mapping in the production-flow builder
   OR the existing-checklist editor (so live records link without rebuilding).
 - **Finished-goods stock** is product-level: `produced − dispatched + adjustments`, matched by **exact product name**.
   Dispatches link to a production batch via `batch_submission_id`; per-batch "remaining" = produced − dispatched-against-that-batch.

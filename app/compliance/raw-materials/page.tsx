@@ -14,6 +14,7 @@ import SortableTh, { type SortDir } from "@/components/SortableTh";
 import { useGuidedTour } from "@/lib/useGuidedTour";
 import { fetchLotUsage, fetchWastage } from "@/lib/traceability";
 import { fetchAll } from "@/lib/fetchAll";
+import { packLotUses } from "@/lib/packing-runs";
 
 interface Supplier { id: string; name: string }
 type ItemType = "ingredient" | "packaging" | "supplies";
@@ -108,12 +109,9 @@ function reservedFromDrafts(drafts: { answers: Record<string, unknown> | null }[
               reserved[lot.lot_id] = (reserved[lot.lot_id] || 0) + Number(lot.weight_g);
             }
           }
-          // packing_runs primary packaging (units)
-          if (row.jar_lot_id && Number(row.jars_used) > 0) {
-            reserved[row.jar_lot_id] = (reserved[row.jar_lot_id] || 0) + Number(row.jars_used);
-          }
-          if (row.lids_lot_id && Number(row.lids_count) > 0) {
-            reserved[row.lids_lot_id] = (reserved[row.lids_lot_id] || 0) + Number(row.lids_count);
+          // packing_runs primary packaging (units), split lots included
+          for (const use of packLotUses(row)) {
+            reserved[use.lot_id] = (reserved[use.lot_id] || 0) + use.amount;
           }
         }
       } catch { /* not a lot-linked answer — skip */ }

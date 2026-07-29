@@ -1,5 +1,7 @@
 "use client";
 
+import { packAllocations, type PackLotAlloc, type PackRunValue } from "@/lib/packing-runs";
+
 /**
  * Renders a single submitted answer (label + formatted value). Shared by the
  * submission detail page and the inline batch-record view in the Mock Recall
@@ -106,7 +108,7 @@ export default function AnswerRow({ answer }: { answer: AnswerRowData }) {
     } catch { display = <p className="text-sm text-gray-900">{val}</p>; }
   } else if (q?.type === "packing_runs") {
     try {
-      const runs: Array<{ pack_weight: string; jars_used: string; jar_batch: string; lids_count: string; lids_batch: string; packed_by: string }> = JSON.parse(val);
+      const runs: PackRunValue[] = JSON.parse(val);
       display = (
         <div className="mt-1 rounded-lg border border-gray-200 overflow-hidden text-xs">
           <table className="w-full">
@@ -121,16 +123,24 @@ export default function AnswerRow({ answer }: { answer: AnswerRowData }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {runs.filter(r => r.pack_weight || r.jars_used).map((r, i) => (
-                <tr key={i}>
-                  <td className="px-3 py-1.5 tabular-nums font-medium text-gray-900">{r.pack_weight}g</td>
-                  <td className="px-3 py-1.5 tabular-nums text-gray-700">{r.jars_used}</td>
-                  <td className="px-3 py-1.5 font-mono text-gray-600">{r.jar_batch || "—"}</td>
-                  <td className="px-3 py-1.5 tabular-nums text-gray-700">{r.lids_count || "—"}</td>
-                  <td className="px-3 py-1.5 font-mono text-gray-600">{r.lids_batch || "—"}</td>
-                  <td className="px-3 py-1.5 text-gray-700">{r.packed_by || "—"}</td>
-                </tr>
-              ))}
+              {runs.filter(r => r.pack_weight || r.jars_used).map((r, i) => {
+                // An entry split across lots lists every count/batch pair, so the
+                // record shows exactly which jars and lids went into the batch.
+                const jars = packAllocations(r, "jar").filter(a => a.count || a.batch);
+                const lids = packAllocations(r, "lid").filter(a => a.count || a.batch);
+                const cell = (allocs: typeof jars, pick: (a: PackLotAlloc) => string | undefined) =>
+                  allocs.length > 0 ? allocs.map((a, j) => <div key={j}>{pick(a) || "—"}</div>) : "—";
+                return (
+                  <tr key={i} className="align-top">
+                    <td className="px-3 py-1.5 tabular-nums font-medium text-gray-900">{r.pack_weight}g</td>
+                    <td className="px-3 py-1.5 tabular-nums text-gray-700">{cell(jars, a => a.count)}</td>
+                    <td className="px-3 py-1.5 font-mono text-gray-600">{cell(jars, a => a.batch)}</td>
+                    <td className="px-3 py-1.5 tabular-nums text-gray-700">{cell(lids, a => a.count)}</td>
+                    <td className="px-3 py-1.5 font-mono text-gray-600">{cell(lids, a => a.batch)}</td>
+                    <td className="px-3 py-1.5 text-gray-700">{r.packed_by || "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

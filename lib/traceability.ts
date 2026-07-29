@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { expandRunValues } from "@/lib/production-runs";
+import { packLotUses, packTotal } from "@/lib/packing-runs";
 import { fetchAll } from "@/lib/fetchAll";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -187,7 +188,7 @@ export function getUnitsProduced(batch: BatchInfo): number {
       for (const v of expandRunValues(ans.value)) {
         try {
           const runs = JSON.parse(v);
-          if (Array.isArray(runs)) for (const r of runs) jarsFallback += Number(r?.jars_used) || 0;
+          if (Array.isArray(runs)) for (const r of runs) jarsFallback += packTotal(r, "jar");
         } catch { /* ignore malformed packing log */ }
       }
     }
@@ -227,10 +228,8 @@ function lotUsesFromAnswer(value: string | null, type: string | undefined): Arra
       const parsed = JSON.parse(v);
       if (type === "packing_runs") {
         const runs = Array.isArray(parsed) ? parsed : [];
-        for (const run of runs) {
-          if (run.jar_lot_id && Number(run.jars_used) > 0) out.push({ lot_id: run.jar_lot_id, amount: Number(run.jars_used) });
-          if (run.lids_lot_id && Number(run.lids_count) > 0) out.push({ lot_id: run.lids_lot_id, amount: Number(run.lids_count) });
-        }
+        // An entry may be split over several jar/lid lots — trace every one
+        for (const run of runs) out.push(...packLotUses(run));
       } else {
         const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
         for (const row of rows) {

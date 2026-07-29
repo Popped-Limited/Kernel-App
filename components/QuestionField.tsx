@@ -5,6 +5,7 @@ import type { Question, IngredientLot } from "@/lib/types";
 import { todayJulianCode, formatDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import PhotoCapture from "@/components/PhotoCapture";
+import { packAllocations, withPackAllocations, type PackKind, type PackLotAlloc, type PackRunValue } from "@/lib/packing-runs";
 
 /** Local-state input for litres — lets the user type freely, converts to grams only on blur */
 function LitresInput({ weightG, density, onChange }: { weightG: string; density: number; onChange: (g: string) => void }) {
@@ -762,16 +763,7 @@ export default function QuestionField({ question, value, onChange, error, ingred
     const unitCap = packUnit.charAt(0).toUpperCase() + packUnit.slice(1);
     const closureCap = packClosure.charAt(0).toUpperCase() + packClosure.slice(1);
 
-    type PackRun = {
-      pack_weight: string;
-      jars_used: string;
-      jar_batch: string;
-      jar_lot_id?: string;
-      lids_count: string;
-      lids_batch: string;
-      lids_lot_id?: string;
-      packed_by: string;
-    };
+    type PackRun = PackRunValue;
     const emptyRun: PackRun = { pack_weight: "", jars_used: "", jar_batch: "", jar_lot_id: "", lids_count: "", lids_batch: "", lids_lot_id: "", packed_by: "" };
     let runs: PackRun[];
     try {
@@ -784,38 +776,166 @@ export default function QuestionField({ question, value, onChange, error, ingred
       const next = runs.map((r, i) => (i === idx ? { ...r, [field]: val } : r));
       onChange(JSON.stringify(next));
     };
-    const updateRunFields = (idx: number, patch: Partial<PackRun>) => {
-      const next = runs.map((r, i) => (i === idx ? { ...r, ...patch } : r));
-      onChange(JSON.stringify(next));
-    };
     const removeRun = (idx: number) => {
       if (runs.length === 1) return;
       onChange(JSON.stringify(runs.filter((_, i) => i !== idx)));
     };
-    // Live overdraw check: units left in a linked stock lot once the other
-    // entries' claims on it are subtracted. Submission is blocked (client +
-    // server) when a lot is overdrawn — this warns as you type.
-    const packLotLeft = (
+    // Per-lot allocations. One packing entry can be split over several packaging
+    // lots (ran out of jars mid-batch and finished from the next delivery), the
+    // same way an ingredient is split across lots. The helper keeps the flat
+    // jars_used/jar_batch mirror fields in step with the breakdown.
+    const setAllocs = (idx: number, kind: PackKind, allocs: PackLotAlloc[]) => {
+      onChange(JSON.stringify(runs.map((r, i) => (i === idx ? withPackAllocations(r, kind, allocs) : r))));
+    };
+    const updateAlloc = (idx: number, kind: PackKind, allocIdx: number, patch: PackLotAlloc) => {
+      setAllocs(idx, kind, packAllocations(runs[idx], kind).map((a, i) => (i === allocIdx ? { ...a, ...patch } : a)));
+    };
+    const addAlloc = (idx: number, kind: PackKind) => {
+      setAllocs(idx, kind, [...packAllocations(runs[idx], kind), { lot_id: "", batch: "", count: "" }]);
+    };
+    const removeAlloc = (idx: number, kind: PackKind, allocIdx: number) => {
+      const rest = packAllocations(runs[idx], kind).filter((_, i) => i !== allocIdx);
+      setAllocs(idx, kind, rest.length > 0 ? rest : [{ lot_id: "", batch: "", count: "" }]);
+    };
+    // Live overdraw check: units left in a linked stock lot once every OTHER
+    // claim on it in this packing log (other entries, other split lots, both
+    // sides) is subtracted. Submission is blocked (client + server) when a lot
+    // is overdrawn — this warns as you type.
+    const claimedOnLotElsewhere = (
+      lotId: string,
+      except: { run: number; kind: PackKind; alloc: number },
+    ): number => {
+      let sum = 0;
+      runs.forEach((r, ri) => {
+        (["jar", "lid"] as const).forEach((k) => {
+          packAllocations(r, k).forEach((a, ai) => {
+            if (a.lot_id !== lotId) return;
+            if (ri === except.run && k === except.kind && ai === except.alloc) return;
+            sum += Number(a.count) || 0;
+          });
+        });
+      });
+      return sum;
+    };
+    const lotLeftFor = (
       lots: typeof jarLots,
       lotId: string | undefined,
-      exceptIdx: number,
-      lotKey: "jar_lot_id" | "lids_lot_id",
-      countKey: "jars_used" | "lids_count",
+      except: { run: number; kind: PackKind; alloc: number },
     ): number | null => {
-      const lot = lots.find((l) => l.id === lotId);
+      const lot = lotId ? lots.find((l) => l.id === lotId) : undefined;
       if (!lot) return null;
-      const claimedElsewhere = runs.reduce((sum, r, j) =>
-        j !== exceptIdx && r[lotKey] === lotId ? sum + (Number(r[countKey]) || 0) : sum, 0);
-      return Math.max(0, lot.quantity_remaining_g - claimedElsewhere);
+      return Math.max(0, lot.quantity_remaining_g - claimedOnLotElsewhere(lot.id, except));
     };
-    const overdrawNote = (left: number | null, count: string) => {
-      const n = Number(count) || 0;
-      return left != null && n > left ? (
-        <p className="text-[11px] font-medium text-red-600 mt-0.5">
-          Only {left.toLocaleString()} left in stock for this batch — reduce the count or split across another batch.
-        </p>
-      ) : null;
+
+    /**
+     * One side of a packing entry (containers or closures): a count + batch pair
+     * per lot, so the batch code sits beside the count it belongs to, plus a
+     * "split across another batch" control.
+     */
+    const renderPackSide = (
+      run: PackRun,
+      idx: number,
+      opts: {
+        kind: PackKind;
+        word: string;          // "jar" / "lid" (or the customer's own wording)
+        cap: string;           // capitalised form, for the batch label
+        ingredient: string;    // linked primary-packaging item ("" when unlinked)
+        lots: typeof jarLots;
+        placeholder: string;
+      },
+    ) => {
+      const allocs = packAllocations(run, opts.kind);
+      return (
+        <div className="space-y-1.5">
+          {allocs.map((alloc, ai) => {
+            const left = lotLeftFor(opts.lots, alloc.lot_id, { run: idx, kind: opts.kind, alloc: ai });
+            const count = Number(alloc.count) || 0;
+            return (
+              <div key={ai}>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    {ai === 0 && <label className="text-xs text-gray-500 block mb-0.5">No. of {pluralise(opts.word)}</label>}
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={alloc.count ?? ""}
+                      onChange={(e) => updateAlloc(idx, opts.kind, ai, { count: e.target.value })}
+                      className="input text-sm py-1.5"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    {ai === 0 && (
+                      <label className="text-xs text-gray-500 block mb-0.5">
+                        {opts.cap} batch{opts.ingredient ? " (from stock)" : " no."}
+                      </label>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      {opts.ingredient ? (
+                        <select
+                          value={alloc.lot_id || ""}
+                          onChange={(e) => {
+                            const lot = opts.lots.find((l) => l.id === e.target.value);
+                            updateAlloc(idx, opts.kind, ai, { lot_id: e.target.value, batch: lot?.julian_code ?? "" });
+                          }}
+                          className="input text-sm py-1.5 flex-1 min-w-0"
+                        >
+                          <option value="">— Select batch —</option>
+                          {opts.lots.map((l) => {
+                            // Show what's genuinely left once the other entries/splits
+                            // in this log have claimed their share of the same lot.
+                            const effective = Math.max(0, l.quantity_remaining_g - claimedOnLotElsewhere(l.id, { run: idx, kind: opts.kind, alloc: ai }));
+                            return <option key={l.id} value={l.id}>{l.julian_code} — {effective.toLocaleString()} left</option>;
+                          })}
+                          {alloc.lot_id && !opts.lots.some((l) => l.id === alloc.lot_id) && (
+                            <option value={alloc.lot_id}>{alloc.batch || "Selected batch"}</option>
+                          )}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={alloc.batch ?? ""}
+                          onChange={(e) => updateAlloc(idx, opts.kind, ai, { batch: e.target.value })}
+                          className="input text-sm py-1.5 flex-1 min-w-0"
+                          placeholder={opts.placeholder}
+                        />
+                      )}
+                      {allocs.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeAlloc(idx, opts.kind, ai)}
+                          className="shrink-0 text-lg leading-none text-gray-300 hover:text-red-400 transition"
+                          aria-label={`Remove this ${opts.word} batch`}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {opts.ingredient && left != null && count > left && (
+                  <p className="text-[11px] font-medium text-red-600 mt-0.5">
+                    Only {left.toLocaleString()} left in batch {opts.lots.find((l) => l.id === alloc.lot_id)?.julian_code ?? ""} —
+                    reduce the count or split the extra {(count - left).toLocaleString()} across another batch.
+                  </p>
+                )}
+              </div>
+            );
+          })}
+          {opts.ingredient && opts.lots.length === 0 && (
+            <p className="text-[11px] text-amber-600">No {opts.ingredient} in stock — log a delivery in Goods In.</p>
+          )}
+          <button
+            type="button"
+            onClick={() => addAlloc(idx, opts.kind)}
+            className="text-xs text-brand hover:underline"
+          >
+            + Split across another {opts.word} batch
+          </button>
+        </div>
+      );
     };
+
     return (
       <div>
         {/* Render label manually so we don't show raw JSON hint */}
@@ -835,90 +955,21 @@ export default function QuestionField({ question, value, onChange, error, ingred
                   <button type="button" onClick={() => removeRun(idx)} className="text-xs text-gray-400 hover:text-red-500 transition">Remove</button>
                 </div>
               )}
+              {/* Pack weight + who packed it head the entry, so each batch code
+                  sits directly beside the count of the item it belongs to. */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-gray-500 block mb-0.5">Pack weight (g)</label>
-                  <input type="number" inputMode="numeric" value={run.pack_weight} onChange={(e) => updateRun(idx, "pack_weight", e.target.value)} className="input text-sm py-1.5" placeholder="227" />
+                  <input type="number" inputMode="numeric" value={run.pack_weight ?? ""} onChange={(e) => updateRun(idx, "pack_weight", e.target.value)} className="input text-sm py-1.5" placeholder="227" />
                 </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-0.5">No. of {pluralise(packUnit)}</label>
-                  <input type="number" inputMode="numeric" value={run.jars_used} onChange={(e) => updateRun(idx, "jars_used", e.target.value)} className="input text-sm py-1.5" placeholder="0" />
-                </div>
-
-                {/* Container batch — lot picker (deducts stock) when linked, else free text */}
-                {jarIngredient ? (
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-0.5">{unitCap} batch (from stock)</label>
-                    <select
-                      value={run.jar_lot_id || ""}
-                      onChange={(e) => {
-                        const lot = jarLots.find((l) => l.id === e.target.value);
-                        updateRunFields(idx, { jar_lot_id: e.target.value, jar_batch: lot?.julian_code ?? "" });
-                      }}
-                      className="input text-sm py-1.5"
-                    >
-                      <option value="">— Select batch —</option>
-                      {jarLots.map((l) => (
-                        <option key={l.id} value={l.id}>{l.julian_code} — {l.quantity_remaining_g.toLocaleString()} left</option>
-                      ))}
-                      {run.jar_lot_id && !jarLots.some((l) => l.id === run.jar_lot_id) && (
-                        <option value={run.jar_lot_id}>{run.jar_batch || "Selected batch"}</option>
-                      )}
-                    </select>
-                    {jarLots.length === 0 && (
-                      <p className="text-[11px] text-amber-600 mt-0.5">No {jarIngredient} in stock — log a delivery in Goods In.</p>
-                    )}
-                    {overdrawNote(packLotLeft(jarLots, run.jar_lot_id, idx, "jar_lot_id", "jars_used"), run.jars_used)}
-                  </div>
-                ) : (
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-0.5">{unitCap} batch no.</label>
-                    <input type="text" value={run.jar_batch} onChange={(e) => updateRun(idx, "jar_batch", e.target.value)} className="input text-sm py-1.5" placeholder="JB001" />
-                  </div>
-                )}
-
-                <div>
-                  <label className="text-xs text-gray-500 block mb-0.5">No. of {pluralise(packClosure)}</label>
-                  <input type="number" inputMode="numeric" value={run.lids_count} onChange={(e) => updateRun(idx, "lids_count", e.target.value)} className="input text-sm py-1.5" placeholder="0" />
-                </div>
-
-                {/* Closure batch — lot picker (deducts stock) when linked, else free text */}
-                {closureIngredient ? (
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-0.5">{closureCap} batch (from stock)</label>
-                    <select
-                      value={run.lids_lot_id || ""}
-                      onChange={(e) => {
-                        const lot = closureLots.find((l) => l.id === e.target.value);
-                        updateRunFields(idx, { lids_lot_id: e.target.value, lids_batch: lot?.julian_code ?? "" });
-                      }}
-                      className="input text-sm py-1.5"
-                    >
-                      <option value="">— Select batch —</option>
-                      {closureLots.map((l) => (
-                        <option key={l.id} value={l.id}>{l.julian_code} — {l.quantity_remaining_g.toLocaleString()} left</option>
-                      ))}
-                      {run.lids_lot_id && !closureLots.some((l) => l.id === run.lids_lot_id) && (
-                        <option value={run.lids_lot_id}>{run.lids_batch || "Selected batch"}</option>
-                      )}
-                    </select>
-                    {closureLots.length === 0 && (
-                      <p className="text-[11px] text-amber-600 mt-0.5">No {closureIngredient} in stock — log a delivery in Goods In.</p>
-                    )}
-                    {overdrawNote(packLotLeft(closureLots, run.lids_lot_id, idx, "lids_lot_id", "lids_count"), run.lids_count)}
-                  </div>
-                ) : (
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-0.5">{closureCap} batch no.</label>
-                    <input type="text" value={run.lids_batch} onChange={(e) => updateRun(idx, "lids_batch", e.target.value)} className="input text-sm py-1.5" placeholder="LB001" />
-                  </div>
-                )}
-
                 <div>
                   <label className="text-xs text-gray-500 block mb-0.5">Packed by (initials)</label>
-                  <input type="text" value={run.packed_by} onChange={(e) => updateRun(idx, "packed_by", e.target.value)} className="input text-sm py-1.5" placeholder="SS" />
+                  <input type="text" value={run.packed_by ?? ""} onChange={(e) => updateRun(idx, "packed_by", e.target.value)} className="input text-sm py-1.5" placeholder="SS" />
                 </div>
               </div>
+
+              {renderPackSide(run, idx, { kind: "jar", word: packUnit, cap: unitCap, ingredient: jarIngredient, lots: jarLots, placeholder: "JB001" })}
+              {renderPackSide(run, idx, { kind: "lid", word: packClosure, cap: closureCap, ingredient: closureIngredient, lots: closureLots, placeholder: "LB001" })}
             </div>
           ))}
         </div>

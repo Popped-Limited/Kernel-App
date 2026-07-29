@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { expandRunValues } from "@/lib/production-runs";
+import { packLotUses } from "@/lib/packing-runs";
 
 /**
  * POST /api/admin/recalculate-stock
@@ -163,13 +164,11 @@ export async function POST(req: NextRequest) {
             const runs = JSON.parse(value);
             if (!Array.isArray(runs)) continue;
             for (const run of runs) {
-              for (const [lotKey, countKey] of [["jar_lot_id", "jars_used"], ["lids_lot_id", "lids_count"]] as const) {
-                const lotId = run[lotKey];
-                const used = Number(run[countKey]);
-                if (lotId && lotById.has(lotId) && used > 0) {
-                  usage.set(lotId, (usage.get(lotId) ?? 0) + used);
-                  deductionCount++;
-                }
+              // Includes entries split across several jar/lid lots
+              for (const use of packLotUses(run)) {
+                if (!lotById.has(use.lot_id)) continue;
+                usage.set(use.lot_id, (usage.get(use.lot_id) ?? 0) + use.amount);
+                deductionCount++;
               }
             }
           } catch { /* malformed answer — skip */ }
