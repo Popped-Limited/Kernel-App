@@ -1,13 +1,13 @@
 "use client";
 
-// Production Schedule — plan next week's runs on the calendar (batches per
-// day), then see what the plan needs vs what's on the shelf: the "to order"
-// column is the shopping list. Deterministic maths, shown in full: needed =
-// recipe grams × planned batches summed across the displayed week; in stock =
-// lot remainders minus what in-progress batch drafts have reserved.
+// Production Schedule — plan runs on the calendar (batches per day), then see
+// what the plan needs vs what's on the shelf: the "to order" column is the
+// shopping list, exportable as a CSV order sheet. Deterministic maths, shown
+// in full: needed = recipe grams × planned batches summed over the horizon
+// (1/2/4 weeks CUMULATIVE from the displayed week's Monday); in stock = lot
+// remainders minus what in-progress batch drafts have reserved.
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { fetchAll } from "@/lib/fetchAll";
 import ProductionCalendar, { type CalendarEvent } from "@/components/ProductionCalendar";
@@ -28,27 +28,36 @@ function fmtG(g: number): string {
   return g >= 1000 ? `${(g / 1000).toFixed(2)} kg` : `${Math.round(g)} g`;
 }
 
+const HORIZONS: [number, string][] = [[1, "1 week"], [2, "2 weeks"], [4, "4 weeks"]];
+
 export default function ProductionSchedulePage() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   // checklist_id → its recipe (empty array = production checklist without an ingredient table)
   const [recipes, setRecipes] = useState<Record<string, RecipeEntry[]>>({});
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [suppliers, setSuppliers] = useState<Record<string, string>>({}); // supplier id → name
   const [lots, setLots] = useState<IngredientLot[]>([]);
   // Lot id → grams/units reserved by in-progress batch drafts
   const [reservedByLot, setReservedByLot] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
-  // The week the calendar is showing, pushed up via onWeekData
+  // The week the calendar is showing, pushed up via onWeekData; the requirement
+  // table covers `horizon` weeks CUMULATIVELY from that Monday, so planning
+  // ahead totals every planned batch in the range, not just the visible week.
   const [weekStart, setWeekStart] = useState<string | null>(null);
-  const [weekEvents, setWeekEvents] = useState<CalendarEvent[]>([]);
+  const [horizon, setHorizon] = useState(1);
+  const [rangeEvents, setRangeEvents] = useState<CalendarEvent[]>([]);
+  // Bumped whenever the calendar reports a change so the range refetches
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const [clRes, qRes, ingRes, lotsData, draftsData] = await Promise.all([
+    const [clRes, qRes, ingRes, supRes, lotsData, draftsData] = await Promise.all([
       supabase.from("checklists").select("*").eq("active", true).order("name"),
       supabase.from("questions").select("checklist_id, options").eq("type", "ingredient_table"),
       supabase.from("ingredients").select("*").order("name"),
+      supabase.from("suppliers").select("id, name"),
       // Lots and drafts grow with usage — paginate past the 1000-row cap so
       // the stock figures stay complete.
       fetchAll<IngredientLot>((from, to) =>
@@ -59,6 +68,7 @@ export default function ProductionSchedulePage() {
 
     setChecklists((clRes.data ?? []) as Checklist[]);
     setIngredients((ingRes.data ?? []) as Ingredient[]);
+    setSuppliers(Object.fromEntries(((supRes.data ?? []) as { id: string; name: string }[]).map(s => [s.id, s.name])));
     setLots(lotsData);
 
     // Parse each production checklist's recipe from its ingredient_table options
@@ -101,10 +111,29 @@ export default function ProductionSchedulePage() {
     setLoading(false);
   }
 
-  const onWeekData = useCallback((ws: string, events: CalendarEvent[]) => {
+  const onWeekData = useCallback((ws: string) => {
     setWeekStart(ws);
-    setWeekEvents(events);
+    setRefreshKey(k => k + 1);
   }, []);
+
+  // Fetch every event in [weekStart, weekStart + horizon weeks) — refetched
+  // whenever the calendar changes week or reports an add/remove/batch change.
+  useEffect(() => {
+    if (!weekStart) return;
+    let cancelled = false;
+    (async () => {
+      const end = new Date(weekStart + "T12:00:00");
+      end.setDate(end.getDate() + horizon * 7 - 1);
+      const { data } = await supabase
+        .from("production_calendar")
+        .select("*")
+        .gte("event_date", weekStart)
+        .lte("event_date", end.toISOString().slice(0, 10))
+        .order("event_date");
+      if (!cancelled) setRangeEvents((data ?? []) as CalendarEvent[]);
+    })();
+    return () => { cancelled = true; };
+  }, [weekStart, horizon, refreshKey]);
 
   // On-shelf stock per ingredient, keyed by exact (case-insensitive, trimmed)
   // name — Tom's rule: never fuzzy-match ingredient names.
@@ -129,8 +158,8 @@ export default function ProductionSchedulePage() {
   }, [ingredients, lots, reservedByLot]);
 
   const plannedEvents = useMemo(
-    () => weekEvents.filter(e => e.type === "production" && e.checklist_id),
-    [weekEvents]
+    () => rangeEvents.filter(e => e.type === "production" && e.checklist_id),
+    [rangeEvents]
   );
 
   const requirements = useMemo<RequirementRow[]>(() => {
@@ -163,12 +192,47 @@ export default function ProductionSchedulePage() {
   const shortfalls = requirements.filter(r => r.toOrderG > 0);
   const totalBatches = plannedEvents.reduce((s, e) => s + Math.max(1, e.batches ?? 1), 0);
 
-  const weekLabel = useMemo(() => {
+  // Label for the whole horizon: "3 Aug – 30 Aug" (start of shown week → end of range)
+  const rangeLabel = useMemo(() => {
     if (!weekStart) return "";
     const s = new Date(weekStart + "T12:00:00");
-    const e = new Date(s); e.setDate(e.getDate() + 6);
+    const e = new Date(s); e.setDate(e.getDate() + horizon * 7 - 1);
     return `${s.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – ${e.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
-  }, [weekStart]);
+  }, [weekStart, horizon]);
+
+  // Supplier per recipe ingredient, for the order sheet (exact-name matching)
+  const supplierByName = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const ing of ingredients) {
+      if (ing.supplier_id && suppliers[ing.supplier_id]) {
+        map[ing.name.trim().toLowerCase()] = suppliers[ing.supplier_id];
+      }
+    }
+    return map;
+  }, [ingredients, suppliers]);
+
+  // CSV order sheet: only the ingredients that actually need ordering
+  function exportOrderSheet() {
+    const toOrder = requirements.filter(r => r.toOrderG > 0);
+    if (toOrder.length === 0) return;
+    const rows = [
+      ["Ingredient", "Supplier", "To order", "In stock", `Needed (${rangeLabel})`],
+      ...toOrder.map(r => [
+        r.name,
+        supplierByName[r.name.trim().toLowerCase()] ?? "",
+        fmtG(r.toOrderG),
+        r.availableG === null ? "not in Raw Materials" : fmtG(r.availableG),
+        fmtG(r.neededG),
+      ]),
+    ];
+    const csv = rows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `order-sheet-${weekStart}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
 
   return (
     <div className="flex flex-1 min-h-0">
@@ -177,26 +241,48 @@ export default function ProductionSchedulePage() {
 
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-gray-900">Production Schedule</h1>
-            <Link href="/production/goods-in" className="btn-primary text-sm">Log a Delivery →</Link>
+            <button
+              onClick={exportOrderSheet}
+              disabled={shortfalls.length === 0}
+              className="btn-primary text-sm disabled:opacity-40"
+              title={shortfalls.length === 0 ? "Nothing to order for the period shown" : undefined}
+            >
+              Export order sheet
+            </button>
           </div>
 
           {!loading && <ProductionCalendar checklists={checklists} showBatches onWeekData={onWeekData} />}
 
-          {/* Weekly ingredient requirement — the plan vs the shelf */}
+          {/* Ingredient requirement over the horizon — the plan vs the shelf */}
           {!loading && weekStart && (
             <div className="card overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between gap-2 flex-wrap">
-                <h2 className="text-sm font-semibold text-gray-700">Ingredients for {weekLabel}</h2>
-                {plannedEvents.length > 0 && (
-                  <span className="text-xs text-gray-400">
-                    {totalBatches} batch{totalBatches !== 1 ? "es" : ""} planned
-                  </span>
-                )}
+                <h2 className="text-sm font-semibold text-gray-700">Ingredients for {rangeLabel}</h2>
+                <div className="flex items-center gap-3">
+                  {plannedEvents.length > 0 && (
+                    <span className="text-xs text-gray-400">
+                      {totalBatches} batch{totalBatches !== 1 ? "es" : ""} planned
+                    </span>
+                  )}
+                  <div className="flex gap-1 p-0.5 rounded-lg bg-gray-100">
+                    {HORIZONS.map(([weeks, label]) => (
+                      <button
+                        key={weeks}
+                        onClick={() => setHorizon(weeks)}
+                        className={`rounded-md px-2 py-1 text-xs font-medium transition ${
+                          horizon === weeks ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {plannedEvents.length === 0 ? (
                 <p className="px-4 py-6 text-sm text-gray-500">
-                  No production planned this week yet — tap a day above and add the runs you&apos;re going to make.
+                  Nothing planned for {rangeLabel} yet — tap a day above and add the runs you&apos;re going to make.
                 </p>
               ) : requirements.length === 0 ? (
                 <p className="px-4 py-6 text-sm text-gray-500">
@@ -207,13 +293,13 @@ export default function ProductionSchedulePage() {
                   {shortfalls.length > 0 ? (
                     <div className="mx-4 mt-3 rounded-lg bg-amber-50 border border-amber-300 px-3 py-2">
                       <p className="text-xs font-semibold text-amber-800">
-                        {shortfalls.length} ingredient{shortfalls.length !== 1 ? "s" : ""} to order before this week&apos;s runs
+                        {shortfalls.length} ingredient{shortfalls.length !== 1 ? "s" : ""} to order for {rangeLabel}
                       </p>
                     </div>
                   ) : (
                     <div className="mx-4 mt-3 rounded-lg bg-green-50 border border-green-200 px-3 py-2">
                       <p className="text-xs font-semibold text-green-700">
-                        Stock covers everything planned this week
+                        Stock covers everything planned for {rangeLabel}
                       </p>
                     </div>
                   )}
@@ -257,7 +343,7 @@ export default function ProductionSchedulePage() {
                     </table>
                   </div>
                   <p className="px-4 py-3 text-xs text-gray-400">
-                    Needed = recipe × planned batches for the week shown. In stock excludes what in-progress batches have already claimed.
+                    Needed = recipe × planned batches for {rangeLabel}. In stock excludes what in-progress batches have already claimed.
                   </p>
                 </>
               )}

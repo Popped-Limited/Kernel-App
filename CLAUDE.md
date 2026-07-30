@@ -230,9 +230,11 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   report). No API route — the panel (`components/ProductLabTestsPanel.tsx`) reads/writes directly
   under RLS.
 - `add-shelf-life-extensions.sql` (new org-isolated `shelf_life_extensions` table: per-lot
-  internal shelf-life extensions — extended_until, required reason, created_by) — **PENDING: run
-  in the Supabase SQL editor** (until then the app degrades gracefully: fetch returns [], lots
-  just show supplier dates, saving an extension errors). The supplier's `best_before_date` on
+  internal shelf-life extensions — extended_until, required reason, created_by) — **applied in
+  prod 30 Jul 2026, RLS verified as real logins** (support@ insert/read OK, cross-org insert
+  blocked, Yep login + anon see 0 rows; demo extension seeded in Popped on Thai chilli lot
+  26117). NB: first run silently didn't take (SQL editor showed success on re-run) — always
+  verify the table actually exists after running. The supplier's `best_before_date` on
   `ingredient_lots` is IMMUTABLE — every extension is an audit row; effective BBE = latest
   extension ?? supplier date (lib/shelf-life.ts, deliberately NO default-shelf-life-days concept
   — Tom: fresh items get ~5 days typed at Goods In). Raw Materials: expiry badges (red expired /
@@ -242,15 +244,19 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   production checklist page compares recipe grams × runs vs stock-minus-reserved and shows an
   amber shortfall banner before anyone starts weighing (part-batches legitimate; submit-time
   overdraw block still guards the deduction).
-- `add-calendar-batches.sql` (`production_calendar` gains `batches` int default 1) — **PENDING:
-  run in the Supabase SQL editor** (until then the batch stepper's write fails and reverts; all
-  events count as 1 batch). Powers **Production Schedule** (`/production/schedule`, sidebar tab
-  under Production): the week's calendar (ProductionCalendar with `showBatches` + `onWeekData`)
-  plus an ingredient requirement table — needed = recipe × planned batches summed over the shown
-  week; in stock = lot remainders minus draft reservations; to order = the gap, shortfalls
-  sorted first. Ingredient matching is EXACT name (case-insensitive) — a recipe name missing
-  from Raw Materials renders "Not in Raw Materials", never fuzzy-matched. The dashboard calendar
-  stays and now links "Plan this week →" to the schedule page.
+- `add-calendar-batches.sql` (`production_calendar` gains `batches` int default 1) — **applied
+  in prod 30 Jul 2026, verified as support@** (batches write OK; NB `production_calendar` has NO
+  service_role grant, like `training_sessions` — admin scripts must use a real login). Powers
+  **Production Schedule** (`/production/schedule`, sidebar tab under Production): the week's
+  calendar (ProductionCalendar with `showBatches` + `onWeekData`) plus an ingredient requirement
+  table over a **1/2/4-week horizon, CUMULATIVE from the displayed week's Monday** (the page
+  refetches the event range itself; the calendar only reports week + changes) — needed = recipe
+  × planned batches; in stock = lot remainders minus draft reservations; to order = the gap,
+  shortfalls sorted first. "Export order sheet" downloads the to-order rows as CSV (ingredient,
+  supplier via exact-name match, to order / in stock / needed); per Tom there's deliberately NO
+  "Log a delivery" link here. Ingredient matching is EXACT name (case-insensitive) — a recipe
+  name missing from Raw Materials renders "Not in Raw Materials", never fuzzy-matched. The
+  dashboard calendar stays and now links "Plan this week →" to the schedule page.
 - **Organoleptic Checks** (30 Jul 2026, no migration): adhoc checklist in the new-org seed pack.
   Seed extras that DON'T exist in Yep live in `lib/seed/extra-checklists.json`;
   `build-salsa-baseline.mjs` merges them on every rebuild (a rebuild would otherwise drop them) —
