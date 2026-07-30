@@ -204,6 +204,13 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   `{ slots: ISO[], duration_mins }` (bulk, upsert `onConflict: starts_at, ignoreDuplicates`) or single
   `{ starts_at }`; `GET ?admin=1&from&to` returns a date range; `DELETE ?id=` (one) or `?from&to`
   (clear unbooked in range). Times stored as timestamptz, shown/generated in Europe/London (browser tz).
+- `add-demo-settings.sql` (single-row `demo_settings` holding the demo video `meeting_url`)
+  — **PENDING: run in the Supabase SQL editor** (the Video meeting link field + join links in
+  invites won't work until then). Kernel-global singleton (id=1), RLS on/no policy, service-role
+  only; edited via `app/api/demo-slots/settings` (support-only GET/POST). The book route embeds the
+  link in both ICS files (`LOCATION`/`URL`) and as a "Join the demo" button in both emails; if unset
+  the support email warns to add one. One shared room is fine — demos run one at a time. Booking
+  emails now send via `Promise.allSettled` so one failing doesn't block the other.
 - `scripts/clone-yep-to-demo.mjs` clones Yep Kitchen's operational data into the
   Popped demo org (dry-run by default; `--commit` to apply). Skips logins/billing
   and the tables the admin key can't write (SOPs, calendar, wastage, training_sessions).

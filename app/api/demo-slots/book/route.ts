@@ -72,15 +72,24 @@ export async function POST(req: NextRequest) {
     const notifyEmail = process.env.DEMO_NOTIFY_EMAIL ?? "support@kernelapp.co.uk";
     const fromEmail = process.env.FROM_EMAIL ?? "support@kernelapp.co.uk";
 
+    // The video meeting link that goes into the invite (set on the admin page).
+    const { data: settings } = await supabaseAdmin
+      .from("demo_settings")
+      .select("meeting_url")
+      .eq("id", 1)
+      .maybeSingle();
+    const meetingUrl = (settings?.meeting_url ?? "").trim();
+
     const uid = `demo-${claimed.id}@kernelapp.co.uk`;
     const summary = `Kernel demo — ${orgName}`;
-    const description = cleanNote
+    const baseDesc = cleanNote
       ? `Demo with ${userName} (${orgName}). Note: ${cleanNote}`
       : `Demo with ${userName} (${orgName}).`;
+    const description = meetingUrl ? `${baseDesc}\n\nJoin the demo: ${meetingUrl}` : baseDesc;
 
     // Support copy: PUBLISH — a plain "add to calendar" event. REQUEST fails in
     // Gmail here because support@ is the organiser receiving its own invite.
-    const supportIcs = buildDemoICS({ uid, start, durationMins: claimed.duration_mins, summary, description, method: "PUBLISH" });
+    const supportIcs = buildDemoICS({ uid, start, durationMins: claimed.duration_mins, summary, description, location: meetingUrl || undefined, method: "PUBLISH" });
     const supportAttachment = {
       filename: "kernel-demo.ics",
       content: Buffer.from(supportIcs).toString("base64"),
@@ -90,6 +99,7 @@ export async function POST(req: NextRequest) {
     // Customer copy: REQUEST — a proper invitation (customer is the attendee).
     const customerIcs = buildDemoICS({
       uid, start, durationMins: claimed.duration_mins, summary, description,
+      location: meetingUrl || undefined,
       method: "REQUEST",
       organiserEmail: notifyEmail,
       attendees: [{ email: user.email!, name: userName }],
@@ -100,11 +110,17 @@ export async function POST(req: NextRequest) {
       content_type: "text/calendar; method=REQUEST",
     };
 
-    // Emails are best-effort: the booking is already saved and visible in the
-    // admin availability page, so a mail hiccup must not fail the booking.
-    try {
+    const safeUrl = meetingUrl.replace(/"/g, "%22");
+    const joinBlock = meetingUrl
+      ? `<p style="margin: 24px 0;"><a href="${safeUrl}" style="display:inline-block; background:#C89A18; color:#1C1A10; text-decoration:none; font-weight:bold; padding:12px 24px; border-radius:8px;">Join the demo</a></p>
+         <p style="color:#888; font-size:13px; word-break:break-all;">Or use this link: <a href="${safeUrl}">${meetingUrl}</a></p>`
+      : "";
+
+    // Both emails send independently — a failure on one must not block the other,
+    // and the booking is already saved regardless.
+    const results = await Promise.allSettled([
       // → Kernel support (Tom)
-      await resend.emails.send({
+      resend.emails.send({
         from: `Kernel <${fromEmail}>`,
         to: notifyEmail,
         reply_to: user.email,
@@ -119,13 +135,14 @@ export async function POST(req: NextRequest) {
               <tr><td style="padding: 6px 0; color: #888;">Organisation</td><td>${orgName}</td></tr>
             </table>
             ${cleanNote ? `<div style="background: #f9f6f0; border-radius: 8px; padding: 16px; white-space: pre-wrap;">${cleanNote.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>` : ""}
+            ${joinBlock || `<p style="background:#fdf3d0; border-radius:8px; padding:12px 16px; color:#7a5c00; font-size:13px;">No meeting link is set yet — add one on the Demo availability page so future invites include it, and send ${userName} a link for this one.</p>`}
             <p style="margin-top: 20px; color: #888; font-size: 13px;">The calendar invite is attached — open it to add this demo to your Google Calendar.</p>
           </div>
         `,
-      });
+      }),
 
       // → Customer confirmation
-      await resend.emails.send({
+      resend.emails.send({
         from: `Kernel <${fromEmail}>`,
         to: user.email!,
         reply_to: notifyEmail,
@@ -136,14 +153,17 @@ export async function POST(req: NextRequest) {
             <h2 style="color: #5C4A1E;">You're booked in 🎉</h2>
             <p>Thanks ${userName}! Your Kernel demo is confirmed for:</p>
             <p style="font-size: 18px; font-weight: bold; color: #5C4A1E;">${whenLabel}</p>
+            ${joinBlock}
             <p>We'll be in touch at <a href="mailto:${notifyEmail}">${notifyEmail}</a> if anything changes. The calendar invite is attached so you can add it to your calendar.</p>
             <p style="margin-top: 20px; color: #888; font-size: 13px;">Need to rearrange? Just reply to this email.</p>
           </div>
         `,
-      });
-    } catch (mailErr) {
-      console.error("Demo booking email error (booking still saved):", mailErr);
-    }
+      }),
+    ]);
+    results.forEach((r, i) => {
+      if (r.status === "rejected") console.error(`Demo booking email ${i === 0 ? "(support)" : "(customer)"} failed:`, r.reason);
+      else if ((r.value as any)?.error) console.error(`Demo booking email ${i === 0 ? "(support)" : "(customer)"} Resend error:`, (r.value as any).error);
+    });
 
     return NextResponse.json({ success: true, when: whenLabel });
   } catch (err) {

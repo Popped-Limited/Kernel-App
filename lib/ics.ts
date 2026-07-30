@@ -38,6 +38,7 @@ interface DemoICSOptions {
   method?: "REQUEST" | "PUBLISH";
   organiserEmail?: string;                       // REQUEST only
   attendees?: { email: string; name?: string }[]; // REQUEST only
+  location?: string;                             // e.g. the video meeting URL
 }
 
 export function buildDemoICS(opts: DemoICSOptions): string {
@@ -56,6 +57,8 @@ export function buildDemoICS(opts: DemoICSOptions): string {
     `DTEND:${toICSDate(end)}`,
     `SUMMARY:${esc(opts.summary)}`,
     opts.description ? `DESCRIPTION:${esc(opts.description)}` : "",
+    opts.location ? `LOCATION:${esc(opts.location)}` : "",
+    opts.location ? `URL:${esc(opts.location)}` : "",
     ...(method === "REQUEST" && opts.organiserEmail ? [`ORGANIZER;CN=Kernel:mailto:${opts.organiserEmail}`] : []),
     ...(method === "REQUEST" && opts.attendees
       ? opts.attendees.map(

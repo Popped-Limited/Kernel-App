@@ -54,6 +54,33 @@ export default function DemoSlotsManager() {
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
 
+  const [meetingUrl, setMeetingUrl] = useState("");
+  const [meetingSaved, setMeetingSaved] = useState("");
+  const [savingMeeting, setSavingMeeting] = useState(false);
+  const [meetingError, setMeetingError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/demo-slots/settings")
+      .then(r => r.json())
+      .then(d => setMeetingUrl(d.meeting_url ?? ""))
+      .catch(() => {});
+  }, []);
+
+  async function saveMeetingUrl() {
+    setSavingMeeting(true);
+    setMeetingError("");
+    setMeetingSaved("");
+    const res = await fetch("/api/demo-slots/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ meeting_url: meetingUrl }),
+    });
+    const data = await res.json();
+    if (!res.ok) setMeetingError(data.error ?? "Couldn't save the link");
+    else { setMeetingUrl(data.meeting_url ?? ""); setMeetingSaved("Saved"); }
+    setSavingMeeting(false);
+  }
+
   const load = useCallback(async (m: Date) => {
     setLoading(true);
     const start = gridStart(m);
@@ -146,6 +173,27 @@ export default function DemoSlotsManager() {
 
   return (
     <div className="space-y-6">
+      {/* Meeting link */}
+      <div className="card p-4 sm:p-5">
+        <label className="block text-sm font-medium text-brown mb-1">Video meeting link</label>
+        <p className="text-xs text-gray-500 mb-3">Added to every booking&apos;s calendar invite and confirmation email so customers can join. Paste your Google Meet, Zoom, or Teams room link.</p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="url"
+            value={meetingUrl}
+            onChange={e => { setMeetingUrl(e.target.value); setMeetingSaved(""); }}
+            placeholder="https://meet.google.com/abc-defg-hij"
+            className="input flex-1"
+          />
+          <button onClick={saveMeetingUrl} disabled={savingMeeting} className="btn-primary px-5 py-2 disabled:opacity-50">
+            {savingMeeting ? "Saving…" : "Save link"}
+          </button>
+        </div>
+        {meetingSaved && <p className="text-xs text-green-700 mt-2">{meetingSaved}</p>}
+        {meetingError && <p className="text-xs text-red-600 mt-2">{meetingError}</p>}
+        {!meetingUrl && !savingMeeting && <p className="text-xs text-amber-700 mt-2">No link set — invites won&apos;t include a way to join until you add one.</p>}
+      </div>
+
       {/* Calendar */}
       <div className="card p-4 sm:p-5">
         <div className="flex items-center justify-between mb-4">
