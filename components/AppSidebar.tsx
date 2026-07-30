@@ -43,6 +43,7 @@ const NAV = [
     minRole: "staff",
     items: [
       { label: "Checklist Submissions", href: "/compliance/submissions"           },
+      { label: "GMP Audits",            href: "/compliance/gmp-audits"            },
       { label: "Raw Materials",         href: "/compliance/raw-materials"         },
       { label: "SOPs",                  href: "/compliance/sops"          },
       { label: "Suppliers",             href: "/compliance/suppliers"     },

@@ -211,6 +211,17 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   link in both ICS files (`LOCATION`/`URL`) and as a "Join the demo" button in both emails; if unset
   the support email warns to add one. One shared room is fine — demos run one at a time. Booking
   emails now send via `Promise.allSettled` so one failing doesn't block the other.
+- `create-gmp-audits.sql` (GMP audits, SALSA issue 7: `gmp_areas` + `gmp_audits` + `gmp_findings`,
+  all org-isolated RLS) — **PENDING: run in the Supabase SQL editor** (the GMP Audits page shows a
+  load error until then). Model: monthly audit of ONE area on a rota (app suggests the
+  longest-unaudited area; free choice allowed). Areas are seeded in-app with SALSA-shaped defaults
+  on first visit (placeholder wording pending Katie's confirmation — editable per org, deactivate
+  never delete). Findings are free-form: photos (reuses `compliance-photos` bucket under `gmp/`),
+  description, high/medium/low risk → auto due date (7/30/90 days, editable), assignee from
+  `team_members`. Assignee closes out with note + optional after photo; audits with zero findings
+  are valid clean audits. Emails: `/api/gmp/notify` (assignment, called by the audit page after
+  save — email failure must never look like a failed save) and daily cron `/api/gmp/overdue`
+  (one nudge per finding via `overdue_notified_on`; unsent groups retry next day).
 - `scripts/clone-yep-to-demo.mjs` clones Yep Kitchen's operational data into the
   Popped demo org (dry-run by default; `--commit` to apply). Skips logins/billing
   and the tables the admin key can't write (SOPs, calendar, wastage, training_sessions).
