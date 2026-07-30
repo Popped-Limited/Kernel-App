@@ -7,6 +7,7 @@ import LabelArtworkPanel from "@/components/LabelArtworkPanel";
 import ProductRecipeYieldsPanel from "@/components/ProductRecipeYieldsPanel";
 import ProductDeclarationsPanel from "@/components/ProductDeclarationsPanel";
 import ProductCostingPanel from "@/components/ProductCostingPanel";
+import ProductLabTestsPanel from "@/components/ProductLabTestsPanel";
 
 const TABS = [
   ["stock", "Stock & batches"],
@@ -14,6 +15,7 @@ const TABS = [
   ["recipe", "Recipe & yields"],
   ["declarations", "Declarations"],
   ["costing", "Costing"],
+  ["lab-tests", "Lab tests"],
 ] as const;
 type TabKey = (typeof TABS)[number][0];
 import { supabase } from "@/lib/supabase";
@@ -205,6 +207,8 @@ function ProductDetailInner() {
           <ProductDeclarationsPanel productName={productName} />
         ) : tab === "costing" ? (
           <ProductCostingPanel productName={productName} />
+        ) : tab === "lab-tests" ? (
+          <ProductLabTestsPanel productName={productName} />
         ) : (
         <div className="space-y-6">
 
