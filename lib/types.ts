@@ -150,6 +150,10 @@ export interface IngredientLot {
   created_by: string;
   created_at: string;
   ingredient?: Ingredient;
+  // Computed client-side from shelf_life_extensions (lib/shelf-life.ts) —
+  // the date the lot is judged against; best_before_date stays the supplier's.
+  effective_best_before?: string | null;
+  shelf_life_extended?: boolean;
 }
 
 export interface Dispatch {

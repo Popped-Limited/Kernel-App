@@ -582,6 +582,12 @@ export default function QuestionField({ question, value, onChange, error, ingred
                     j !== lotIdx && r.lot_id === lotUse.lot_id ? sum + (Number(r.weight_g) || 0) : sum, 0);
                   const lotLeft = selectedLot ? Math.max(0, selectedLot.quantity_remaining_g - claimedElsewhere) : null;
                   const overBy = lotLeft != null ? (Number(lotUse.weight_g) || 0) - lotLeft : 0;
+                  // Effective best-before check (internal extensions already folded
+                  // in upstream) — warn, never block: extending the shelf life in
+                  // Raw Materials is the sanctioned way to keep using the lot
+                  const expiredBBE = selectedLot?.effective_best_before &&
+                    new Date(selectedLot.effective_best_before).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0)
+                    ? selectedLot.effective_best_before : null;
                   return (
                   <div key={lotIdx}>
                   <div className="flex gap-2 items-center">
@@ -601,9 +607,11 @@ export default function QuestionField({ question, value, onChange, error, ingred
                             return r.lot_id === l.id ? sum + (Number(r.weight_g) || 0) : sum;
                           }, 0);
                           const effectiveQty = Math.max(0, l.quantity_remaining_g - usedInOtherRows);
+                          const pastBBE = l.effective_best_before &&
+                            new Date(l.effective_best_before).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0);
                           return (
                             <option key={l.id} value={l.id}>
-                              {l.julian_code} — {effectiveQty.toLocaleString()}g left
+                              {l.julian_code} — {effectiveQty.toLocaleString()}g left{pastBBE ? " ⚠ past best before" : ""}
                             </option>
                           );
                         })}
@@ -680,6 +688,13 @@ export default function QuestionField({ question, value, onChange, error, ingred
                       Only {lotLeft!.toLocaleString()}g
                       {density ? ` (${(lotLeft! / density).toFixed(2)}L)` : ""} left in lot {selectedLot.julian_code} —
                       reduce this weight or split the extra {Math.round(overBy).toLocaleString()}g across another lot.
+                    </p>
+                  )}
+                  {expiredBBE && selectedLot && (
+                    <p className="mt-1 text-[11px] font-medium text-amber-600">
+                      Lot {selectedLot.julian_code} went past its best before on{" "}
+                      {new Date(expiredBBE).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} —
+                      check it&apos;s still good to use, or extend its shelf life in Raw Materials.
                     </p>
                   )}
                   </div>

@@ -229,6 +229,28 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   `compliance-docs` under `lab-tests/`; `result` is satisfactory|borderline|unsatisfactory|'' (= see
   report). No API route — the panel (`components/ProductLabTestsPanel.tsx`) reads/writes directly
   under RLS.
+- `add-shelf-life-extensions.sql` (new org-isolated `shelf_life_extensions` table: per-lot
+  internal shelf-life extensions — extended_until, required reason, created_by) — **PENDING: run
+  in the Supabase SQL editor** (until then the app degrades gracefully: fetch returns [], lots
+  just show supplier dates, saving an extension errors). The supplier's `best_before_date` on
+  `ingredient_lots` is IMMUTABLE — every extension is an audit row; effective BBE = latest
+  extension ?? supplier date (lib/shelf-life.ts, deliberately NO default-shelf-life-days concept
+  — Tom: fresh items get ~5 days typed at Goods In). Raw Materials: expiry badges (red expired /
+  amber ≤7 days) + per-lot Extend panel with history; expired lots WARN, never block — the
+  checklist lot picker flags "past best before" in options + a warning under the row (extending
+  is the sanctioned way to keep using a lot). Pre-batch stock check (no migration): the
+  production checklist page compares recipe grams × runs vs stock-minus-reserved and shows an
+  amber shortfall banner before anyone starts weighing (part-batches legitimate; submit-time
+  overdraw block still guards the deduction).
+- `add-calendar-batches.sql` (`production_calendar` gains `batches` int default 1) — **PENDING:
+  run in the Supabase SQL editor** (until then the batch stepper's write fails and reverts; all
+  events count as 1 batch). Powers **Production Schedule** (`/production/schedule`, sidebar tab
+  under Production): the week's calendar (ProductionCalendar with `showBatches` + `onWeekData`)
+  plus an ingredient requirement table — needed = recipe × planned batches summed over the shown
+  week; in stock = lot remainders minus draft reservations; to order = the gap, shortfalls
+  sorted first. Ingredient matching is EXACT name (case-insensitive) — a recipe name missing
+  from Raw Materials renders "Not in Raw Materials", never fuzzy-matched. The dashboard calendar
+  stays and now links "Plan this week →" to the schedule page.
 - **Organoleptic Checks** (30 Jul 2026, no migration): adhoc checklist in the new-org seed pack.
   Seed extras that DON'T exist in Yep live in `lib/seed/extra-checklists.json`;
   `build-salsa-baseline.mjs` merges them on every rebuild (a rebuild would otherwise drop them) —

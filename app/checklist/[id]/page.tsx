@@ -12,6 +12,7 @@ import {
   runKey, unitsKey, RUN_COUNT_KEY,
 } from "@/lib/production-runs";
 import { packLotUses } from "@/lib/packing-runs";
+import { fetchShelfLifeExtensions, extensionsByLot, effectiveBestBefore } from "@/lib/shelf-life";
 
 type AnswerMap = Record<string, string>;
 
@@ -220,6 +221,32 @@ function ChecklistPageInner() {
     return sum;
   }, [answers, runCount]);
 
+  // Pre-batch stock check: recipe grams (× runs) vs unreserved stock, per
+  // ingredient — so a shortage surfaces BEFORE anyone starts weighing, not at
+  // the submit-time overdraw block. ingredientLots is already net of other
+  // drafts' reservations; stock this record has typed in comes from the same
+  // shelf, so the start-state comparison stays valid while filling.
+  const stockShortfalls = useMemo(() => {
+    const required: Record<string, number> = {};
+    for (const q of questions) {
+      if (q.type !== "ingredient_table") continue;
+      const runs = runQuestionIds.has(q.id) ? runCount : 1;
+      for (const opt of q.options ?? []) {
+        const [name, grams] = opt.split("|");
+        const g = parseFloat(grams);
+        if (!name?.trim() || isNaN(g) || g <= 0) continue;
+        required[name.trim()] = (required[name.trim()] || 0) + g * runs;
+      }
+    }
+    const out: { name: string; needed: number; available: number }[] = [];
+    for (const [name, needed] of Object.entries(required)) {
+      const available = findLots(ingredientLots, name)
+        .reduce((s, l) => s + l.quantity_remaining_g, 0);
+      if (available < needed) out.push({ name, needed, available });
+    }
+    return out;
+  }, [questions, runQuestionIds, runCount, ingredientLots]);
+
   // Live in-record stock reservation. buildIngredientMaps subtracts what OTHER
   // drafts have reserved but deliberately excludes THIS draft; and the ingredient
   // table only nets off rows within its own value. So a multi-run record's Run 2
@@ -285,7 +312,7 @@ function ChecklistPageInner() {
       if (clRes.data?.category === "Production") {
         // Paginated: the lot list feeds the ingredient dropdowns — a lot missing
         // past the 1000-row cap forces manual entry and weakens traceability.
-        const [lots, allDrafts] = await Promise.all([
+        const [lots, allDrafts, shelfExts] = await Promise.all([
           fetchAll<LotWithIngredient>((from, to) =>
             supabase
               .from("ingredient_lots")
@@ -299,9 +326,18 @@ function ChecklistPageInner() {
               .select("id, checklist_id, started_by, started_at, last_saved_at, answers")
               .order("last_saved_at", { ascending: false })
               .range(from, to)),
+          fetchShelfLifeExtensions(supabase),
         ]);
 
         if (lots) {
+          // Stamp each lot with its effective best-before (latest internal
+          // extension ?? supplier date) so the pickers can warn on expired lots
+          const extBy = extensionsByLot(shelfExts);
+          for (const lot of lots as LotWithIngredient[]) {
+            const eff = effectiveBestBefore(lot, extBy);
+            lot.effective_best_before = eff.date;
+            lot.shelf_life_extended = eff.extended;
+          }
           rawLotsRef.current  = lots as LotWithIngredient[];
           allDraftsRef.current = (allDrafts ?? []) as BatchDraft[];
           // No current draft yet at load time — subtract ALL draft reservations
@@ -993,6 +1029,31 @@ function ChecklistPageInner() {
             <p className="text-sm text-gray-600 bg-brand-cream border border-brand/30 rounded-xl px-4 py-3">
               {checklist.description}
             </p>
+          )}
+
+          {/* Pre-batch stock warning — a shortage should surface before anyone
+              starts weighing. Warn only: part-batches are legitimate, and the
+              submit-time overdraw block still guards the actual deduction. */}
+          {isProduction && stockShortfalls.length > 0 && Object.keys(ingredientLots).length > 0 && (
+            <div className="rounded-xl bg-amber-50 border border-amber-300 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-800">
+                Not enough stock for {runCount > 1 ? `${runCount} runs` : "this batch"}
+              </p>
+              <ul className="mt-1.5 space-y-0.5 text-xs text-amber-800">
+                {stockShortfalls.map(s => {
+                  const fmtG = (g: number) => g >= 1000 ? `${(g / 1000).toFixed(2)} kg` : `${Math.round(g)} g`;
+                  return (
+                    <li key={s.name}>
+                      <span className="font-semibold">{s.name}</span> — recipe needs {fmtG(s.needed)},{" "}
+                      {s.available > 0 ? `${fmtG(s.available)} in stock` : "out of stock"}
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="mt-1.5 text-xs text-amber-700">
+                Log a delivery in Goods In first, or carry on if you&apos;re making a smaller batch.
+              </p>
+            </div>
           )}
 
           {/* Questions */}

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import SaveButton from "@/components/SaveButton";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import type { Checklist } from "@/lib/types";
 
-interface CalendarEvent {
+export interface CalendarEvent {
   id: string;
   event_date: string;
   title: string;
@@ -14,6 +15,7 @@ interface CalendarEvent {
   checklist_id: string | null;
   created_by: string;
   notes: string | null;
+  batches?: number | null; // planned batch count — null/absent until the migration runs
 }
 
 // ── Colour palette — 16 distinct muted tones ──────────────────────────────────
@@ -139,7 +141,17 @@ export function checklistColour(checklists: Checklist[], checklistId: string | n
   return production[idx].color ?? PALETTE[idx % PALETTE.length];
 }
 
-export default function ProductionCalendar({ checklists }: { checklists: Checklist[] }) {
+export default function ProductionCalendar({
+  checklists,
+  showBatches = false,
+  onWeekData,
+}: {
+  checklists: Checklist[];
+  /** Show per-event batch steppers (Production Schedule page). */
+  showBatches?: boolean;
+  /** Called with the displayed week's events whenever they load or change. */
+  onWeekData?: (weekStart: string, events: CalendarEvent[]) => void;
+}) {
   const { orgId } = useOrganisation();
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -188,6 +200,29 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
   useEffect(() => { setSelectedDay(null); setAddingCustom(false); }, [weekStart]);
+
+  // Keep the parent (Production Schedule) in sync with the displayed week —
+  // fires on load and after every add/remove/batch change.
+  const onWeekDataRef = useRef(onWeekData);
+  onWeekDataRef.current = onWeekData;
+  useEffect(() => {
+    if (!loading) onWeekDataRef.current?.(toDateStr(weekStart), events);
+  }, [events, weekStart, loading]);
+
+  // Batch stepper (Production Schedule page). Optimistic update; reverted if
+  // the write fails (e.g. the batches migration hasn't been run yet).
+  async function setEventBatches(ev: CalendarEvent, n: number) {
+    const batches = Math.max(1, n);
+    if (batches === (ev.batches ?? 1)) return;
+    setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, batches } : e));
+    const { error } = await supabase
+      .from("production_calendar")
+      .update({ batches })
+      .eq("id", ev.id);
+    if (error) {
+      setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, batches: ev.batches ?? 1 } : e));
+    }
+  }
 
   async function saveColour(checklistId: string, hex: string) {
     // Update locally immediately for instant feedback
@@ -250,7 +285,13 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
               className="text-xs text-brown/70 hover:text-brown transition underline"
             >Today</button>
           )}
-          <span className="text-xs text-gray-400">Production calendar</span>
+          {showBatches ? (
+            <span className="text-xs text-gray-400">Production calendar</span>
+          ) : (
+            <Link href="/production/schedule" className="text-xs text-brown/70 hover:text-brown transition underline whitespace-nowrap">
+              Plan this week →
+            </Link>
+          )}
         </div>
       </div>
 
@@ -289,7 +330,7 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
                       className="text-[10px] font-medium rounded px-1.5 py-0.5 truncate leading-tight"
                       style={{ backgroundColor: bg, color: fg }}
                     >
-                      {ev.title}
+                      {ev.type === "production" && (ev.batches ?? 1) > 1 ? `${ev.batches}× ` : ""}{ev.title}
                     </div>
                   );
                 })}
@@ -334,10 +375,30 @@ export default function ProductionCalendar({ checklists }: { checklists: Checkli
                       <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: bg }} />
                       <p className="text-sm font-medium text-gray-900 truncate">{ev.title}</p>
                     </div>
-                    <button
-                      onClick={() => deleteEvent(ev.id)}
-                      className="text-xs text-gray-300 hover:text-red-400 transition ml-2 shrink-0"
-                    >Remove</button>
+                    <div className="flex items-center gap-2 ml-2 shrink-0">
+                      {showBatches && ev.type === "production" && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setEventBatches(ev, (ev.batches ?? 1) - 1)}
+                            disabled={(ev.batches ?? 1) <= 1}
+                            aria-label="Fewer batches"
+                            className="h-6 w-6 rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 leading-none"
+                          >−</button>
+                          <span className="text-xs font-semibold text-gray-700 tabular-nums w-14 text-center">
+                            {ev.batches ?? 1} batch{(ev.batches ?? 1) !== 1 ? "es" : ""}
+                          </span>
+                          <button
+                            onClick={() => setEventBatches(ev, (ev.batches ?? 1) + 1)}
+                            aria-label="More batches"
+                            className="h-6 w-6 rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 leading-none"
+                          >+</button>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => deleteEvent(ev.id)}
+                        className="text-xs text-gray-300 hover:text-red-400 transition shrink-0"
+                      >Remove</button>
+                    </div>
                   </div>
                 );
               })}

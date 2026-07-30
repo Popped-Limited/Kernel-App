@@ -32,6 +32,7 @@ const NAV = [
     icon: "box",
     minRole: "staff",
     items: [
+      { label: "Production Schedule", href: "/production/schedule" },
       { label: "Finished Goods", href: "/production/finished-goods" },
       { label: "Goods In",       href: "/production/goods-in"       },
       { label: "Goods Out",      href: "/production/goods-out"      },

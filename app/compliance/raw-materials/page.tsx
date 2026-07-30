@@ -15,6 +15,10 @@ import { useGuidedTour } from "@/lib/useGuidedTour";
 import { fetchLotUsage, fetchWastage } from "@/lib/traceability";
 import { fetchAll } from "@/lib/fetchAll";
 import { packLotUses } from "@/lib/packing-runs";
+import {
+  fetchShelfLifeExtensions, extensionsByLot, effectiveBestBefore, expiryStatus,
+  type ShelfLifeExtension,
+} from "@/lib/shelf-life";
 
 interface Supplier { id: string; name: string }
 type ItemType = "ingredient" | "packaging" | "supplies";
@@ -159,6 +163,16 @@ export default function RawMaterialsPage() {
   const [hasDoc, setHasDoc]         = useState<Set<string>>(new Set());
   // Lot id → grams held by in-progress batch drafts (not yet deducted from stock)
   const [reservedByLot, setReservedByLot] = useState<Record<string, number>>({});
+  // Lot id → shelf-life extensions, newest first (empty until the migration runs)
+  const [extByLot, setExtByLot] = useState<Record<string, ShelfLifeExtension[]>>({});
+
+  // Extend shelf life panel — the supplier best-before is never edited; each
+  // extension is an audit row with a required reason
+  const [extendLot, setExtendLot]       = useState<{ lot: IngredientLot; ing: IngredientWithLots } | null>(null);
+  const [extendDate, setExtendDate]     = useState("");
+  const [extendReason, setExtendReason] = useState("");
+  const [extendSaving, setExtendSaving] = useState(false);
+  const [extendError, setExtendError]   = useState("");
 
   // Reconcile panel
   // reconMode controls how the typed number is interpreted:
@@ -341,7 +355,7 @@ export default function RawMaterialsPage() {
   async function load() {
     // Lots, wastage history and documents all grow without bound — paginate
     // past the 1000-row cap so stock totals and reconciliation history stay complete.
-    const [lotsData, ingsRes, supRes, docsData, draftsData, wastageData] = await Promise.all([
+    const [lotsData, ingsRes, supRes, docsData, draftsData, wastageData, extData] = await Promise.all([
       fetchAll<IngredientLot & { ingredient: Ingredient }>((from, to) =>
         supabase.from("ingredient_lots").select("*, ingredient:ingredients(*)").order("julian_code").range(from, to)),
       supabase.from("ingredients").select("*").order("name"),
@@ -352,10 +366,12 @@ export default function RawMaterialsPage() {
         supabase.from("batch_drafts").select("id, answers").order("id").range(from, to)),
       fetchAll<WastageEntry>((from, to) =>
         supabase.from("wastage_log").select("*").order("created_at", { ascending: false }).range(from, to)),
+      fetchShelfLifeExtensions(supabase),
     ]);
 
     setReservedByLot(reservedFromDrafts(draftsData));
     setWastageLog(wastageData);
+    setExtByLot(extensionsByLot(extData));
 
     const sups = (supRes.data ?? []) as Supplier[];
     setSuppliers(sups);
@@ -649,6 +665,42 @@ export default function RawMaterialsPage() {
   function closeReconcile() {
     setReconIng(null);
     setReconLot(null);
+  }
+
+  function openExtendPanel(lot: IngredientLot, ing: IngredientWithLots) {
+    const { date } = effectiveBestBefore(lot, extByLot);
+    setExtendLot({ lot, ing });
+    setExtendDate(date ?? "");
+    setExtendReason("");
+    setExtendError("");
+  }
+
+  async function saveExtension() {
+    if (!extendLot || !extendDate || !extendReason.trim()) return;
+    setExtendSaving(true);
+    setExtendError("");
+    const { data, error } = await supabase
+      .from("shelf_life_extensions")
+      .insert({
+        organisation_id: orgId,
+        lot_id: extendLot.lot.id,
+        extended_until: extendDate,
+        reason: extendReason.trim(),
+        created_by: userName,
+      })
+      .select()
+      .single();
+    setExtendSaving(false);
+    if (error || !data) {
+      setExtendError(error?.message ?? "Could not save — try again");
+      return;
+    }
+    // Prepend the new extension (newest first) so badges update without a reload
+    setExtByLot(prev => ({
+      ...prev,
+      [extendLot.lot.id]: [data as ShelfLifeExtension, ...(prev[extendLot.lot.id] ?? [])],
+    }));
+    setExtendLot(null);
   }
 
   function selectReconLot(lot: IngredientLot, ing: IngredientWithLots) {
@@ -1161,6 +1213,27 @@ export default function RawMaterialsPage() {
                                       {fmtQty(totalReserved, unit)} in production
                                     </p>
                                   )}
+                                  {(() => {
+                                    // Expiry summary across lots that still hold stock, judged
+                                    // against the effective best-before (extensions included)
+                                    let expired = 0, soon = 0;
+                                    for (const l of availableLots) {
+                                      const st = expiryStatus(effectiveBestBefore(l, extByLot).date);
+                                      if (st?.status === "expired") expired++;
+                                      else if (st?.status === "soon") soon++;
+                                    }
+                                    if (expired > 0) return (
+                                      <p className="text-xs text-red-600 font-semibold whitespace-nowrap">
+                                        {expired === 1 ? "1 lot" : `${expired} lots`} past best before
+                                      </p>
+                                    );
+                                    if (soon > 0) return (
+                                      <p className="text-xs text-amber-600 font-semibold whitespace-nowrap">
+                                        {soon === 1 ? "1 lot" : `${soon} lots`} expiring soon
+                                      </p>
+                                    );
+                                    return null;
+                                  })()}
                                   {value != null && (
                                     <p className="text-xs text-brown font-medium">
                                       £{value.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1192,12 +1265,14 @@ export default function RawMaterialsPage() {
                                       <th className="text-right py-1 font-medium" title="Remaining minus in production — what should physically be on the shelf">On shelf</th>
                                       <th className="text-left py-1 font-medium pl-4 hidden sm:table-cell">Date in</th>
                                       <th className="text-left py-1 font-medium hidden sm:table-cell">Supplier</th>
-                                      <th className="text-left py-1 font-medium hidden sm:table-cell">Best before</th>
+                                      <th className="text-left py-1 font-medium">Best before</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
                                     {availableLots.map(lot => {
                                       const lotReserved = reservedByLot[lot.id] ?? 0;
+                                      const eff = effectiveBestBefore(lot, extByLot);
+                                      const st  = expiryStatus(eff.date);
                                       return (
                                       <tr key={lot.id}>
                                         <td className="py-1.5 font-mono font-semibold text-gray-900">{lot.julian_code}</td>
@@ -1211,7 +1286,37 @@ export default function RawMaterialsPage() {
                                         </td>
                                         <td className="py-1.5 pl-4 text-gray-500 hidden sm:table-cell">{formatDate(lot.received_date)}</td>
                                         <td className="py-1.5 text-gray-500 hidden sm:table-cell">{lot.supplier ?? "—"}</td>
-                                        <td className="py-1.5 text-gray-500 hidden sm:table-cell">{lot.best_before_date ? formatDate(lot.best_before_date) : "—"}</td>
+                                        <td className="py-1.5">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <span
+                                              className={
+                                                st?.status === "expired" ? "font-semibold text-red-600"
+                                                : st?.status === "soon" ? "font-semibold text-amber-600"
+                                                : "text-gray-500"
+                                              }
+                                              title={eff.extended && lot.best_before_date
+                                                ? `Supplier best before ${formatDate(lot.best_before_date)} — internally extended`
+                                                : undefined}
+                                            >
+                                              {eff.date ? formatDate(eff.date) : "—"}
+                                              {eff.extended && " *"}
+                                            </span>
+                                            {st?.status === "expired" && (
+                                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">Expired</span>
+                                            )}
+                                            {st?.status === "soon" && (
+                                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">
+                                                {st.days === 0 ? "Today" : st.days === 1 ? "1 day" : `${st.days} days`}
+                                              </span>
+                                            )}
+                                            <button
+                                              onClick={() => openExtendPanel(lot, ing)}
+                                              className="text-brown/60 hover:text-brown hover:underline"
+                                            >
+                                              Extend
+                                            </button>
+                                          </div>
+                                        </td>
                                       </tr>
                                       );
                                     })}
@@ -1472,6 +1577,101 @@ export default function RawMaterialsPage() {
                     className="btn-primary flex-1"
                   >
                     {isVariance ? "Log variance" : "Save reconciliation"}
+                  </SaveButton>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Extend shelf life panel — writes an audit row to shelf_life_extensions;
+          the supplier's best_before_date on the lot is never touched */}
+      {extendLot && (() => {
+        const { lot, ing } = extendLot;
+        const eff = effectiveBestBefore(lot, extByLot);
+        const history = extByLot[lot.id] ?? [];
+        return (
+          <div className="fixed inset-0 z-50 flex">
+            <div className="flex-1 bg-black/30" onClick={() => setExtendLot(null)} />
+            <div className="w-full max-w-sm bg-white shadow-xl flex flex-col">
+              <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900">Extend Shelf Life</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">{ing.name} · {lot.julian_code}</p>
+                </div>
+                <button onClick={() => setExtendLot(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+                <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Supplier best before</span>
+                    <span className="font-semibold text-gray-800">{lot.best_before_date ? formatDate(lot.best_before_date) : "Not recorded"}</span>
+                  </div>
+                  {eff.extended && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Currently extended to</span>
+                      <span className="font-semibold text-gray-800">{eff.date ? formatDate(eff.date) : "—"}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">New best before *</label>
+                  <input
+                    type="date"
+                    className="input w-full"
+                    value={extendDate}
+                    onChange={e => setExtendDate(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Reason *</label>
+                  <textarea
+                    className="input w-full"
+                    rows={3}
+                    placeholder="e.g. Dried spice, sealed and stored ambient — organoleptic check passed, quality unaffected"
+                    value={extendReason}
+                    onChange={e => setExtendReason(e.target.value)}
+                  />
+                </div>
+
+                {history.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-700 mb-2">Previous extensions</p>
+                    <div className="space-y-2">
+                      {history.map(h => (
+                        <div key={h.id} className="rounded-lg border border-gray-200 px-3 py-2 text-xs">
+                          <p className="font-semibold text-gray-800">
+                            To {formatDate(h.extended_until)}
+                            <span className="font-normal text-gray-400"> · {h.created_by || "Unknown"} · {formatDate(h.created_at)}</span>
+                          </p>
+                          <p className="text-gray-600 mt-0.5">{h.reason}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {extendError && (
+                <div className="mx-6 mb-2 rounded bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+                  {extendError}
+                </div>
+              )}
+
+              <div className="border-t border-gray-200 px-6 pt-3 pb-3">
+                <div className="flex gap-3">
+                  <button onClick={() => setExtendLot(null)} className="btn-ghost flex-1">Cancel</button>
+                  <SaveButton
+                    onClick={saveExtension}
+                    saving={extendSaving}
+                    disabled={!extendDate || !extendReason.trim()}
+                    className="btn-primary flex-1"
+                  >
+                    Save extension
                   </SaveButton>
                 </div>
               </div>
