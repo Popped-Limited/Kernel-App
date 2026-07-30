@@ -223,8 +223,8 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   save — email failure must never look like a failed save) and daily cron `/api/gmp/overdue`
   (one nudge per finding via `overdue_notified_on`; unsent groups retry next day).
 - `create-lab-tests.sql` (per-product lab test results: new `lab_tests` table, org-isolated RLS)
-  — **PENDING: run in the Supabase SQL editor** (the product page's Lab tests tab errors until then).
-  Keyed (organisation_id, product_name) matched case-insensitively like label artworks; one row per
+  — **applied in prod 30 Jul 2026, RLS verified as real logins** (support@ insert/read OK,
+  cross-org insert blocked, Yep login + anon see 0 rows; demo row seeded in Popped). Keyed (organisation_id, product_name) matched case-insensitively like label artworks; one row per
   test (test_date/test_type/lab_name/batch_code/result/notes), report file optional in
   `compliance-docs` under `lab-tests/`; `result` is satisfactory|borderline|unsatisfactory|'' (= see
   report). No API route — the panel (`components/ProductLabTestsPanel.tsx`) reads/writes directly
