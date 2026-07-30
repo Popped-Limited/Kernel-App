@@ -17,6 +17,23 @@ import {
 // is the hub — when the next audit is due, which area to do next, the live
 // list of findings needing close-out, and the audit history.
 
+type RangePreset = "this_month" | "last_month" | "this_year" | "last_year" | "all";
+
+// [from, to) as local YYYY-MM-DD — `to` is exclusive (start of the next range)
+function presetBounds(preset: RangePreset): [string, string] | null {
+  if (preset === "all") return null;
+  const now = new Date();
+  const iso = (d: Date) => localDateStr(d);
+  if (preset === "this_month")
+    return [iso(new Date(now.getFullYear(), now.getMonth(), 1)), iso(new Date(now.getFullYear(), now.getMonth() + 1, 1))];
+  if (preset === "last_month")
+    return [iso(new Date(now.getFullYear(), now.getMonth() - 1, 1)), iso(new Date(now.getFullYear(), now.getMonth(), 1))];
+  if (preset === "this_year")
+    return [iso(new Date(now.getFullYear(), 0, 1)), iso(new Date(now.getFullYear() + 1, 0, 1))];
+  // last_year
+  return [iso(new Date(now.getFullYear() - 1, 0, 1)), iso(new Date(now.getFullYear(), 0, 1))];
+}
+
 export default function GmpAuditsPage() {
   const router = useRouter();
   const { orgId, role } = useOrganisation();
@@ -29,9 +46,14 @@ export default function GmpAuditsPage() {
   const [showStart, setShowStart] = useState(false);
   const [showAreas, setShowAreas] = useState(false);
   const [closing, setClosing] = useState<GmpFinding | null>(null);
-  const [historyQuery, setHistoryQuery] = useState("");
+  // History panel: one set of filters covering either audit history or
+  // closed-out actions (mirrors the Checklist Submissions page).
+  const [historyView, setHistoryView] = useState<"audits" | "closed">("audits");
+  const [rangePreset, setRangePreset] = useState<RangePreset>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [areaFilter, setAreaFilter] = useState("");
   const [showAllHistory, setShowAllHistory] = useState(false);
-  const [closedQuery, setClosedQuery] = useState("");
   const [showAllClosed, setShowAllClosed] = useState(false);
   const seeded = useRef(false);
 
@@ -108,21 +130,25 @@ export default function GmpAuditsPage() {
     .sort((a, b) => (a.due_date ?? "9999") < (b.due_date ?? "9999") ? -1 : 1);
   const closedFindings = findings.filter(f => f.status === "closed");
 
-  // Search + caps: these lists grow forever, so by default show only the most
-  // recent few — searching or "Show all" reveals the rest.
+  // Filters + caps: the lists grow forever, so results are filtered by
+  // area/time range and still capped to the most recent few by default.
+  // Custom From/To dates take precedence over the quick-range preset.
   const HISTORY_CAP = 6, CLOSED_CAP = 5;
-  const hq = historyQuery.trim().toLowerCase();
-  const historyMatches = hq
-    ? audits.filter(a =>
-        `${a.gmp_areas?.name ?? ""} ${a.auditor_name} ${formatDate(a.audit_date)} ${a.notes ?? ""}`.toLowerCase().includes(hq))
-    : audits;
-  const visibleAudits = hq || showAllHistory ? historyMatches : historyMatches.slice(0, HISTORY_CAP);
-  const cq = closedQuery.trim().toLowerCase();
-  const closedMatches = cq
-    ? closedFindings.filter(f =>
-        `${f.description} ${f.gmp_audits?.gmp_areas?.name ?? ""} ${f.closed_by ?? ""} ${f.close_note ?? ""}`.toLowerCase().includes(cq))
-    : closedFindings;
-  const visibleClosed = cq || showAllClosed ? closedMatches : closedMatches.slice(0, CLOSED_CAP);
+  const usingCustomDates = Boolean(dateFrom || dateTo);
+  const bounds = usingCustomDates ? null : presetBounds(rangePreset);
+  const inRange = (day: string | null | undefined) => {
+    if (!day) return false;
+    if (dateFrom && day < dateFrom) return false;
+    if (dateTo && day > dateTo) return false;
+    if (bounds && (day < bounds[0] || day >= bounds[1])) return false;
+    return true;
+  };
+  const historyMatches = audits.filter(a =>
+    (!areaFilter || a.area_id === areaFilter) && inRange(a.audit_date));
+  const visibleAudits = showAllHistory ? historyMatches : historyMatches.slice(0, HISTORY_CAP);
+  const closedMatches = closedFindings.filter(f =>
+    (!areaFilter || f.gmp_audits?.area_id === areaFilter) && inRange(f.closed_at?.slice(0, 10)));
+  const visibleClosed = showAllClosed ? closedMatches : closedMatches.slice(0, CLOSED_CAP);
   const findingCounts = new Map<string, { total: number; open: number }>();
   for (const f of findings) {
     const c = findingCounts.get(f.audit_id) ?? { total: 0, open: 0 };
@@ -255,115 +281,155 @@ export default function GmpAuditsPage() {
               )}
             </section>
 
-            {/* Audit history */}
+            {/* History: one filter panel covering audits and closed-out actions */}
             <section className="space-y-2">
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <h2 className="text-sm font-semibold text-gray-900">Audit history</h2>
-                <input
-                  className="input text-sm w-full sm:w-64"
-                  placeholder="Search audits — area, auditor…"
-                  value={historyQuery}
-                  onChange={e => setHistoryQuery(e.target.value)}
-                />
+                <h2 className="text-sm font-semibold text-gray-900">History</h2>
+                <span className="text-xs text-gray-500">
+                  {historyView === "audits"
+                    ? `${historyMatches.length} audit${historyMatches.length === 1 ? "" : "s"}`
+                    : `${closedMatches.length} closed action${closedMatches.length === 1 ? "" : "s"}`}
+                </span>
               </div>
-              {audits.length === 0 ? (
-                <div className="card p-12 text-center">
-                  <p className="text-3xl mb-3">🔍</p>
-                  <p className="text-sm font-medium text-gray-700 mb-1">No audits yet</p>
-                  <p className="text-xs text-gray-400 mb-4">Walk one area, photograph what you find, assign the fixes</p>
-                  <button onClick={() => setShowStart(true)} className="btn-primary text-xs">+ Start your first audit</button>
-                </div>
-              ) : historyMatches.length === 0 ? (
-                <div className="card p-6 text-center">
-                  <p className="text-sm text-gray-500">No audits match &ldquo;{historyQuery.trim()}&rdquo;.</p>
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {visibleAudits.map(a => {
-                    const counts = findingCounts.get(a.id) ?? { total: 0, open: 0 };
-                    return (
-                      <Link key={a.id} href={`/compliance/gmp-audits/${a.id}`} className="card p-4 hover:border-brand/40 transition-colors flex flex-col gap-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="font-semibold text-sm text-gray-900">{a.gmp_areas?.name ?? "—"}</p>
-                          <span className={`shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${a.status === "completed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                            {a.status === "completed" ? "Completed" : "In progress"}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500">
-                          {formatDate(a.audit_date)} · {a.auditor_name || "—"}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-auto">
-                          {counts.total === 0 ? "No findings — clean audit" : (
-                            <>{counts.total} finding{counts.total > 1 ? "s" : ""}
-                              {counts.open > 0
-                                ? <span className="text-red-600 font-medium"> · {counts.open} open</span>
-                                : " · all closed"}</>
-                          )}
-                        </p>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-              {!hq && !showAllHistory && historyMatches.length > HISTORY_CAP && (
-                <button onClick={() => setShowAllHistory(true)} className="btn-ghost text-xs w-full">
-                  Show all {historyMatches.length} audits
-                </button>
-              )}
-              {!hq && showAllHistory && audits.length > HISTORY_CAP && (
-                <button onClick={() => setShowAllHistory(false)} className="btn-ghost text-xs w-full">
-                  Show recent only
-                </button>
-              )}
-            </section>
 
-            {/* Closed-out history */}
-            {closedFindings.length > 0 && (
-              <section className="space-y-2">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <h2 className="text-sm font-semibold text-gray-900">Closed out</h2>
-                  <input
-                    className="input text-sm w-full sm:w-64"
-                    placeholder="Search closed findings…"
-                    value={closedQuery}
-                    onChange={e => setClosedQuery(e.target.value)}
-                  />
+              {/* Quick time ranges */}
+              <div className="flex flex-wrap gap-2">
+                {([
+                  ["this_month", "This month"],
+                  ["last_month", "Last month"],
+                  ["this_year", "This year"],
+                  ["last_year", "Last year"],
+                  ["all", "All time"],
+                ] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => { setRangePreset(key); setDateFrom(""); setDateTo(""); }}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                      !usingCustomDates && rangePreset === key
+                        ? "bg-brand text-brown"
+                        : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Filters */}
+              <div className="card p-4 space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {([["audits", "Audit history"], ["closed", "Closed out actions"]] as const).map(([v, label]) => (
+                    <button
+                      key={v}
+                      onClick={() => setHistoryView(v)}
+                      className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                        historyView === v ? "bg-brand text-brown" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
-                {closedMatches.length === 0 ? (
+                <div>
+                  <label className="label mb-1">Area</label>
+                  <select value={areaFilter} onChange={e => setAreaFilter(e.target.value)} className="input w-full">
+                    <option value="">All areas</option>
+                    {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label mb-1">From</label>
+                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input w-full" />
+                  </div>
+                  <div>
+                    <label className="label mb-1">To</label>
+                    <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input w-full" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Results */}
+              {historyView === "audits" ? (
+                audits.length === 0 ? (
+                  <div className="card p-12 text-center">
+                    <p className="text-3xl mb-3">🔍</p>
+                    <p className="text-sm font-medium text-gray-700 mb-1">No audits yet</p>
+                    <p className="text-xs text-gray-400 mb-4">Walk one area, photograph what you find, assign the fixes</p>
+                    <button onClick={() => setShowStart(true)} className="btn-primary text-xs">+ Start your first audit</button>
+                  </div>
+                ) : historyMatches.length === 0 ? (
                   <div className="card p-6 text-center">
-                    <p className="text-sm text-gray-500">No closed findings match &ldquo;{closedQuery.trim()}&rdquo;.</p>
+                    <p className="text-sm text-gray-500">No audits in this range.</p>
                   </div>
                 ) : (
-                  <div className="card divide-y divide-gray-100">
-                    {visibleClosed.map(f => (
-                      <div key={f.id} className="p-4 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
-                        <span className={`self-start shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${RISK_CHIP[f.risk]}`}>
-                          {RISK_LABEL[f.risk]}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-gray-700">{f.description}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {f.gmp_audits?.gmp_areas?.name ?? "—"} · closed {f.closed_at ? formatDate(f.closed_at) : "—"} by {f.closed_by || "—"}
-                            {f.close_note && <> — {f.close_note}</>}
-                          </p>
-                        </div>
-                        <Link href={`/compliance/gmp-audits/${f.audit_id}`} className="btn-ghost text-xs text-center sm:shrink-0 py-2 sm:py-1.5">View</Link>
-                      </div>
-                    ))}
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {visibleAudits.map(a => {
+                        const counts = findingCounts.get(a.id) ?? { total: 0, open: 0 };
+                        return (
+                          <Link key={a.id} href={`/compliance/gmp-audits/${a.id}`} className="card p-4 hover:border-brand/40 transition-colors flex flex-col gap-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="font-semibold text-sm text-gray-900">{a.gmp_areas?.name ?? "—"}</p>
+                              <span className={`shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${a.status === "completed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                                {a.status === "completed" ? "Completed" : "In progress"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              {formatDate(a.audit_date)} · {a.auditor_name || "—"}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-auto">
+                              {counts.total === 0 ? "No findings — clean audit" : (
+                                <>{counts.total} finding{counts.total > 1 ? "s" : ""}
+                                  {counts.open > 0
+                                    ? <span className="text-red-600 font-medium"> · {counts.open} open</span>
+                                    : " · all closed"}</>
+                              )}
+                            </p>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                    {historyMatches.length > HISTORY_CAP && (
+                      <button onClick={() => setShowAllHistory(!showAllHistory)} className="btn-ghost text-xs w-full">
+                        {showAllHistory ? "Show recent only" : `Show all ${historyMatches.length} audits`}
+                      </button>
+                    )}
+                  </>
+                )
+              ) : (
+                closedMatches.length === 0 ? (
+                  <div className="card p-6 text-center">
+                    <p className="text-sm text-gray-500">No closed out actions in this range.</p>
                   </div>
-                )}
-                {!cq && !showAllClosed && closedMatches.length > CLOSED_CAP && (
-                  <button onClick={() => setShowAllClosed(true)} className="btn-ghost text-xs w-full">
-                    Show all {closedMatches.length} closed findings
-                  </button>
-                )}
-                {!cq && showAllClosed && closedFindings.length > CLOSED_CAP && (
-                  <button onClick={() => setShowAllClosed(false)} className="btn-ghost text-xs w-full">
-                    Show recent only
-                  </button>
-                )}
-              </section>
-            )}
+                ) : (
+                  <>
+                    <div className="card divide-y divide-gray-100">
+                      {visibleClosed.map(f => (
+                        <div key={f.id} className="p-4 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+                          <span className={`self-start shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${RISK_CHIP[f.risk]}`}>
+                            {RISK_LABEL[f.risk]}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-gray-700">{f.description}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {f.gmp_audits?.gmp_areas?.name ?? "—"} · closed {f.closed_at ? formatDate(f.closed_at) : "—"} by {f.closed_by || "—"}
+                              {f.close_note && <> — {f.close_note}</>}
+                            </p>
+                          </div>
+                          <Link href={`/compliance/gmp-audits/${f.audit_id}`} className="btn-ghost text-xs text-center sm:shrink-0 py-2 sm:py-1.5">View</Link>
+                        </div>
+                      ))}
+                    </div>
+                    {closedMatches.length > CLOSED_CAP && (
+                      <button onClick={() => setShowAllClosed(!showAllClosed)} className="btn-ghost text-xs w-full">
+                        {showAllClosed ? "Show recent only" : `Show all ${closedMatches.length} closed actions`}
+                      </button>
+                    )}
+                  </>
+                )
+              )}
+            </section>
           </>
         )}
       </main>
