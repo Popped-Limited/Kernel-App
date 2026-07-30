@@ -229,6 +229,15 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   `compliance-docs` under `lab-tests/`; `result` is satisfactory|borderline|unsatisfactory|'' (= see
   report). No API route — the panel (`components/ProductLabTestsPanel.tsx`) reads/writes directly
   under RLS.
+- **Organoleptic Checks** (30 Jul 2026, no migration): adhoc checklist in the new-org seed pack.
+  Seed extras that DON'T exist in Yep live in `lib/seed/extra-checklists.json`;
+  `build-salsa-baseline.mjs` merges them on every rebuild (a rebuild would otherwise drop them) —
+  add future non-Yep seed checklists there, never only to the frozen JSON. Product linking: the
+  optional "Production batch record" `batch_link` question ties a check to a production batch;
+  the product hub's Organoleptic tab (`components/ProductOrganolepticPanel.tsx`) lists checks
+  matched by the batch_link's product or, unlinked, by exact (case-insensitive) product-name
+  answer — checklist matched by name `ilike %organoleptic%`. Demo org (Popped) already patched
+  to match the template.
 - `scripts/clone-yep-to-demo.mjs` clones Yep Kitchen's operational data into the
   Popped demo org (dry-run by default; `--commit` to apply). Skips logins/billing
   and the tables the admin key can't write (SOPs, calendar, wastage, training_sessions).

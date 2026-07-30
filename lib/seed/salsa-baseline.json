@@ -3384,10 +3384,21 @@
           "document_required": false
         },
         {
+          "label": "Production batch record",
+          "type": "batch_link",
+          "required": false,
+          "order_index": 5,
+          "options": null,
+          "hint": "For finished product checks — links this check to the product and batch record",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
           "label": "Best before / use by date",
           "type": "date",
           "required": false,
-          "order_index": 5,
+          "order_index": 6,
           "options": null,
           "hint": null,
           "follow_up": null,
@@ -3398,7 +3409,7 @@
           "label": "Appearance & colour",
           "type": "multiple_choice",
           "required": true,
-          "order_index": 6,
+          "order_index": 7,
           "options": [
             "Satisfactory",
             "Not satisfactory"
@@ -3415,7 +3426,7 @@
           "label": "Aroma / odour",
           "type": "multiple_choice",
           "required": true,
-          "order_index": 7,
+          "order_index": 8,
           "options": [
             "Satisfactory",
             "Not satisfactory"
@@ -3432,7 +3443,7 @@
           "label": "Texture / consistency",
           "type": "multiple_choice",
           "required": true,
-          "order_index": 8,
+          "order_index": 9,
           "options": [
             "Satisfactory",
             "Not satisfactory"
@@ -3449,7 +3460,7 @@
           "label": "Taste / flavour",
           "type": "multiple_choice",
           "required": true,
-          "order_index": 9,
+          "order_index": 10,
           "options": [
             "Satisfactory",
             "Not satisfactory",
@@ -3467,7 +3478,7 @@
           "label": "Packaging & seal condition",
           "type": "multiple_choice",
           "required": true,
-          "order_index": 10,
+          "order_index": 11,
           "options": [
             "Satisfactory",
             "Not satisfactory",
@@ -3485,7 +3496,7 @@
           "label": "Photo of sample",
           "type": "photo",
           "required": false,
-          "order_index": 11,
+          "order_index": 12,
           "options": null,
           "hint": null,
           "follow_up": null,
@@ -3496,7 +3507,7 @@
           "label": "Overall result",
           "type": "dropdown",
           "required": true,
-          "order_index": 12,
+          "order_index": 13,
           "options": [
             "Pass",
             "Fail"
@@ -3510,7 +3521,7 @@
           "label": "Action taken",
           "type": "text",
           "required": false,
-          "order_index": 13,
+          "order_index": 14,
           "options": null,
           "hint": "Required if any check failed — e.g. batch quarantined, supplier contacted, corrective action report raised",
           "follow_up": null,
@@ -3521,7 +3532,7 @@
           "label": "Comments",
           "type": "text",
           "required": false,
-          "order_index": 14,
+          "order_index": 15,
           "options": null,
           "hint": null,
           "follow_up": null,
@@ -3532,7 +3543,7 @@
           "label": "Assessor signature",
           "type": "signature",
           "required": true,
-          "order_index": 15,
+          "order_index": 16,
           "options": null,
           "hint": null,
           "follow_up": null,
