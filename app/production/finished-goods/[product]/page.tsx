@@ -9,6 +9,7 @@ import ProductDeclarationsPanel from "@/components/ProductDeclarationsPanel";
 import ProductCostingPanel from "@/components/ProductCostingPanel";
 import ProductLabTestsPanel from "@/components/ProductLabTestsPanel";
 import ProductOrganolepticPanel from "@/components/ProductOrganolepticPanel";
+import ProductSpecSheetPanel from "@/components/ProductSpecSheetPanel";
 
 const TABS = [
   ["stock", "Stock & batches"],
@@ -18,6 +19,7 @@ const TABS = [
   ["costing", "Costing"],
   ["lab-tests", "Lab tests"],
   ["organoleptic", "Organoleptic"],
+  ["spec-sheet", "Spec sheet"],
 ] as const;
 type TabKey = (typeof TABS)[number][0];
 import { supabase } from "@/lib/supabase";
@@ -124,9 +126,13 @@ function ProductDetailInner() {
       let adjustments: FinishedGoodsAdjustment[];
       try {
         [data, dispatches, returns, adjustments] = await Promise.all([
+          // Inner-join filter: only Production submissions come over the wire
+          // (the parsers discard everything else anyway, and the full org
+          // history with answers × questions nesting made the page crawl).
           fetchAll<any>((from, to) => supabase
             .from("submissions")
-            .select("id, submitted_at, submitted_by, checklist:checklists(name, category), answers(value, question:questions(type, label))")
+            .select("id, submitted_at, submitted_by, checklist:checklists!inner(name, category), answers(value, question:questions(type, label))")
+            .eq("checklist.category", "Production")
             .order("submitted_at", { ascending: false })
             .range(from, to)),
           fetchAll<Dispatch>((from, to) => supabase
@@ -213,6 +219,8 @@ function ProductDetailInner() {
           <ProductLabTestsPanel productName={productName} />
         ) : tab === "organoleptic" ? (
           <ProductOrganolepticPanel productName={productName} />
+        ) : tab === "spec-sheet" ? (
+          <ProductSpecSheetPanel productName={productName} />
         ) : (
         <div className="space-y-6">
 

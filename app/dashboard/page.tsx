@@ -99,7 +99,9 @@ export default function Dashboard() {
       fetchAll<{ product: string; total_units: number }>((from, to) =>
         supabase.from("dispatches").select("product, total_units").gte("dispatch_date", weekStart.toISOString().slice(0, 10)).order("id").range(from, to)),
       fetchAll<any>((from, to) =>
-        supabase.from("submissions").select("id, checklist:checklists(name, category), answers(value, question:questions(type, label))").eq("checklists.category", "Production").gte("submitted_at", weekStart.toISOString()).order("id").range(from, to)),
+        // !inner makes the category filter drop non-Production rows server-side;
+        // without it PostgREST keeps every row and just nulls the embed.
+        supabase.from("submissions").select("id, checklist:checklists!inner(name, category), answers(value, question:questions(type, label))").eq("checklist.category", "Production").gte("submitted_at", weekStart.toISOString()).order("id").range(from, to)),
     ]);
 
     if (clRes.data) setChecklists(clRes.data as Checklist[]);

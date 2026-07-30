@@ -110,9 +110,13 @@ export default function FinishedGoodsPage() {
     // select stops at 1000 rows, which would silently drop older production
     // runs, dispatches or reconciliations and corrupt the stock figures.
     const [subData, dispData, retData, adjData, clData] = await Promise.all([
+      // Inner-join filter so only Production submissions come over the wire —
+      // fetching every daily-check submission (with its answers × questions
+      // nesting) made this page crawl once real usage built up.
       fetchAll<any>((from, to) => supabase
         .from("submissions")
-        .select("id, submitted_at, submitted_by, checklist:checklists(name, category), answers(value, question:questions(type, label))")
+        .select("id, submitted_at, submitted_by, checklist:checklists!inner(name, category), answers(value, question:questions(type, label))")
+        .eq("checklist.category", "Production")
         .order("submitted_at", { ascending: false })
         .range(from, to)),
       fetchAll<Dispatch>((from, to) => supabase

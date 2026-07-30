@@ -266,6 +266,27 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   matched by the batch_link's product or, unlinked, by exact (case-insensitive) product-name
   answer — checklist matched by name `ilike %organoleptic%`. Demo org (Popped) already patched
   to match the template.
+- `add-spec-sheets.sql` (product spec sheet PDFs: org-singleton `spec_company_details` jsonb +
+  per-product `product_spec_sheets` jsonb keyed (org, lower(product_name)), both org-isolated RLS)
+  — **PENDING: run in the Supabase SQL editor** (the Spec sheet tab shows a setup notice until then).
+  Powers the product hub's **Spec sheet** tab: edits the non-derivable fields (doc control, shelf
+  life wording, micro targets, organoleptics, packaging spec, suitability, sign-off, amendment log)
+  and generates a Beacon-style "Finished Product Specification" PDF via `@react-pdf/renderer`.
+  Derived content (ingredient declaration + QUID, allergen contains, nutrition per-100g, net
+  quantity) is computed at download time by the SAME calc as the Declarations tab — never stored,
+  so the sheet can't drift from the recipe. Pack shot uploads to `compliance-docs` under
+  `spec-sheets/`, **PNG/JPEG only** (react-pdf can't embed other formats). react-pdf gotchas
+  (all verified the hard way): a page-level `lineHeight` style silently blanks every Text using a
+  `render` prop (kills the "Page x of y" counter); built-in Helvetica has no superscript glyphs
+  (micro targets use "<1,000 cfu/g", never "10³"); auto-hyphenation is disabled via
+  `Font.registerHyphenationCallback`. `SpecSheetPDF.tsx` must only ever be loaded via dynamic
+  `import()` (it's heavy); `import type` from it is fine.
+- **Finished-goods query perf (30 Jul 2026):** the finished-goods list + product pages and the
+  dashboard's weekly-production query filter submissions server-side with
+  `checklist:checklists!inner(...)` + `.eq("checklist.category", "Production")` — don't regress to
+  fetching every submission and filtering client-side (Yep's daily checks made those pages crawl;
+  471 → 58 rows). NB an embedded-table filter WITHOUT `!inner` does not drop parent rows — it just
+  nulls the embed, so the filter silently does nothing for perf.
 - `scripts/clone-yep-to-demo.mjs` clones Yep Kitchen's operational data into the
   Popped demo org (dry-run by default; `--commit` to apply). Skips logins/billing
   and the tables the admin key can't write (SOPs, calendar, wastage, training_sessions).
