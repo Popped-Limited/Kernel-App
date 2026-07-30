@@ -259,14 +259,12 @@ export default function GmpAuditsPage() {
             <section className="space-y-2">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h2 className="text-sm font-semibold text-gray-900">Audit history</h2>
-                {audits.length > HISTORY_CAP && (
-                  <input
-                    className="input text-sm w-full sm:w-64"
-                    placeholder="Search audits — area, auditor…"
-                    value={historyQuery}
-                    onChange={e => setHistoryQuery(e.target.value)}
-                  />
-                )}
+                <input
+                  className="input text-sm w-full sm:w-64"
+                  placeholder="Search audits — area, auditor…"
+                  value={historyQuery}
+                  onChange={e => setHistoryQuery(e.target.value)}
+                />
               </div>
               {audits.length === 0 ? (
                 <div className="card p-12 text-center">
@@ -324,14 +322,12 @@ export default function GmpAuditsPage() {
               <section className="space-y-2">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <h2 className="text-sm font-semibold text-gray-900">Closed out</h2>
-                  {closedFindings.length > CLOSED_CAP && (
-                    <input
-                      className="input text-sm w-full sm:w-64"
-                      placeholder="Search closed findings…"
-                      value={closedQuery}
-                      onChange={e => setClosedQuery(e.target.value)}
-                    />
-                  )}
+                  <input
+                    className="input text-sm w-full sm:w-64"
+                    placeholder="Search closed findings…"
+                    value={closedQuery}
+                    onChange={e => setClosedQuery(e.target.value)}
+                  />
                 </div>
                 {closedMatches.length === 0 ? (
                   <div className="card p-6 text-center">
