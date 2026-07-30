@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import AnswerRow from "@/components/AnswerRow";
-import { getBatchCode, type BatchInfo, type TraceResult } from "@/lib/traceability";
+import { getBatchCode, type BatchInfo, type DraftInfo, type LotInfo, type TraceResult } from "@/lib/traceability";
 
 /**
  * Renders a full traceability chain (production batches → raw-material lots →
@@ -36,6 +36,17 @@ export default function TraceChain({
           </div>
         )}
       </Section>
+
+      {/* In-progress batches — drafts holding traced stock, not yet submitted */}
+      {(result.drafts ?? []).length > 0 && (
+        <Section title="In-Progress Batches" count={(result.drafts ?? []).length} defaultOpen={defaultOpen}>
+          <div className="space-y-3">
+            {(result.drafts ?? []).map((d) => (
+              <DraftCard key={d.id} draft={d} lots={result.lots} />
+            ))}
+          </div>
+        </Section>
+      )}
 
       {/* Raw Material Lots */}
       <Section title="Raw Material Lots" count={result.lots.length} defaultOpen={defaultOpen}>
@@ -230,6 +241,42 @@ export default function TraceChain({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** An unsubmitted batch draft that already holds traced stock — the ingredient is
+ *  physically in a batch but there's no compliance record yet, so it renders as
+ *  an amber card rather than a BatchCard. */
+function DraftCard({ draft, lots }: { draft: DraftInfo; lots: LotInfo[] }) {
+  const lotById = new Map(lots.map((l) => [l.id, l]));
+  return (
+    <div className="rounded border border-amber-200 bg-amber-50 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <span className="block text-sm font-semibold text-gray-900">{draft.checklist_name}</span>
+          <span className="block text-xs text-gray-500">
+            Started {formatDateTime(draft.started_at)}{draft.started_by ? ` · by ${draft.started_by}` : ""} · last saved {formatDateTime(draft.last_saved_at)}
+          </span>
+        </div>
+        <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-800 shrink-0">In progress — not submitted</span>
+      </div>
+      {draft.lot_uses.length > 0 && (
+        <ul className="mt-2 space-y-0.5">
+          {draft.lot_uses.map((u) => {
+            const lot = lotById.get(u.lot_id);
+            const unit = lot?.ingredient?.unit === "units" ? "units" : "g";
+            return (
+              <li key={u.lot_id} className="text-xs text-amber-900">
+                Holds {u.amount.toLocaleString()} {unit} of {lot?.ingredient?.name ?? "unknown ingredient"}{lot ? ` (lot ${lot.julian_code})` : ""}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <Link href={`/checklist/${draft.checklist_id}`} className="mt-2 inline-block text-xs font-medium text-amber-900 hover:underline print:hidden">
+        Open batch record →
+      </Link>
     </div>
   );
 }

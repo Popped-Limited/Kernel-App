@@ -1,5 +1,4 @@
 "use client";
-import BackButton from "@/components/BackButton";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -82,7 +81,16 @@ export default function TraceabilityPage() {
       <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-6xl w-full mx-auto space-y-6">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-3">
-            <BackButton />
+            {/* The only back target that means anything here is the lot picker a
+                trace was drilled into from — no generic history back button. */}
+            {result && savedIngredientLots && (
+              <button
+                onClick={handleBackToLots}
+                className="btn-ghost text-xs px-2"
+              >
+                ← Back to all {result.query} lots
+              </button>
+            )}
             <h1 className="text-xl font-bold text-gray-900">Traceability</h1>
           </div>
           <div className="flex items-center gap-2">
@@ -178,15 +186,6 @@ export default function TraceabilityPage() {
 
         {result && (
           <div className="space-y-5">
-            {/* Back to lot picker if we drilled in from ingredient search */}
-            {savedIngredientLots && (
-              <button
-                onClick={handleBackToLots}
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 transition-colors"
-              >
-                ← Back to all {result.query} lots
-              </button>
-            )}
             <TraceChain result={result} />
             <LotMassBalance reconciliation={result.reconciliation} />
           </div>

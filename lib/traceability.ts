@@ -90,6 +90,18 @@ export interface ReturnInfo {
   batch_submission_id: string | null;
 }
 
+/** An in-progress (unsubmitted) production batch draft that already holds traced stock. */
+export interface DraftInfo {
+  id: string;
+  checklist_id: string;
+  checklist_name: string;
+  started_by: string;
+  started_at: string;
+  last_saved_at: string;
+  /** Traced-lot amounts this draft holds (grams for ingredients, units for packaging). */
+  lot_uses: Array<{ lot_id: string; amount: number }>;
+}
+
 /** A finished-goods stock adjustment (sample, wastage, count correction) tagged to a batch code. */
 export interface AdjustmentInfo {
   id: string;
@@ -112,6 +124,11 @@ export interface TraceResult {
   returns: ReturnInfo[];
   reconciliation?: LotReconciliation[]; // per-lot ingredient mass balance
   adjustments?: AdjustmentInfo[]; // finished-goods adjustments against the traced batch codes
+  // In-progress batch drafts holding traced stock. Stock is only deducted (and
+  // answers only searchable) once a batch is SUBMITTED, so without these a live
+  // draft is invisible to the trace even though the ingredient has physically
+  // gone into a batch.
+  drafts?: DraftInfo[];
   // Dispatches of the same product with NO batch link — they can't be ruled in
   // or out of a recall, so every trace must surface them as a traceability gap.
   unlinked_dispatches?: DispatchInfo[];
@@ -258,6 +275,90 @@ function lotIdsFromBatches(batches: BatchInfo[]): Set<string> {
     }
   }
   return lotIds;
+}
+
+/**
+ * Lot uses held in a draft's answers jsonb (question_id / question_id::runN →
+ * plain value). Draft answers don't carry question types, so both lot-linked
+ * shapes are tried on every value: ingredient_table rows (row.lots, grams) and
+ * packing_runs entries (jar/lid lots via packLotUses, units) — mirroring
+ * reservedFromDrafts on the Raw Materials page.
+ */
+function draftLotUses(answers: Record<string, unknown> | null): Array<{ lot_id: string; amount: number }> {
+  const out: Array<{ lot_id: string; amount: number }> = [];
+  for (const val of Object.values(answers ?? {})) {
+    if (typeof val !== "string") continue;
+    try {
+      const parsed = JSON.parse(val);
+      const rows = Array.isArray(parsed) ? parsed : (parsed?.rows ?? []);
+      if (!Array.isArray(rows)) continue;
+      for (const row of rows) {
+        for (const rl of (row?.lots ?? [])) {
+          if (rl.lot_id) {
+            const g = Number(rl.weight_g);
+            out.push({ lot_id: rl.lot_id, amount: Number.isNaN(g) ? 0 : g });
+          }
+        }
+        out.push(...packLotUses(row));
+      }
+    } catch { /* not a lot-linked answer — skip */ }
+  }
+  return out;
+}
+
+interface DraftRow {
+  id: string;
+  checklist_id: string;
+  started_by: string;
+  started_at: string;
+  last_saved_at: string;
+  answers: Record<string, unknown> | null;
+  checklist: { name: string } | null;
+}
+
+async function fetchAllDrafts(): Promise<DraftRow[]> {
+  return await fetchAll<DraftRow>((from, to) =>
+    supabase
+      .from("batch_drafts")
+      .select("id, checklist_id, started_by, started_at, last_saved_at, answers, checklist:checklists(name)")
+      .order("id")
+      .range(from, to) as never);
+}
+
+function toDraftInfo(d: DraftRow, uses: Array<{ lot_id: string; amount: number }>): DraftInfo {
+  // Merge duplicate lot refs (several rows/runs can pour from the same lot)
+  const byLot: Record<string, number> = {};
+  for (const u of uses) byLot[u.lot_id] = (byLot[u.lot_id] ?? 0) + u.amount;
+  return {
+    id: d.id,
+    checklist_id: d.checklist_id,
+    checklist_name: d.checklist?.name ?? "Batch record",
+    started_by: d.started_by,
+    started_at: d.started_at,
+    last_saved_at: d.last_saved_at,
+    lot_uses: Object.entries(byLot).map(([lot_id, amount]) => ({ lot_id, amount })),
+  };
+}
+
+/** In-progress batch drafts that hold stock from any of the given lots. */
+async function fetchDraftsUsingLots(lotIds: string[]): Promise<DraftInfo[]> {
+  if (lotIds.length === 0) return [];
+  const wanted = new Set(lotIds);
+  const out: DraftInfo[] = [];
+  for (const d of await fetchAllDrafts()) {
+    const uses = draftLotUses(d.answers).filter((u) => wanted.has(u.lot_id));
+    if (uses.length > 0) out.push(toDraftInfo(d, uses));
+  }
+  return out;
+}
+
+/** In-progress batch drafts of the given production checklists (product search). */
+async function fetchDraftsForChecklists(checklistIds: string[]): Promise<DraftInfo[]> {
+  if (checklistIds.length === 0) return [];
+  const wanted = new Set(checklistIds);
+  return (await fetchAllDrafts())
+    .filter((d) => wanted.has(d.checklist_id))
+    .map((d) => toDraftInfo(d, draftLotUses(d.answers)));
 }
 
 async function fetchBatches(submissionIds: string[]): Promise<BatchInfo[]> {
@@ -455,8 +556,9 @@ export async function searchByLot(julianCode: string): Promise<TraceOutcome> {
   const batches = await fetchBatches(submissionIds);
   const dispatches = await fetchDispatchesForBatches(submissionIds);
   const returns = await fetchReturnsForBatches(submissionIds);
+  const drafts = await fetchDraftsUsingLots(lots.map((l: LotInfo) => l.id));
 
-  return { result: await withReconciliation(await enrich({ searchType: "lot", query: julianCode, lots: lots as LotInfo[], batches, dispatches, returns })) };
+  return { result: await withReconciliation(await enrich({ searchType: "lot", query: julianCode, lots: lots as LotInfo[], batches, dispatches, returns, drafts })) };
 }
 
 // ── Search by finished-product Julian / batch code ──────────────────────────
@@ -527,6 +629,7 @@ export async function traceFromLot(lot: LotInfo): Promise<TraceOutcome> {
   const batches = await fetchBatches(submissionIds);
   const dispatches = await fetchDispatchesForBatches(submissionIds);
   const returns = await fetchReturnsForBatches(submissionIds);
+  const drafts = await fetchDraftsUsingLots([lot.id]);
 
   return {
     result: await withReconciliation(await enrich({
@@ -536,6 +639,7 @@ export async function traceFromLot(lot: LotInfo): Promise<TraceOutcome> {
       batches,
       dispatches,
       returns,
+      drafts,
     })),
   };
 }
@@ -682,12 +786,19 @@ export async function searchByProduct(name: string): Promise<TraceOutcome> {
   const allBatchIds = [...new Set([...linkedBatchIds, ...directBatchIds])];
   const batches = await fetchBatches(allBatchIds);
 
-  if (dispatches.length === 0 && batches.length === 0) {
+  // In-progress drafts of this product's production checklists — a batch being
+  // made right now is part of the product's chain even before it's submitted.
+  const drafts = await fetchDraftsForChecklists((matchingCls ?? []).map((c: { id: string }) => c.id));
+
+  if (dispatches.length === 0 && batches.length === 0 && drafts.length === 0) {
     return { error: `No records found for product matching "${name}".` };
   }
 
-  const lots = await fetchLots(Array.from(lotIdsFromBatches(batches)));
+  const lots = await fetchLots(Array.from(new Set([
+    ...lotIdsFromBatches(batches),
+    ...drafts.flatMap((d) => d.lot_uses.map((u) => u.lot_id)),
+  ])));
   const returns = await fetchReturnsForBatches(allBatchIds);
 
-  return { result: await withReconciliation(await enrich({ searchType: "product", query: name, lots, batches, dispatches, returns })) };
+  return { result: await withReconciliation(await enrich({ searchType: "product", query: name, lots, batches, dispatches, returns, drafts })) };
 }
