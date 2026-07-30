@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import baseline from "./salsa-baseline.json";
 
-// Seeds a brand-new organisation with the SALSA baseline: the 20 generic
+// Seeds a brand-new organisation with the SALSA baseline: the generic
 // compliance checklists (+ their questions) and the training-programme items.
 // The template is frozen in salsa-baseline.json (rebuild via
 // scripts/build-salsa-baseline.mjs). Everything else — production records,

@@ -3,7 +3,8 @@
 //   node scripts/build-salsa-baseline.mjs
 //
 // Reads the 20 generic compliance checklists + their questions, plus the
-// training-programme items, from Yep Kitchen and writes a frozen, org-agnostic
+// training-programme items, from Yep Kitchen, appends the hand-written extras
+// in lib/seed/extra-checklists.json, and writes a frozen, org-agnostic
 // template to lib/seed/salsa-baseline.json. New accounts are seeded from that
 // file (see lib/seed/salsa-baseline.ts) — NOT from Yep's live data — so future
 // edits Yep makes never leak into new customers.
@@ -115,6 +116,19 @@ for (const name of INCLUDE) {
     color: cl.color,
     questions: kept,
   });
+}
+
+// Checklists that are part of the seed pack but do NOT exist in Yep (e.g.
+// Organoleptic Checks). Kept in extra-checklists.json so a rebuild never drops them.
+const extras = JSON.parse(
+  readFileSync(new URL("../lib/seed/extra-checklists.json", import.meta.url), "utf8")
+);
+for (const extra of extras.checklists) {
+  if (checklists.some((c) => c.name === extra.name)) {
+    console.error(`Abort — extra checklist "${extra.name}" clashes with a Yep checklist of the same name`);
+    process.exit(1);
+  }
+  checklists.push(extra);
 }
 
 // Training-programme items (the "Manage Training" list — no completion records).

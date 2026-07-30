@@ -1,0 +1,196 @@
+{
+  "note": "Checklists in the new-org seed pack that do NOT come from Yep Kitchen. build-salsa-baseline.mjs appends these to the frozen baseline on every rebuild.",
+  "checklists": [
+    {
+      "name": "Organoleptic Checks",
+      "frequency": "adhoc",
+      "description": "Sensory assessment of raw materials or finished product against specification — appearance, aroma, texture and taste.",
+      "active": true,
+      "category": "Traceability",
+      "color": null,
+      "questions": [
+        {
+          "label": "Date",
+          "type": "date",
+          "required": true,
+          "order_index": 0,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Assessed by",
+          "type": "text",
+          "required": true,
+          "order_index": 1,
+          "options": null,
+          "hint": "Your name",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Check type",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 2,
+          "options": [
+            "Raw material / ingredient",
+            "Finished product",
+            "Shelf-life check",
+            "Complaint investigation"
+          ],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Product or material name",
+          "type": "text",
+          "required": true,
+          "order_index": 3,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Batch code / lot number",
+          "type": "text",
+          "required": true,
+          "order_index": 4,
+          "options": null,
+          "hint": "As shown on the pack or goods-in record",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Best before / use by date",
+          "type": "date",
+          "required": false,
+          "order_index": 5,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Appearance & colour",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 6,
+          "options": ["Satisfactory", "Not satisfactory"],
+          "hint": "Check against the product specification — colour, uniformity, no foreign matter",
+          "follow_up": { "trigger": "Not satisfactory", "label": "Describe what you found" },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Aroma / odour",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 7,
+          "options": ["Satisfactory", "Not satisfactory"],
+          "hint": "No off, sour, rancid or unusual odours",
+          "follow_up": { "trigger": "Not satisfactory", "label": "Describe the odour" },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Texture / consistency",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 8,
+          "options": ["Satisfactory", "Not satisfactory"],
+          "hint": "e.g. viscosity, firmness or crispness as expected for the product",
+          "follow_up": { "trigger": "Not satisfactory", "label": "Describe the texture issue" },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Taste / flavour",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 9,
+          "options": ["Satisfactory", "Not satisfactory", "Not tasted"],
+          "hint": "Only taste product that is safe to eat — never taste suspect or raw product",
+          "follow_up": { "trigger": "Not satisfactory", "label": "Describe the taste issue" },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Packaging & seal condition",
+          "type": "multiple_choice",
+          "required": true,
+          "order_index": 10,
+          "options": ["Satisfactory", "Not satisfactory", "Not applicable"],
+          "hint": "Seals intact, no damage, label legible",
+          "follow_up": { "trigger": "Not satisfactory", "label": "Describe the defect" },
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Photo of sample",
+          "type": "photo",
+          "required": false,
+          "order_index": 11,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Overall result",
+          "type": "dropdown",
+          "required": true,
+          "order_index": 12,
+          "options": ["Pass", "Fail"],
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Action taken",
+          "type": "text",
+          "required": false,
+          "order_index": 13,
+          "options": null,
+          "hint": "Required if any check failed — e.g. batch quarantined, supplier contacted, corrective action report raised",
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Comments",
+          "type": "text",
+          "required": false,
+          "order_index": 14,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        },
+        {
+          "label": "Assessor signature",
+          "type": "signature",
+          "required": true,
+          "order_index": 15,
+          "options": null,
+          "hint": null,
+          "follow_up": null,
+          "document_path": null,
+          "document_required": false
+        }
+      ]
+    }
+  ]
+}
