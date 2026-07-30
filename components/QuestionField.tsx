@@ -89,8 +89,10 @@ export default function QuestionField({ question, value, onChange, error, ingred
   const totalMultiplier = batches.reduce((sum, b) => sum + b.multiplier, 0);
 
   // Batch-record options — only used by batch_link questions. A production submission
-  // each, labelled "Product — batch code · date", newest first.
+  // each, newest first. Rendered as two cascading dropdowns: product first, then
+  // that product's batch records only.
   const [batchLinkOptions, setBatchLinkOptions] = useState<Array<{ id: string; product: string; code: string; label: string }>>([]);
+  const [batchLinkProduct, setBatchLinkProduct] = useState("");
   useEffect(() => {
     if (question.type !== "batch_link") return;
     let cancelled = false;
@@ -980,27 +982,65 @@ export default function QuestionField({ question, value, onChange, error, ingred
 
   if (question.type === "batch_link") {
     let selectedId = "";
-    try { const p = value ? JSON.parse(value) : null; selectedId = p?.submission_id ?? ""; } catch { /* legacy/plain */ }
+    let linkedProduct = "";
+    try {
+      const p = value ? JSON.parse(value) : null;
+      selectedId = p?.submission_id ?? "";
+      linkedProduct = p?.product ?? "";
+    } catch { /* legacy/plain */ }
+
+    // Product picked in this session wins; otherwise fall back to the product of
+    // an already-saved link (draft resume / edit).
+    const product = batchLinkProduct || linkedProduct;
+    const products = [...new Set(batchLinkOptions.map(o => o.product))].sort((a, b) => a.localeCompare(b));
+    // A saved link's product may be beyond the recent-300 window — keep it pickable.
+    if (linkedProduct && !products.includes(linkedProduct)) products.push(linkedProduct);
+    const productBatches = batchLinkOptions.filter(o => o.product === product);
+
     return (
       <div>
         {base}
-        <select
-          className="input w-full"
-          value={selectedId}
-          onChange={(e) => {
-            const opt = batchLinkOptions.find(o => o.id === e.target.value);
-            onChange(opt ? JSON.stringify({ submission_id: opt.id, batch_code: opt.code, product: opt.product }) : "");
-          }}
-        >
-          <option value="">— Not linked —</option>
-          {batchLinkOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-          {/* Keep a previously-linked record selectable even if it's beyond the recent list */}
-          {selectedId && !batchLinkOptions.some(o => o.id === selectedId) && (() => {
-            let lbl = "Linked batch record";
-            try { const p = JSON.parse(value); lbl = `${p.product ?? ""} — ${p.batch_code || "no batch code"}`.trim(); } catch { /* ignore */ }
-            return <option value={selectedId}>{lbl}</option>;
-          })()}
-        </select>
+        <div className="space-y-2">
+          <select
+            className="input w-full"
+            value={product}
+            onChange={(e) => {
+              setBatchLinkProduct(e.target.value);
+              // Product changed — any previously selected batch belongs to the old one
+              if (selectedId) onChange("");
+            }}
+          >
+            <option value="">— Select product —</option>
+            {products.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+          {product && (
+            <select
+              className="input w-full"
+              value={selectedId}
+              onChange={(e) => {
+                const opt = batchLinkOptions.find(o => o.id === e.target.value);
+                onChange(opt ? JSON.stringify({ submission_id: opt.id, batch_code: opt.code, product: opt.product }) : "");
+              }}
+            >
+              <option value="">— Select batch record —</option>
+              {productBatches.map(o => (
+                <option key={o.id} value={o.id}>
+                  {/* Product is implied by the first dropdown — label is "batch code · date" */}
+                  {o.label.replace(`${o.product} — `, "")}
+                </option>
+              ))}
+              {/* Keep a previously-linked record selectable even if it's beyond the recent list */}
+              {selectedId && !productBatches.some(o => o.id === selectedId) && (() => {
+                let lbl = "Linked batch record";
+                try { const p = JSON.parse(value); lbl = p.batch_code || "no batch code"; } catch { /* ignore */ }
+                return <option value={selectedId}>{lbl}</option>;
+              })()}
+            </select>
+          )}
+          {product && productBatches.length === 0 && !selectedId && (
+            <p className="text-xs text-gray-400">No batch records found for this product.</p>
+          )}
+        </div>
         {batchLinkOptions.length === 0 && (
           <p className="mt-1 text-xs text-gray-400">No production batch records found yet.</p>
         )}
