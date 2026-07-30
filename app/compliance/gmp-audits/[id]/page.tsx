@@ -8,6 +8,7 @@ import { useOrganisation } from "@/contexts/OrganisationContext";
 import { formatDate } from "@/lib/utils";
 import type { TeamMember } from "@/lib/types";
 import CloseFindingModal from "@/components/gmp/CloseFindingModal";
+import PhotoPicker from "@/components/gmp/PhotoPicker";
 import {
   RISK_CHIP, RISK_LABEL, dueDateForRisk, isOverdue, uploadGmpPhoto,
   type GmpAudit, type GmpFinding, type GmpRisk,
@@ -345,16 +346,7 @@ function AddFindingModal({
 
         <div>
           <label className="label">Photos</label>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-brand/20 file:text-brown file:text-sm file:font-medium hover:file:bg-brand/40"
-            onChange={e => setPhotos(Array.from(e.target.files ?? []))}
-          />
-          {photos.length > 0 && (
-            <p className="text-xs text-gray-500 mt-1">{photos.length} photo{photos.length > 1 ? "s" : ""} selected</p>
-          )}
+          <PhotoPicker photos={photos} onChange={setPhotos} />
         </div>
 
         <div>
@@ -390,7 +382,7 @@ function AddFindingModal({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid sm:grid-cols-2 gap-3">
           <div>
             <label className="label">Assign to</label>
             <select className="input" value={assignee} onChange={e => setAssignee(e.target.value)}>

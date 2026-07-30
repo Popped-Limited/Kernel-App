@@ -29,6 +29,10 @@ export default function GmpAuditsPage() {
   const [showStart, setShowStart] = useState(false);
   const [showAreas, setShowAreas] = useState(false);
   const [closing, setClosing] = useState<GmpFinding | null>(null);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [closedQuery, setClosedQuery] = useState("");
+  const [showAllClosed, setShowAllClosed] = useState(false);
   const seeded = useRef(false);
 
   useEffect(() => { if (orgId) load(); }, [orgId]);
@@ -103,6 +107,22 @@ export default function GmpAuditsPage() {
     .filter(f => f.status === "open")
     .sort((a, b) => (a.due_date ?? "9999") < (b.due_date ?? "9999") ? -1 : 1);
   const closedFindings = findings.filter(f => f.status === "closed");
+
+  // Search + caps: these lists grow forever, so by default show only the most
+  // recent few — searching or "Show all" reveals the rest.
+  const HISTORY_CAP = 6, CLOSED_CAP = 5;
+  const hq = historyQuery.trim().toLowerCase();
+  const historyMatches = hq
+    ? audits.filter(a =>
+        `${a.gmp_areas?.name ?? ""} ${a.auditor_name} ${formatDate(a.audit_date)} ${a.notes ?? ""}`.toLowerCase().includes(hq))
+    : audits;
+  const visibleAudits = hq || showAllHistory ? historyMatches : historyMatches.slice(0, HISTORY_CAP);
+  const cq = closedQuery.trim().toLowerCase();
+  const closedMatches = cq
+    ? closedFindings.filter(f =>
+        `${f.description} ${f.gmp_audits?.gmp_areas?.name ?? ""} ${f.closed_by ?? ""} ${f.close_note ?? ""}`.toLowerCase().includes(cq))
+    : closedFindings;
+  const visibleClosed = cq || showAllClosed ? closedMatches : closedMatches.slice(0, CLOSED_CAP);
   const findingCounts = new Map<string, { total: number; open: number }>();
   for (const f of findings) {
     const c = findingCounts.get(f.audit_id) ?? { total: 0, open: 0 };
@@ -199,10 +219,19 @@ export default function GmpAuditsPage() {
                   {openFindings.map(f => {
                     const overdue = isOverdue(f);
                     return (
-                      <div key={f.id} className="p-4 flex items-start gap-3 flex-wrap sm:flex-nowrap">
-                        <span className={`shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${RISK_CHIP[f.risk]}`}>
-                          {RISK_LABEL[f.risk]}
-                        </span>
+                      // Mobile-first: full-width text with the actions below —
+                      // side-by-side columns squeeze the text unreadably on a phone.
+                      <div key={f.id} className="p-4 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+                        <div className="flex items-center gap-2 sm:shrink-0">
+                          <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${RISK_CHIP[f.risk]}`}>
+                            {RISK_LABEL[f.risk]}
+                          </span>
+                          {overdue && (
+                            <span className="sm:hidden text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                              Overdue
+                            </span>
+                          )}
+                        </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm text-gray-800">{f.description}</p>
                           <p className="text-xs text-gray-500 mt-0.5">
@@ -215,9 +244,9 @@ export default function GmpAuditsPage() {
                             )}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Link href={`/compliance/gmp-audits/${f.audit_id}`} className="btn-ghost text-xs">View</Link>
-                          <button onClick={() => setClosing(f)} className="btn-secondary text-xs">Close out</button>
+                        <div className="flex items-center gap-2 sm:shrink-0 pt-1 sm:pt-0">
+                          <button onClick={() => setClosing(f)} className="btn-secondary text-xs flex-1 sm:flex-none py-2 sm:py-1.5">Close out</button>
+                          <Link href={`/compliance/gmp-audits/${f.audit_id}`} className="btn-ghost text-xs text-center flex-1 sm:flex-none py-2 sm:py-1.5">View</Link>
                         </div>
                       </div>
                     );
@@ -228,7 +257,17 @@ export default function GmpAuditsPage() {
 
             {/* Audit history */}
             <section className="space-y-2">
-              <h2 className="text-sm font-semibold text-gray-900">Audit history</h2>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h2 className="text-sm font-semibold text-gray-900">Audit history</h2>
+                {audits.length > HISTORY_CAP && (
+                  <input
+                    className="input text-sm w-full sm:w-64"
+                    placeholder="Search audits — area, auditor…"
+                    value={historyQuery}
+                    onChange={e => setHistoryQuery(e.target.value)}
+                  />
+                )}
+              </div>
               {audits.length === 0 ? (
                 <div className="card p-12 text-center">
                   <p className="text-3xl mb-3">🔍</p>
@@ -236,9 +275,13 @@ export default function GmpAuditsPage() {
                   <p className="text-xs text-gray-400 mb-4">Walk one area, photograph what you find, assign the fixes</p>
                   <button onClick={() => setShowStart(true)} className="btn-primary text-xs">+ Start your first audit</button>
                 </div>
+              ) : historyMatches.length === 0 ? (
+                <div className="card p-6 text-center">
+                  <p className="text-sm text-gray-500">No audits match &ldquo;{historyQuery.trim()}&rdquo;.</p>
+                </div>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {audits.map(a => {
+                  {visibleAudits.map(a => {
                     const counts = findingCounts.get(a.id) ?? { total: 0, open: 0 };
                     return (
                       <Link key={a.id} href={`/compliance/gmp-audits/${a.id}`} className="card p-4 hover:border-brand/40 transition-colors flex flex-col gap-2">
@@ -264,32 +307,65 @@ export default function GmpAuditsPage() {
                   })}
                 </div>
               )}
+              {!hq && !showAllHistory && historyMatches.length > HISTORY_CAP && (
+                <button onClick={() => setShowAllHistory(true)} className="btn-ghost text-xs w-full">
+                  Show all {historyMatches.length} audits
+                </button>
+              )}
+              {!hq && showAllHistory && audits.length > HISTORY_CAP && (
+                <button onClick={() => setShowAllHistory(false)} className="btn-ghost text-xs w-full">
+                  Show recent only
+                </button>
+              )}
             </section>
 
             {/* Closed-out history */}
             {closedFindings.length > 0 && (
               <section className="space-y-2">
-                <h2 className="text-sm font-semibold text-gray-900">Closed out</h2>
-                <div className="card divide-y divide-gray-100">
-                  {closedFindings.slice(0, 20).map(f => (
-                    <div key={f.id} className="p-4 flex items-start gap-3">
-                      <span className={`shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${RISK_CHIP[f.risk]}`}>
-                        {RISK_LABEL[f.risk]}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm text-gray-700">{f.description}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {f.gmp_audits?.gmp_areas?.name ?? "—"} · closed {f.closed_at ? formatDate(f.closed_at) : "—"} by {f.closed_by || "—"}
-                          {f.close_note && <> — {f.close_note}</>}
-                        </p>
-                      </div>
-                      <Link href={`/compliance/gmp-audits/${f.audit_id}`} className="btn-ghost text-xs shrink-0">View</Link>
-                    </div>
-                  ))}
-                  {closedFindings.length > 20 && (
-                    <p className="p-3 text-xs text-gray-400 text-center">Showing the 20 most recent — older close-outs stay on their audit records.</p>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <h2 className="text-sm font-semibold text-gray-900">Closed out</h2>
+                  {closedFindings.length > CLOSED_CAP && (
+                    <input
+                      className="input text-sm w-full sm:w-64"
+                      placeholder="Search closed findings…"
+                      value={closedQuery}
+                      onChange={e => setClosedQuery(e.target.value)}
+                    />
                   )}
                 </div>
+                {closedMatches.length === 0 ? (
+                  <div className="card p-6 text-center">
+                    <p className="text-sm text-gray-500">No closed findings match &ldquo;{closedQuery.trim()}&rdquo;.</p>
+                  </div>
+                ) : (
+                  <div className="card divide-y divide-gray-100">
+                    {visibleClosed.map(f => (
+                      <div key={f.id} className="p-4 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+                        <span className={`self-start shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${RISK_CHIP[f.risk]}`}>
+                          {RISK_LABEL[f.risk]}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-gray-700">{f.description}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {f.gmp_audits?.gmp_areas?.name ?? "—"} · closed {f.closed_at ? formatDate(f.closed_at) : "—"} by {f.closed_by || "—"}
+                            {f.close_note && <> — {f.close_note}</>}
+                          </p>
+                        </div>
+                        <Link href={`/compliance/gmp-audits/${f.audit_id}`} className="btn-ghost text-xs text-center sm:shrink-0 py-2 sm:py-1.5">View</Link>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!cq && !showAllClosed && closedMatches.length > CLOSED_CAP && (
+                  <button onClick={() => setShowAllClosed(true)} className="btn-ghost text-xs w-full">
+                    Show all {closedMatches.length} closed findings
+                  </button>
+                )}
+                {!cq && showAllClosed && closedFindings.length > CLOSED_CAP && (
+                  <button onClick={() => setShowAllClosed(false)} className="btn-ghost text-xs w-full">
+                    Show recent only
+                  </button>
+                )}
               </section>
             )}
           </>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { uploadGmpPhoto, RISK_CHIP, RISK_LABEL, type GmpFinding } from "@/lib/gmp";
 import { formatDate } from "@/lib/utils";
+import PhotoPicker from "@/components/gmp/PhotoPicker";
 
 // Close-out for a GMP finding: the assignee records what was done, with an
 // optional "after" photo, stamped with who closed it and when. Used from both
@@ -88,16 +89,7 @@ export default function CloseFindingModal({
 
         <div>
           <label className="label">After photo <span className="text-gray-400 font-normal">(optional)</span></label>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-brand/20 file:text-brown file:text-sm file:font-medium hover:file:bg-brand/40"
-            onChange={e => setPhotos(Array.from(e.target.files ?? []))}
-          />
-          {photos.length > 0 && (
-            <p className="text-xs text-gray-500 mt-1">{photos.length} photo{photos.length > 1 ? "s" : ""} selected</p>
-          )}
+          <PhotoPicker photos={photos} onChange={setPhotos} />
         </div>
 
         {error && <p className="text-xs text-red-600">{error}</p>}
