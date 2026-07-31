@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { normaliseName, nutritionIsComplete } from "@/lib/nutrition/recipe-calc";
 import { useProductNutrition, saveProductSettings, type LoadedSettings } from "@/components/useProductNutrition";
 import { suggestPrepYields, type YieldSuggestion } from "@/lib/nutrition/prep-yield-suggest";
@@ -56,6 +57,34 @@ export default function ProductRecipeYieldsPanel({ productName }: { productName:
 
   const finishedWeight =
     form.netWeight && form.unitsPerBatch ? parseFloat(form.netWeight) * parseFloat(form.unitsPerBatch) : null;
+
+  // What still blocks the nutrition declaration, and what to do about each. The
+  // row badges say what's wrong; this says what the user has to go and fix —
+  // the tests match the calc's exactly, so this can't disagree with it.
+  const unmatched: string[] = [];
+  const noNutrition: string[] = [];
+  const noDensity: string[] = [];
+  for (const row of recipe) {
+    const ing = ingredients.get(normaliseName(row.name));
+    if (!ing) unmatched.push(row.name);
+    else if (!nutritionIsComplete(ing.nutrition)) noNutrition.push(row.name);
+    else if (ing.basis === "per_100ml" && !(ing.densityGPerL && ing.densityGPerL > 0)) noDensity.push(row.name);
+  }
+  const hasFinishedWeight = finishedWeight != null && !isNaN(finishedWeight) && finishedWeight > 0;
+
+  const todo: { text: string; link?: boolean }[] = [];
+  if (!hasFinishedWeight) {
+    todo.push({ text: "Enter the net weight per unit and units per batch above (jar weight × jars per batch) — the per-100g figures are worked out from the finished batch weight." });
+  }
+  if (unmatched.length) {
+    todo.push({ text: `Add ${unmatched.join(", ")} to Raw Materials, spelled exactly as in the recipe — ingredients are matched by exact name.`, link: true });
+  }
+  if (noNutrition.length) {
+    todo.push({ text: `Add nutrition to ${noNutrition.join(", ")} — in Raw Materials open the ingredient and fill all nine per-100g values (CoFID lookup or a spec-sheet read will fill them for you). A partial set can't be used.`, link: true });
+  }
+  if (noDensity.length) {
+    todo.push({ text: `Set a density (g/L) on ${noDensity.join(", ")} in Raw Materials — their nutrition is per 100ml, so it needs a density to convert to per 100g.`, link: true });
+  }
 
   async function save() {
     if (!orgId) return;
@@ -190,6 +219,31 @@ export default function ProductRecipeYieldsPanel({ productName }: { productName:
           Prep yield = net weight into the pot ÷ gross weight in the recipe. Leave at 100% for ingredients that lose nothing in prep.
           Suggestions come from logged &ldquo;prep, trim, yield loss&rdquo; wastage vs production usage.
         </p>
+
+        {todo.length > 0 ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            <p className="text-xs font-semibold text-amber-900 mb-1">To calculate the nutrition declaration:</p>
+            <ul className="space-y-1">
+              {todo.map((t, i) => (
+                <li key={i} className="text-xs text-amber-800 flex gap-1.5">
+                  <span aria-hidden="true">•</span>
+                  <span>
+                    {t.text}{" "}
+                    {t.link && (
+                      <Link href="/compliance/raw-materials" className="font-semibold underline hover:no-underline">
+                        Open Raw Materials
+                      </Link>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : recipe.length > 0 && (
+          <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+            Everything the calculation needs is in place — save, then see the figures on the Declarations tab.
+          </p>
+        )}
 
         <div className="flex items-center gap-3">
           <button type="button" onClick={save} disabled={saving} className="btn-primary text-sm disabled:opacity-60">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import type { NutritionPer100g } from "@/lib/types";
 import { computeNutrition, normaliseName, formatNutrient, type CalcResult } from "@/lib/nutrition/recipe-calc";
 import { useProductNutrition } from "@/components/useProductNutrition";
@@ -101,15 +102,26 @@ export default function ProductDeclarationsPanel({ productName }: { productName:
 
 function Gaps({ result, hasFinishedWeight }: { result: CalcResult; hasFinishedWeight: boolean }) {
   const { gaps } = result;
-  const items: string[] = [];
-  if (gaps.unmatched.length) items.push(`No raw material matches: ${gaps.unmatched.join(", ")}. Add them in Raw Materials (exact name).`);
-  if (gaps.missingNutrition.length) items.push(`Missing nutrition data: ${gaps.missingNutrition.join(", ")}. Add per-100g values in Raw Materials.`);
-  if (gaps.missingDensity.length) items.push(`Per-100ml nutrition but no density: ${gaps.missingDensity.join(", ")}. Set the density in Raw Materials.`);
-  if (result.nutritionComplete && !hasFinishedWeight) items.push("Set the net weight per unit and units per batch on the Recipe & yields tab to calculate per-100g values.");
+  // Each gap says what to go and do about it — same wording as the Recipe &
+  // yields tab, so a user sent from one to the other reads the same instruction.
+  const items: { text: string; link?: boolean }[] = [];
+  if (gaps.unmatched.length) items.push({ text: `No raw material matches ${gaps.unmatched.join(", ")}. Add them to Raw Materials, spelled exactly as in the recipe — ingredients are matched by exact name.`, link: true });
+  if (gaps.missingNutrition.length) items.push({ text: `Add nutrition to ${gaps.missingNutrition.join(", ")} — open the ingredient in Raw Materials and fill all nine per-100g values (CoFID lookup or a spec-sheet read will fill them for you). A partial set can't be used.`, link: true });
+  if (gaps.missingDensity.length) items.push({ text: `Set a density (g/L) on ${gaps.missingDensity.join(", ")} — their nutrition is per 100ml, so it needs a density to convert to per 100g.`, link: true });
+  if (result.nutritionComplete && !hasFinishedWeight) items.push({ text: "Enter the net weight per unit and units per batch on the Recipe & yields tab (jar weight × jars per batch) — the per-100g figures are worked out from the finished batch weight." });
   if (!items.length) return null;
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 space-y-1">
-      {items.map((t, i) => <p key={i} className="text-xs text-amber-800">{t}</p>)}
+      {items.map((t, i) => (
+        <p key={i} className="text-xs text-amber-800">
+          {t.text}{" "}
+          {t.link && (
+            <Link href="/compliance/raw-materials" className="font-semibold underline hover:no-underline">
+              Open Raw Materials
+            </Link>
+          )}
+        </p>
+      ))}
     </div>
   );
 }
