@@ -53,7 +53,11 @@ export default function ProductDeclarationsPanel({ productName }: { productName:
           <NutritionTable per100g={result.per100g} perUnit={result.perUnit} netWeight={settings.netWeight} />
         ) : (
           <p className="text-sm text-gray-400">
-            Nutrition declaration appears once every ingredient has complete data and the net weight &amp; units per batch are set on the Recipe &amp; yields tab.
+            {result.nutritionComplete
+              // Every ingredient IS complete — say so, or it reads as missing
+              // raw-material data when the only gap is the two batch fields.
+              ? "Ingredient data is complete. Enter the net weight per unit and units per batch on the Recipe & yields tab to calculate the nutrition declaration."
+              : "Nutrition declaration appears once every ingredient has complete data and the net weight & units per batch are set on the Recipe & yields tab."}
           </p>
         )}
 

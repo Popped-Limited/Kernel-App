@@ -143,7 +143,9 @@ function toPer100g(value: number, basis: IngredientData["basis"], densityGPerL: 
   return (value * 1000) / densityGPerL;
 }
 
-function nutritionIsComplete(n: NutritionPer100g | null): n is NutritionPer100g {
+/** All 9 nutrients present and numeric. Exported so the Recipe & yields tab
+ *  flags exactly what the calc would reject — the two must never disagree. */
+export function nutritionIsComplete(n: NutritionPer100g | null): n is NutritionPer100g {
   if (!n) return false;
   return NUTRIENT_KEYS.every((k) => typeof n[k] === "number" && n[k] !== null);
 }

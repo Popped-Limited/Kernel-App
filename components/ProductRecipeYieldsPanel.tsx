@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { normaliseName } from "@/lib/nutrition/recipe-calc";
+import { normaliseName, nutritionIsComplete } from "@/lib/nutrition/recipe-calc";
 import { useProductNutrition, saveProductSettings, type LoadedSettings } from "@/components/useProductNutrition";
 import { suggestPrepYields, type YieldSuggestion } from "@/lib/nutrition/prep-yield-suggest";
 
@@ -145,7 +145,11 @@ export default function ProductRecipeYieldsPanel({ productName }: { productName:
               {recipe.map((row) => {
                 const key = normaliseName(row.name);
                 const ing = ingredients.get(key);
-                const complete = ing && ing.nutrition;
+                // Same tests the calc applies, so a row without a badge really
+                // does contribute (a partial value set, or per-100ml with no
+                // density, is a gap the Declarations tab would report).
+                const complete = ing != null && nutritionIsComplete(ing.nutrition);
+                const needsDensity = complete && ing!.basis === "per_100ml" && !(ing!.densityGPerL && ing!.densityGPerL > 0);
                 const sug = suggestions?.get(key);
                 const current = parseFloat(yieldFor(row.name) || "100");
                 const drift = sug != null && Math.abs(current - sug.suggestedPct) >= 2;
@@ -155,6 +159,7 @@ export default function ProductRecipeYieldsPanel({ productName }: { productName:
                       {row.name}
                       {!ing && <span className="ml-2 text-[10px] font-semibold text-red-600">no raw material</span>}
                       {ing && !complete && <span className="ml-2 text-[10px] font-semibold text-amber-600">no nutrition</span>}
+                      {needsDensity && <span className="ml-2 text-[10px] font-semibold text-amber-600">needs density</span>}
                     </td>
                     <td className="py-2 px-3 text-right tabular-nums text-gray-700 align-top">{row.grams.toLocaleString()}</td>
                     <td className="py-2 pl-3 text-right align-top">
