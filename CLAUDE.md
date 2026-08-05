@@ -115,6 +115,22 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   deleted via the dashboard's explicit trash button.
 
 ## UI / styling
+- **Nothing developer-facing may ever render in the app.** No script names, file paths, SQL, table
+  names, migration instructions or raw Postgres/PostgREST error text in front of a user — Kernel is
+  paid software and that reads as "it's broken", not "this isn't switched on yet". A degraded state
+  gets a plain-English sentence plus a route to support; the actionable detail is gated to
+  `support@kernelapp.co.uk` (see `setupNotice` in components/useProductSpecSheet.ts) or console-logged.
+  Tom, 5 Aug 2026, on seeing "run scripts/add-spec-sheets.sql in the Supabase SQL editor" on the
+  Company Details page: *"you can't write code errors like this in a live app like Kernel. What is a
+  user going to think?"*
+- **Buttons use the house classes**, never ad-hoc Tailwind: `.btn-primary` (brand gold) for the main
+  action, `.btn-secondary` for the one beside it, `.btn-ghost` for cancel/dismiss, with
+  `{saved && <span className="text-xs text-green-600 font-medium">Saved</span>}` next to it (see
+  ProductCostingPanel). File uploads use a hidden `<input type="file">` + a `text-brown hover:underline`
+  link in the card header (see LabelArtworkPanel) — never a raw browser file input.
+- **No "Back to X" links on sidebar-navigable pages.** They're redundant next to the sidebar and
+  imply a parent/child relationship that usually doesn't exist. Only legitimate for wizard steps,
+  drill-down detail pages (the `BackButton` component), auth pages and the public marketing pages.
 - Brand palette (Tailwind): `brand` `#F5C65A`, `brand-dark` `#C9A24A`, `brand-light` `#EDE5D0`, `brand-cream` `#F7F2E8`,
   `brown` `#3A3520`, `brown-light` `#7A7050`. Marketing-page accents: gold `#C89A18`, bright gold on dark `#F0D870`,
   dark `#1C1A10`.
