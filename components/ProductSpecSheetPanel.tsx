@@ -20,7 +20,7 @@ import { useOrganisation } from "@/contexts/OrganisationContext";
 import { useProductNutrition } from "@/components/useProductNutrition";
 import { computeNutrition, NUTRIENT_KEYS, type CalcResult, type NutrientKey } from "@/lib/nutrition/recipe-calc";
 import {
-  loadSpecRow, saveSpecPatch, loadCompanyDetails, companyIsComplete,
+  loadSpecRow, saveSpecPatch, loadCompanyDetails, companyIsComplete, MIGRATION_NOTICE,
 } from "@/components/useProductSpecSheet";
 import {
   type CompanyDetails, type SpecData, type MicroRow,
@@ -317,11 +317,7 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
     return <div className="card p-8 text-center text-sm text-gray-400">Loading…</div>;
   }
   if (tableMissing) {
-    return (
-      <div className="card p-8 text-center text-sm text-gray-400">
-        Spec sheets need a one-off database update — run <code className="font-mono">add-spec-sheets.sql</code> in the Supabase SQL editor.
-      </div>
-    );
+    return <div className="card p-8 text-center text-sm text-gray-500">{MIGRATION_NOTICE}</div>;
   }
   if (!spec || !company) return null;
 

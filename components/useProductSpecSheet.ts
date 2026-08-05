@@ -15,6 +15,19 @@ function esc(productName: string) {
   return productName.replace(/[\\%_]/g, m => "\\" + m);
 }
 
+/**
+ * True when the table doesn't exist yet (migration not run). PostgREST answers
+ * with its OWN code — PGRST205, "Could not find the table … in the schema
+ * cache" — not the Postgres 42P01 you'd get from raw SQL. Checking only 42P01
+ * meant the setup notice never showed and the user hit a raw error on save.
+ */
+export function isMissingTable(error: { code?: string } | null | undefined): boolean {
+  return error?.code === "PGRST205" || error?.code === "42P01";
+}
+
+export const MIGRATION_NOTICE =
+  "Spec sheets need a one-off database update — run scripts/add-spec-sheets.sql in the Supabase SQL editor.";
+
 export interface SpecRow {
   id: string | null;
   data: Partial<SpecData>;
@@ -31,7 +44,7 @@ export async function loadSpecRow(orgId: string, productName: string): Promise<S
     .ilike("product_name", esc(productName))
     .maybeSingle();
 
-  if (error?.code === "42P01") {
+  if (isMissingTable(error)) {
     return { id: null, data: {}, packShotPath: null, tableMissing: true };
   }
   return {
@@ -58,6 +71,7 @@ export async function saveSpecPatch(
     .eq("organisation_id", orgId)
     .ilike("product_name", esc(productName))
     .maybeSingle();
+  if (isMissingTable(readError)) return { error: MIGRATION_NOTICE };
   if (readError && readError.code !== "PGRST116") return { error: readError.message };
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -73,7 +87,8 @@ export async function saveSpecPatch(
       .from("product_spec_sheets")
       .update({ data: merged, ...shot, ...base })
       .eq("id", existing.id);
-    return error ? { error: error.message } : { id: existing.id };
+    if (error) return { error: isMissingTable(error) ? MIGRATION_NOTICE : error.message };
+    return { id: existing.id };
   }
 
   const { data: inserted, error } = await supabase
@@ -81,7 +96,8 @@ export async function saveSpecPatch(
     .insert({ organisation_id: orgId, product_name: productName, data: merged, ...shot, ...base })
     .select("id")
     .single();
-  return error ? { error: error.message } : { id: inserted?.id };
+  if (error) return { error: isMissingTable(error) ? MIGRATION_NOTICE : error.message };
+  return { id: inserted?.id };
 }
 
 /** Org-level company block, shared by every product's spec sheet. */
@@ -96,7 +112,7 @@ export async function loadCompanyDetails(
     .maybeSingle();
 
   const defaults = defaultCompanyDetails(orgName);
-  if (error?.code === "42P01") return { company: defaults, tableMissing: true };
+  if (isMissingTable(error)) return { company: defaults, tableMissing: true };
   return {
     company: mergeCompanyDetails(defaults, data?.data as Partial<CompanyDetails> | null),
     tableMissing: false,

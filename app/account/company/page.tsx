@@ -6,9 +6,9 @@
 // only links here; it never edits these fields.
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
+import { isMissingTable, MIGRATION_NOTICE } from "@/components/useProductSpecSheet";
 import {
   type CompanyDetails,
   defaultCompanyDetails, mergeCompanyDetails,
@@ -46,7 +46,7 @@ export default function CompanyDetailsPage() {
       .eq("organisation_id", orgId)
       .maybeSingle();
 
-    if (loadError?.code === "42P01") { setTableMissing(true); setLoading(false); return; }
+    if (isMissingTable(loadError)) { setTableMissing(true); setLoading(false); return; }
 
     setCompany(mergeCompanyDetails(
       defaultCompanyDetails(orgName ?? ""),
@@ -75,7 +75,12 @@ export default function CompanyDetailsPage() {
         { onConflict: "organisation_id" },
       );
     setSaving(false);
-    if (saveError) { setError("Failed to save: " + saveError.message); return; }
+    if (saveError) {
+      // A missing table means the migration hasn't run — say that, not the raw
+      // PostgREST schema-cache message.
+      setError(isMissingTable(saveError) ? MIGRATION_NOTICE : "Failed to save: " + saveError.message);
+      return;
+    }
     setSaved(true);
   }
 
@@ -90,9 +95,7 @@ export default function CompanyDetailsPage() {
         {loading ? (
           <div className="card p-8 text-center text-sm text-gray-400">Loading…</div>
         ) : tableMissing ? (
-          <div className="card p-8 text-center text-sm text-gray-400">
-            Spec sheets need a one-off database update — run <code className="font-mono">add-spec-sheets.sql</code> in the Supabase SQL editor.
-          </div>
+          <div className="card p-8 text-center text-sm text-gray-500">{MIGRATION_NOTICE}</div>
         ) : company && (
           <>
             <div className="card overflow-hidden">
@@ -137,9 +140,6 @@ export default function CompanyDetailsPage() {
               </button>
               {saved && <span className="text-xs text-green-600 font-medium">Saved</span>}
               {error && <span className="text-xs text-red-500">{error}</span>}
-              <Link href="/production/finished-goods" className="ml-auto text-sm text-brown/70 hover:text-brown hover:underline">
-                Back to Finished Goods
-              </Link>
             </div>
           </>
         )}
