@@ -20,7 +20,7 @@ import { useOrganisation } from "@/contexts/OrganisationContext";
 import { useProductNutrition } from "@/components/useProductNutrition";
 import { computeNutrition, NUTRIENT_KEYS, type CalcResult, type NutrientKey } from "@/lib/nutrition/recipe-calc";
 import {
-  loadSpecRow, saveSpecPatch, loadCompanyDetails, companyIsComplete, MIGRATION_NOTICE,
+  loadSpecRow, saveSpecPatch, loadCompanyDetails, companyIsComplete, setupNotice,
 } from "@/components/useProductSpecSheet";
 import {
   type CompanyDetails, type SpecData, type MicroRow,
@@ -130,6 +130,8 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
   const [microError, setMicroError] = useState("");
   // Micro extraction review
   const [extracting, setExtracting] = useState(false);
+  // Drives which setup message shows — customers never see the internal one.
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [extracted, setExtracted] = useState<ExtractedMicro[] | null>(null);
   const [extractWarnings, setExtractWarnings] = useState<string[]>([]);
   const initialised = useRef(false);
@@ -144,6 +146,7 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       const userName = (user?.user_metadata?.full_name as string | undefined)?.trim() || user?.email || "";
+      setUserEmail(user?.email ?? null);
 
       const [row, companyRes] = await Promise.all([
         loadSpecRow(orgId, productName),
@@ -317,7 +320,7 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
     return <div className="card p-8 text-center text-sm text-gray-400">Loading…</div>;
   }
   if (tableMissing) {
-    return <div className="card p-8 text-center text-sm text-gray-500">{MIGRATION_NOTICE}</div>;
+    return <div className="card p-8 text-center text-sm text-gray-500">{setupNotice(userEmail)}</div>;
   }
   if (!spec || !company) return null;
 

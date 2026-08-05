@@ -25,8 +25,26 @@ export function isMissingTable(error: { code?: string } | null | undefined): boo
   return error?.code === "PGRST205" || error?.code === "42P01";
 }
 
-export const MIGRATION_NOTICE =
-  "Spec sheets need a one-off database update — run scripts/add-spec-sheets.sql in the Supabase SQL editor.";
+/**
+ * What a CUSTOMER sees if the spec-sheet tables aren't present. Never put a
+ * script name, SQL, or any other internal instruction in front of a user —
+ * Kernel is commercial software and that reads as "this product is broken".
+ * The actionable version is console-logged and shown only to support@.
+ */
+export const SETUP_NOTICE_USER =
+  "Spec sheets aren't switched on for your account yet. Get in touch and we'll sort it out.";
+
+/** Support-only: the actual fix. Never rendered for anyone else. */
+export const SETUP_NOTICE_SUPPORT =
+  "Spec sheet tables are missing — run scripts/add-spec-sheets.sql in the Supabase SQL editor, then check to_regclass('public.product_spec_sheets') is not null.";
+
+/** Kernel's own account — the only login that should see internal detail. */
+export const SUPPORT_EMAIL = "support@kernelapp.co.uk";
+
+/** Pick the right setup message for whoever is looking. */
+export function setupNotice(email: string | null | undefined): string {
+  return (email ?? "").toLowerCase() === SUPPORT_EMAIL ? SETUP_NOTICE_SUPPORT : SETUP_NOTICE_USER;
+}
 
 export interface SpecRow {
   id: string | null;
@@ -71,7 +89,7 @@ export async function saveSpecPatch(
     .eq("organisation_id", orgId)
     .ilike("product_name", esc(productName))
     .maybeSingle();
-  if (isMissingTable(readError)) return { error: MIGRATION_NOTICE };
+  if (isMissingTable(readError)) return { error: SETUP_NOTICE_USER };
   if (readError && readError.code !== "PGRST116") return { error: readError.message };
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -87,7 +105,7 @@ export async function saveSpecPatch(
       .from("product_spec_sheets")
       .update({ data: merged, ...shot, ...base })
       .eq("id", existing.id);
-    if (error) return { error: isMissingTable(error) ? MIGRATION_NOTICE : error.message };
+    if (error) return { error: isMissingTable(error) ? SETUP_NOTICE_USER : error.message };
     return { id: existing.id };
   }
 
@@ -96,7 +114,7 @@ export async function saveSpecPatch(
     .insert({ organisation_id: orgId, product_name: productName, data: merged, ...shot, ...base })
     .select("id")
     .single();
-  if (error) return { error: isMissingTable(error) ? MIGRATION_NOTICE : error.message };
+  if (error) return { error: isMissingTable(error) ? SETUP_NOTICE_USER : error.message };
   return { id: inserted?.id };
 }
 

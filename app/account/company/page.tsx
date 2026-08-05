@@ -8,7 +8,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
-import { isMissingTable, MIGRATION_NOTICE } from "@/components/useProductSpecSheet";
+import { isMissingTable, setupNotice } from "@/components/useProductSpecSheet";
 import {
   type CompanyDetails,
   defaultCompanyDetails, mergeCompanyDetails,
@@ -37,9 +37,13 @@ export default function CompanyDetailsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  // Drives which setup message shows — customers never see the internal one.
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!orgId) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    setUserEmail(user?.email ?? null);
     const { data, error: loadError } = await supabase
       .from("spec_company_details")
       .select("data")
@@ -78,7 +82,7 @@ export default function CompanyDetailsPage() {
     if (saveError) {
       // A missing table means the migration hasn't run — say that, not the raw
       // PostgREST schema-cache message.
-      setError(isMissingTable(saveError) ? MIGRATION_NOTICE : "Failed to save: " + saveError.message);
+      setError(isMissingTable(saveError) ? setupNotice(userEmail) : "Failed to save: " + saveError.message);
       return;
     }
     setSaved(true);
@@ -95,7 +99,7 @@ export default function CompanyDetailsPage() {
         {loading ? (
           <div className="card p-8 text-center text-sm text-gray-400">Loading…</div>
         ) : tableMissing ? (
-          <div className="card p-8 text-center text-sm text-gray-500">{MIGRATION_NOTICE}</div>
+          <div className="card p-8 text-center text-sm text-gray-500">{setupNotice(userEmail)}</div>
         ) : company && (
           <>
             <div className="card overflow-hidden">
