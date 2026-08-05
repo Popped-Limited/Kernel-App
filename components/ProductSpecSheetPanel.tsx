@@ -123,7 +123,11 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState("");
+  // Errors are shown where they happen — a failed pack-shot upload or lab-report
+  // read is metres away from the save button at the bottom of a long form.
+  const [error, setError] = useState("");        // save / PDF
+  const [shotError, setShotError] = useState("");
+  const [microError, setMicroError] = useState("");
   // Micro extraction review
   const [extracting, setExtracting] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedMicro[] | null>(null);
@@ -185,12 +189,12 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
     const file = e.target.files?.[0];
     if (!file || !orgId) return;
     if (!PACK_SHOT_ACCEPT.test(file.name)) {
-      setError("The pack shot must be a PNG or JPEG (the PDF can't embed other formats).");
+      setShotError("The pack shot must be a PNG or JPEG (the PDF can't embed other formats).");
       if (fileRef.current) fileRef.current.value = "";
       return;
     }
     setUploadingShot(true);
-    setError("");
+    setShotError("");
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const safeProduct = productName.replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `spec-sheets/${orgId}/${safeProduct}/${Date.now()}_${safeName}`;
@@ -198,7 +202,7 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
       .from("compliance-docs")
       .upload(path, file, { contentType: file.type || undefined });
     if (uploadError) {
-      setError("Pack shot upload failed: " + uploadError.message);
+      setShotError("Pack shot upload failed: " + uploadError.message);
       setUploadingShot(false);
       return;
     }
@@ -211,7 +215,7 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
   /** Read the product's lab reports and offer the micro limits for review. */
   async function pullMicroFromLabReports() {
     setExtracting(true);
-    setError("");
+    setMicroError("");
     setExtracted(null);
     setExtractWarnings([]);
     try {
@@ -222,13 +226,13 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(body.error || "Couldn't read the lab reports.");
+        setMicroError(body.error || "Couldn't read the lab reports.");
         setExtracting(false);
         return;
       }
       const tests = (body.extraction?.tests ?? []) as Omit<ExtractedMicro, "use">[];
       if (tests.length === 0) {
-        setError("No microbiological results found in the lab reports for this product.");
+        setMicroError("No microbiological results found in the lab reports for this product.");
         setExtracting(false);
         return;
       }
@@ -238,7 +242,7 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
       setExtracted(tests.map(t => ({ ...t, use: Boolean(t.target?.trim()) })));
       setExtractWarnings((body.extraction?.warnings ?? []) as string[]);
     } catch {
-      setError("Couldn't read the lab reports — try again in a moment.");
+      setMicroError("Couldn't read the lab reports — try again in a moment.");
     }
     setExtracting(false);
   }
@@ -480,19 +484,21 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
               ))}
             </div>
             <div className="flex items-center gap-3 pt-1">
-              <button
-                type="button"
-                onClick={applyExtracted}
-                className="rounded-lg bg-brown px-3 py-1.5 text-xs font-medium text-white hover:bg-brown/90"
-              >
+              <button type="button" onClick={applyExtracted} className="btn-primary text-sm">
                 Use these
               </button>
-              <button type="button" onClick={() => { setExtracted(null); setExtractWarnings([]); }} className="text-xs text-gray-500 hover:text-gray-700">
+              <button type="button" onClick={() => { setExtracted(null); setExtractWarnings([]); }} className="btn-ghost text-sm">
                 Cancel
               </button>
               <span className="text-xs text-gray-400">Replaces the table below</span>
             </div>
           </div>
+        )}
+        {microError && <p className="text-sm text-red-500 mb-3">{microError}</p>}
+        {spec.micro.length === 0 && !extracted && (
+          <p className="text-sm text-gray-400 mb-3">
+            No targets set. Read them from this product&apos;s lab reports, or add them below — the section is left off the PDF while it&apos;s empty.
+          </p>
         )}
         <div className="space-y-2">
           {spec.micro.map((m, i) => (
@@ -553,24 +559,42 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
         </div>
       </Section>
 
-      <Section title="Pack shot">
-        <div className="flex items-start gap-4">
-          {packShotPath && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={publicUrl(packShotPath)} alt="Pack shot" className="h-32 w-32 object-contain rounded-lg border border-gray-200 bg-white" />
-          )}
-          <div className="space-y-2">
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/png,image/jpeg,.png,.jpg,.jpeg"
-              className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-cream file:px-3 file:py-2 file:text-sm file:font-medium file:text-brown hover:file:bg-brand-light"
-              onChange={handlePackShot}
-              disabled={uploadingShot}
-            />
-            {uploadingShot && <p className="text-xs text-gray-400">Uploading…</p>}
-          </div>
-        </div>
+      <Section
+        title="Pack shot"
+        action={
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploadingShot || !orgId}
+            className="inline-flex items-center gap-1 text-xs font-medium text-brown hover:underline disabled:opacity-50"
+          >
+            {uploadingShot ? (
+              <span className="animate-pulse">Uploading…</span>
+            ) : (
+              <>
+                <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M6 1v7M3 5l3-4 3 4M1 9v1a1 1 0 001 1h8a1 1 0 001-1V9"/>
+                </svg>
+                {packShotPath ? "Replace photo" : "Upload photo"}
+              </>
+            )}
+          </button>
+        }
+      >
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/png,image/jpeg,.png,.jpg,.jpeg"
+          className="hidden"
+          onChange={handlePackShot}
+        />
+        {packShotPath ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={publicUrl(packShotPath)} alt="Pack shot" className="h-40 w-40 object-contain rounded-lg border border-gray-200 bg-white" />
+        ) : (
+          <p className="text-sm text-gray-400">No pack shot yet — upload a photo of the finished product as a PNG or JPEG.</p>
+        )}
+        {shotError && <p className="text-sm text-red-500 mt-2">{shotError}</p>}
       </Section>
 
       <Section title="Completed by">
@@ -615,25 +639,25 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
         </div>
       </Section>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
-
       <div className="flex items-center gap-3 pb-2">
         <button
           type="button"
           onClick={() => save()}
           disabled={saving || generating}
-          className="rounded-lg bg-brown px-3.5 py-2 text-sm font-medium text-white hover:bg-brown/90 disabled:opacity-50"
+          className="btn-primary text-sm disabled:opacity-60"
         >
-          {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
+          {saving ? "Saving…" : "Save spec sheet"}
         </button>
         <button
           type="button"
           onClick={downloadPdf}
           disabled={saving || generating || uploadingShot}
-          className="rounded-lg border border-brown px-3.5 py-2 text-sm font-medium text-brown hover:bg-brand-cream disabled:opacity-50"
+          className="btn-secondary text-sm disabled:opacity-60"
         >
-          {generating ? "Generating…" : "Download spec sheet PDF"}
+          {generating ? "Generating…" : "Download PDF"}
         </button>
+        {saved && <span className="text-xs text-green-600 font-medium">Saved</span>}
+        {error && <span className="text-xs text-red-500">{error}</span>}
       </div>
     </div>
   );

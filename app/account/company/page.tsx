@@ -126,18 +126,18 @@ export default function CompanyDetailsPage() {
               ))}
             </div>
 
-            {error && <p className="text-sm text-red-500">{error}</p>}
-
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={save}
                 disabled={saving}
-                className="rounded-lg bg-brown px-3.5 py-2 text-sm font-medium text-white hover:bg-brown/90 disabled:opacity-50"
+                className="btn-primary text-sm disabled:opacity-60"
               >
-                {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
+                {saving ? "Saving…" : "Save company details"}
               </button>
-              <Link href="/production/finished-goods" className="text-sm text-brown/70 hover:text-brown hover:underline">
+              {saved && <span className="text-xs text-green-600 font-medium">Saved</span>}
+              {error && <span className="text-xs text-red-500">{error}</span>}
+              <Link href="/production/finished-goods" className="ml-auto text-sm text-brown/70 hover:text-brown hover:underline">
                 Back to Finished Goods
               </Link>
             </div>

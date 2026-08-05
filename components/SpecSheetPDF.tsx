@@ -298,7 +298,10 @@ export function SpecSheetDocument(props: SpecSheetPdfProps) {
           })}
         </View>
 
-        {/* ── Microbiological Analysis ────────────────────────────────── */}
+        {/* ── Microbiological Analysis ──────────────────────────────────
+            Omitted entirely when no targets are set — an empty table on a
+            customer-facing spec looks like missing paperwork. */}
+        {spec.micro.length > 0 && (
         <View style={s.table} wrap={false}>
           <Band>Microbiological Analysis</Band>
           <TRow cells={[
@@ -320,6 +323,7 @@ export function SpecSheetDocument(props: SpecSheetPdfProps) {
             );
           })}
         </View>
+        )}
 
         {/* ── Organoleptic Attributes ─────────────────────────────────── */}
         <View style={s.table} wrap={false}>

@@ -86,18 +86,12 @@ export const SUITABILITY_ROWS: { key: string; label: string }[] = [
   { key: "siteGmFree",   label: "Manufacturing site free from GM ingredients" },
 ];
 
-// Standard ready-to-eat ambient targets; plain text (no superscripts — the
-// PDF's built-in Helvetica has no glyph for a superscript 4).
-export const DEFAULT_MICRO: MicroRow[] = [
-  { test: "Enterobacteriaceae",      target: "<100 cfu/g" },
-  { test: "E. coli",                 target: "<20 cfu/g" },
-  { test: "Salmonella spp.",         target: "Not detected in 25g" },
-  { test: "Listeria spp.",           target: "Not detected in 25g" },
-  { test: "Bacillus cereus",         target: "<1,000 cfu/g" },
-  { test: "Staphylococcus aureus",   target: "<20 cfu/g" },
-  { test: "Clostridium perfringens", target: "<100 cfu/g" },
-  { test: "Yeast & moulds",          target: "<10,000 cfu/g" },
-];
+// Micro targets are DELIBERATELY not seeded. A limit on a customer-facing
+// specification is a commitment about a specific product, so it has to come
+// from that product's own lab reports (or be typed knowingly) — never from a
+// built-in list that would quietly put the same numbers on every product in
+// every org. Write limits in plain text: the PDF's built-in Helvetica has no
+// superscript glyphs, so "<1,000 cfu/g", never "10³".
 
 export const IN_GENERAL_TEXT =
   "The final pack will be aesthetically presentable, and to an agreed standard. All materials used shall be " +
@@ -175,7 +169,7 @@ export function defaultSpecData(input: SpecDefaultsInput): SpecData {
     // the site handles; editable from there.
     handledOnSite: Array.from(new Set([...contains, ...mayContain])).sort(),
     suitability,
-    micro: DEFAULT_MICRO.map(r => ({ ...r })),
+    micro: [],
     organoleptic: { appearance: "", aroma: "", texture: "", flavour: "" },
     packaging: [
       { level: "Primary",   material: input.primaryPackaging.join(" & "), dimensions: "", weight: "" },

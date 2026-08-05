@@ -294,7 +294,10 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   • Micro limits → **"Read from lab reports"** (`/api/extract-micro-targets`): Claude reads the
     product's most recent lab-test PDFs (max 3, newest first) and returns test/limit/result rows for
     review. Nothing is saved without a human ticking it, and a row with NO stated limit is left
-    unticked — never invent a limit for a customer-facing spec. Same auth shape as
+    unticked — never invent a limit for a customer-facing spec. The micro table is **deliberately
+    empty by default** (Tom, 5 Aug 2026 — a seeded list silently puts one product's limits on every
+    product in every org) and the PDF omits the whole Microbiological Analysis section while it is.
+    Same auth shape as
     `extract-spec-nutrition` (user's session → org from `organisation_members` → admin client with an
     explicit org assert).
   Both tabs write DIFFERENT keys of the same `product_spec_sheets.data` jsonb via `saveSpecPatch`
