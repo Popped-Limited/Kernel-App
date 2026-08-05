@@ -16,6 +16,13 @@ scope it by org and add an RLS policy (`USING (organisation_id = get_my_org_id()
   stray `USING(true)` silently defeats a correct `org_isolation` policy — and most list pages
   (e.g. Finished Goods) have NO app-level org filter, so they leak everything RLS lets through.
   Fixed via `scripts/fix-rls-leaks-2026-07-29.sql`.
+- **Never verify a table exists with `head: true`.** `select("*", { count: "exact", head: true })`
+  returns NO body, so supabase-js leaves `error` null even when PostgREST answers PGRST205
+  ("Could not find the table … in the schema cache") — the check reports the table as present with
+  `count: null`. That false positive cost a round trip on 5 Aug 2026. Use a plain
+  `.select("*").limit(1)` and read `error.code`. Related: PostgREST reports an unknown table as
+  **PGRST205**, not Postgres's 42P01 — code that only checks 42P01 will never spot a missing table
+  (see `isMissingTable` in components/useProductSpecSheet.ts).
 - **Verify RLS the hard way, not by reading scripts.** Reproduce as a real login
   (`admin.generateLink` magiclink → `verifyOtp` with the anon client → query as that user).
   That has a blind spot (a table where only one org has data can't reveal a `USING(true)` hole),
