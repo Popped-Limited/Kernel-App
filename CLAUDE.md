@@ -264,8 +264,12 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   optional "Production batch record" `batch_link` question ties a check to a production batch;
   the product hub's Organoleptic tab (`components/ProductOrganolepticPanel.tsx`) lists checks
   matched by the batch_link's product or, unlinked, by exact (case-insensitive) product-name
-  answer — checklist matched by name `ilike %organoleptic%`. Demo org (Popped) already patched
-  to match the template.
+  answer — checklist matched by name `ilike %organoleptic%`. Backfilled into ALL 8 existing orgs
+  5 Aug 2026 (insert-only, skip-if-present).
+- **Seeded content must reach EXISTING orgs too (Tom, 5 Aug 2026).** The new-org seed pack only runs
+  at signup, so adding a checklist there alone leaves every live customer without it — it looks like
+  a missing feature, which is how Organoleptic Checks "disappeared". Whenever you add to the seed
+  pack, also run an insert-only, skip-if-present backfill across all orgs in the same session.
 - `add-spec-sheets.sql` (product spec sheet PDFs: org-singleton `spec_company_details` jsonb +
   per-product `product_spec_sheets` jsonb keyed (org, lower(product_name)), both org-isolated RLS)
   — **PENDING: run in the Supabase SQL editor** (the Spec sheet tab shows a setup notice until then).
