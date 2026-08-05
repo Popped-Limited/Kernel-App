@@ -205,15 +205,14 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   `{ starts_at }`; `GET ?admin=1&from&to` returns a date range; `DELETE ?id=` (one) or `?from&to`
   (clear unbooked in range). Times stored as timestamptz, shown/generated in Europe/London (browser tz).
 - `add-demo-settings.sql` (single-row `demo_settings` holding the demo video `meeting_url`)
-  — **PENDING: run in the Supabase SQL editor** (the Video meeting link field + join links in
-  invites won't work until then). Kernel-global singleton (id=1), RLS on/no policy, service-role
+  — **applied in prod** (table verified 4 Aug 2026). Kernel-global singleton (id=1), RLS on/no policy, service-role
   only; edited via `app/api/demo-slots/settings` (support-only GET/POST). The book route embeds the
   link in both ICS files (`LOCATION`/`URL`) and as a "Join the demo" button in both emails; if unset
   the support email warns to add one. One shared room is fine — demos run one at a time. Booking
   emails now send via `Promise.allSettled` so one failing doesn't block the other.
 - `create-gmp-audits.sql` (GMP audits, SALSA issue 7: `gmp_areas` + `gmp_audits` + `gmp_findings`,
-  all org-isolated RLS) — **PENDING: run in the Supabase SQL editor** (the GMP Audits page shows a
-  load error until then). Model: monthly audit of ONE area on a rota (app suggests the
+  all org-isolated RLS) — **applied in prod** (tables verified 4 Aug 2026).
+  Model: monthly audit of ONE area on a rota (app suggests the
   longest-unaudited area; free choice allowed). Areas are seeded in-app with SALSA-shaped defaults
   on first visit (placeholder wording pending Katie's confirmation — editable per org, deactivate
   never delete). Findings are free-form: photos (reuses `compliance-photos` bucket under `gmp/`),
@@ -272,7 +271,7 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   pack, also run an insert-only, skip-if-present backfill across all orgs in the same session.
 - `add-spec-sheets.sql` (product spec sheet PDFs: org-singleton `spec_company_details` jsonb +
   per-product `product_spec_sheets` jsonb keyed (org, lower(product_name)), both org-isolated RLS)
-  — **PENDING: run in the Supabase SQL editor** (the Spec sheet tab shows a setup notice until then).
+  — **applied in prod** (tables verified 4 Aug 2026).
   Powers the product hub's **Spec sheet** tab: edits the non-derivable fields (doc control, shelf
   life wording, micro targets, organoleptics, packaging spec, suitability, sign-off, amendment log)
   and generates a Beacon-style "Finished Product Specification" PDF via `@react-pdf/renderer`.
@@ -285,6 +284,23 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   (micro targets use "<1,000 cfu/g", never "10³"); auto-hyphenation is disabled via
   `Font.registerHyphenationCallback`. `SpecSheetPDF.tsx` must only ever be loaded via dynamic
   `import()` (it's heavy); `import type` from it is fine.
+- **Enter data ONCE — the spec sheet pulls, it doesn't re-ask (Tom, 5 Aug 2026).** Every field that
+  exists elsewhere in Kernel is read-only on the Spec sheet tab with a link to its home, because the
+  alternative is re-typing the same data for every product:
+  • Company information → **Account → Company details** (`/account/company`, org-singleton
+    `spec_company_details`). Never edit it per product.
+  • Organoleptic standard (appearance/aroma/texture/flavour) → the **Organoleptic tab**, above the
+    check history (the checks are pass/fail evidence; the standard is the definition the spec declares).
+  • Micro limits → **"Read from lab reports"** (`/api/extract-micro-targets`): Claude reads the
+    product's most recent lab-test PDFs (max 3, newest first) and returns test/limit/result rows for
+    review. Nothing is saved without a human ticking it, and a row with NO stated limit is left
+    unticked — never invent a limit for a customer-facing spec. Same auth shape as
+    `extract-spec-nutrition` (user's session → org from `organisation_members` → admin client with an
+    explicit org assert).
+  Both tabs write DIFFERENT keys of the same `product_spec_sheets.data` jsonb via `saveSpecPatch`
+  (`components/useProductSpecSheet.ts`), which re-reads and merges — the Spec sheet tab must never
+  write `organoleptic`, and the PDF re-reads the row at download so it can't ship a stale standard.
+  This is the same non-clobbering pattern as `saveProductSettings`.
 - **Finished-goods query perf (30 Jul 2026):** the finished-goods list + product pages and the
   dashboard's weekly-production query filter submissions server-side with
   `checklist:checklists!inner(...)` + `.eq("checklist.category", "Production")` — don't regress to

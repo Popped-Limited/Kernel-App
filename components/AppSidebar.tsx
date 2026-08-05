@@ -71,6 +71,7 @@ const NAV = [
     minRole: "admin",
     items: [
       { label: "Billing", href: "/account/billing" },
+      { label: "Company Details", href: "/account/company" },
       { label: "Users",   href: "/account/users"   },
     ],
   },

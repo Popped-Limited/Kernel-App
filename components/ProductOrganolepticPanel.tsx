@@ -1,9 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { fetchAll } from "@/lib/fetchAll";
 import { formatDate } from "@/lib/utils";
+import { useOrganisation } from "@/contexts/OrganisationContext";
+import { loadSpecRow, saveSpecPatch } from "@/components/useProductSpecSheet";
+import type { SpecData } from "@/lib/spec-sheet";
+
+// The product's agreed sensory STANDARD (what it should look, smell, feel and
+// taste like) is entered here and pulled straight onto the spec sheet — the
+// checks below are the evidence that each batch met it. Stored on the product's
+// spec sheet row so there's one definition, entered once.
 
 // Per-product organoleptic check history. A check links to the product either
 // via its "Production batch record" batch_link answer ({submission_id,
@@ -33,6 +41,89 @@ function ResultBadge({ result }: { result: string }) {
   if (r === "pass") return <span className="badge bg-green-100 text-green-700">Pass</span>;
   if (r === "fail") return <span className="badge bg-red-100 text-red-600">Fail</span>;
   return <span className="text-gray-300">—</span>;
+}
+
+type Organoleptic = SpecData["organoleptic"];
+const EMPTY_STANDARD: Organoleptic = { appearance: "", aroma: "", texture: "", flavour: "" };
+
+const STANDARD_FIELDS: [keyof Organoleptic, string, string][] = [
+  ["appearance", "Appearance", "e.g. Dark red oil with 4-6mm particulates, half oil and half sediment when settled"],
+  ["aroma", "Aroma", "e.g. Savoury"],
+  ["texture", "Texture", "e.g. Lightly toasted, crisp sediment"],
+  ["flavour", "Flavour", "e.g. Deeply savoury, spicy, slightly salty"],
+];
+
+/** The agreed sensory standard for the product — feeds the spec sheet. */
+function StandardPanel({ productName }: { productName: string }) {
+  const { orgId } = useOrganisation();
+  const [standard, setStandard] = useState<Organoleptic>(EMPTY_STANDARD);
+  const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    if (!orgId) return;
+    const row = await loadSpecRow(orgId, productName);
+    if (row.tableMissing) { setUnavailable(true); setLoading(false); return; }
+    setStandard({ ...EMPTY_STANDARD, ...(row.data.organoleptic ?? {}) });
+    setLoading(false);
+  }, [orgId, productName]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function save() {
+    if (!orgId) return;
+    setSaving(true);
+    setError("");
+    const res = await saveSpecPatch(orgId, productName, { organoleptic: standard });
+    setSaving(false);
+    if (res.error) { setError("Failed to save: " + res.error); return; }
+    setSaved(true);
+  }
+
+  if (unavailable) return null;
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+        <h2 className="text-sm font-semibold text-gray-700">Product standard</h2>
+      </div>
+      {loading ? (
+        <div className="p-8 text-center text-sm text-gray-400">Loading…</div>
+      ) : (
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {STANDARD_FIELDS.map(([key, label, placeholder]) => (
+              <div key={key} className={key === "appearance" ? "sm:col-span-2" : ""}>
+                <label className="label">{label}</label>
+                <textarea
+                  className="input"
+                  rows={key === "appearance" ? 2 : 1}
+                  placeholder={placeholder}
+                  value={standard[key]}
+                  onChange={e => { setStandard(s => ({ ...s, [key]: e.target.value })); setSaved(false); }}
+                />
+              </div>
+            ))}
+          </div>
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving || !orgId}
+              className="rounded-lg bg-brown px-3.5 py-2 text-sm font-medium text-white hover:bg-brown/90 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
+            </button>
+            <span className="text-xs text-gray-400">Appears on the product spec sheet</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ProductOrganolepticPanel({ productName }: { productName: string }) {
@@ -115,6 +206,9 @@ export default function ProductOrganolepticPanel({ productName }: { productName:
   }, [productName]);
 
   return (
+    <div className="space-y-6">
+    <StandardPanel productName={productName} />
+
     <div className="card overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-700">Organoleptic checks</h2>
@@ -161,6 +255,7 @@ export default function ProductOrganolepticPanel({ productName }: { productName:
           </table>
         </div>
       )}
+    </div>
     </div>
   );
 }

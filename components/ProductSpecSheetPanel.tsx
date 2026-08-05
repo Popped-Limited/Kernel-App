@@ -1,23 +1,31 @@
 "use client";
 
-// Spec sheet tab — edits the per-product spec fields + org-level company
-// details, then generates the Beacon-style Finished Product Specification PDF.
-// Derived content (ingredient declaration, QUID, nutrition, allergens) is
-// computed live from the recipe at download time via the same calc as the
-// Declarations tab; only the non-derivable fields are stored.
+// Spec sheet tab — the fields that only exist on a specification, plus the PDF
+// generator. Everything that lives somewhere else in Kernel is PULLED, never
+// re-typed here:
+//   • ingredient declaration / QUID / allergens / nutrition → the recipe calc
+//   • company information                                   → Account → Company details
+//   • organoleptic standard                                 → the Organoleptic tab
+//   • microbiological limits                                → read off the lab reports by AI
+// so adding a second product doesn't mean typing the same data again.
 //
 // @react-pdf/renderer is heavy, so SpecSheetPDF is loaded via dynamic import()
 // inside the download handler — never statically.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useOrganisation } from "@/contexts/OrganisationContext";
 import { useProductNutrition } from "@/components/useProductNutrition";
 import { computeNutrition, NUTRIENT_KEYS, type CalcResult, type NutrientKey } from "@/lib/nutrition/recipe-calc";
 import {
-  type CompanyDetails, type SpecData,
+  loadSpecRow, saveSpecPatch, loadCompanyDetails, companyIsComplete,
+} from "@/components/useProductSpecSheet";
+import {
+  type CompanyDetails, type SpecData, type MicroRow,
   SPEC_ALLERGENS, SUITABILITY_ROWS,
-  defaultCompanyDetails, defaultSpecData, mergeCompanyDetails, mergeSpecData, todayUK,
+  defaultSpecData, mergeSpecData, todayUK,
 } from "@/lib/spec-sheet";
 import type { DeclarationPart, NutritionRow } from "@/components/SpecSheetPDF";
 
@@ -35,15 +43,25 @@ const NUTRITION_LABELS: [NutrientKey, string][] = [
   ["salt_g", "Salt (g)"],
 ];
 
+/** One extracted micro row awaiting the user's confirmation. */
+interface ExtractedMicro {
+  test: string;
+  target: string;
+  result: string;
+  source: string;
+  use: boolean;
+}
+
 function publicUrl(path: string) {
   return supabase.storage.from("compliance-docs").getPublicUrl(path).data.publicUrl;
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="card overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-gray-700">{title}</h2>
+        {action}
       </div>
       <div className="p-4">{children}</div>
     </div>
@@ -65,8 +83,19 @@ function Field({ label, value, onChange, textarea, placeholder }: {
   );
 }
 
+/** A value that lives elsewhere in Kernel: shown, not editable, with a link to its home. */
+function PulledRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-3 text-sm py-1">
+      <span className="w-32 shrink-0 text-gray-500">{label}</span>
+      <span className="text-gray-900 whitespace-pre-wrap">{value || <span className="text-gray-300">Not set</span>}</span>
+    </div>
+  );
+}
+
 export default function ProductSpecSheetPanel({ productName }: { productName: string }) {
   const { orgId, orgName } = useOrganisation();
+  const pathname = usePathname();
   const nutrition = useProductNutrition(productName);
 
   const result: CalcResult = useMemo(() => {
@@ -87,7 +116,6 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
 
   const [loading, setLoading] = useState(true);
   const [tableMissing, setTableMissing] = useState(false);
-  const [specId, setSpecId] = useState<string | null>(null);
   const [spec, setSpec] = useState<SpecData | null>(null);
   const [company, setCompany] = useState<CompanyDetails | null>(null);
   const [packShotPath, setPackShotPath] = useState<string | null>(null);
@@ -96,12 +124,16 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
   const [saved, setSaved] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  // Micro extraction review
+  const [extracting, setExtracting] = useState(false);
+  const [extracted, setExtracted] = useState<ExtractedMicro[] | null>(null);
+  const [extractWarnings, setExtractWarnings] = useState<string[]>([]);
   const initialised = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Initialise once both the org and the recipe calc are ready — defaults are
   // derived from the recipe (allergens, net weight), then overlaid with the
-  // saved rows so later-added fields still get sensible values.
+  // saved row so later-added fields still get sensible values.
   useEffect(() => {
     if (initialised.current || !orgId || nutrition.loading) return;
     initialised.current = true;
@@ -109,25 +141,11 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
       const { data: { user } } = await supabase.auth.getUser();
       const userName = (user?.user_metadata?.full_name as string | undefined)?.trim() || user?.email || "";
 
-      const esc = productName.replace(/[\\%_]/g, m => "\\" + m);
-      const [specRes, companyRes] = await Promise.all([
-        supabase.from("product_spec_sheets")
-          .select("id, data, pack_shot_path")
-          .eq("organisation_id", orgId)
-          .ilike("product_name", esc)
-          .maybeSingle(),
-        supabase.from("spec_company_details")
-          .select("data")
-          .eq("organisation_id", orgId)
-          .maybeSingle(),
+      const [row, companyRes] = await Promise.all([
+        loadSpecRow(orgId, productName),
+        loadCompanyDetails(orgId, orgName ?? ""),
       ]);
-
-      // 42P01 = table doesn't exist yet (migration not run)
-      if (specRes.error?.code === "42P01" || companyRes.error?.code === "42P01") {
-        setTableMissing(true);
-        setLoading(false);
-        return;
-      }
+      if (row.tableMissing || companyRes.tableMissing) { setTableMissing(true); setLoading(false); return; }
 
       const defaults = defaultSpecData({
         productName,
@@ -138,10 +156,9 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
         mayContain: result.mayContain,
         primaryPackaging: [nutrition.packaging.jar, nutrition.packaging.closure].filter((x): x is string => !!x),
       });
-      setSpec(mergeSpecData(defaults, specRes.data?.data as Partial<SpecData> | null));
-      setSpecId(specRes.data?.id ?? null);
-      setPackShotPath(specRes.data?.pack_shot_path ?? null);
-      setCompany(mergeCompanyDetails(defaultCompanyDetails(orgName ?? ""), companyRes.data?.data as Partial<CompanyDetails> | null));
+      setSpec(mergeSpecData(defaults, row.data));
+      setPackShotPath(row.packShotPath);
+      setCompany(companyRes.company);
       setLoading(false);
     })();
   }, [orgId, orgName, nutrition, result, productName]);
@@ -150,52 +167,16 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
     setSpec(s => (s ? { ...s, ...patch } : s));
     setSaved(false);
   }
-  function patchCompany(patch: Partial<CompanyDetails>) {
-    setCompany(c => (c ? { ...c, ...patch } : c));
-    setSaved(false);
-  }
 
-  async function save(): Promise<boolean> {
-    if (!orgId || !spec || !company) return false;
+  /** Save every key this tab owns — never `organoleptic`, which the Organoleptic tab owns. */
+  async function save(shot?: string | null): Promise<boolean> {
+    if (!orgId || !spec) return false;
     setSaving(true);
     setError("");
-    const { data: { user } } = await supabase.auth.getUser();
-    const by = (user?.user_metadata?.full_name as string | undefined)?.trim() || user?.email || "";
-    const now = new Date().toISOString();
-
-    const { error: companyError } = await supabase
-      .from("spec_company_details")
-      .upsert({ organisation_id: orgId, data: company, updated_by: by, updated_at: now }, { onConflict: "organisation_id" });
-    if (companyError) {
-      setError("Failed to save company details: " + companyError.message);
-      setSaving(false);
-      return false;
-    }
-
-    if (specId) {
-      const { error: specError } = await supabase
-        .from("product_spec_sheets")
-        .update({ data: spec, pack_shot_path: packShotPath, updated_by: by, updated_at: now })
-        .eq("id", specId);
-      if (specError) {
-        setError("Failed to save: " + specError.message);
-        setSaving(false);
-        return false;
-      }
-    } else {
-      const { data: inserted, error: specError } = await supabase
-        .from("product_spec_sheets")
-        .insert({ organisation_id: orgId, product_name: productName, data: spec, pack_shot_path: packShotPath, updated_by: by, updated_at: now })
-        .select("id")
-        .single();
-      if (specError) {
-        setError("Failed to save: " + specError.message);
-        setSaving(false);
-        return false;
-      }
-      setSpecId(inserted?.id ?? null);
-    }
+    const { organoleptic: _ownedElsewhere, ...mine } = spec;
+    const res = await saveSpecPatch(orgId, productName, mine, shot !== undefined ? shot : packShotPath);
     setSaving(false);
+    if (res.error) { setError("Failed to save: " + res.error); return false; }
     setSaved(true);
     return true;
   }
@@ -221,21 +202,70 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
       setUploadingShot(false);
       return;
     }
-    // Replace: best-effort removal of the previous file
     if (packShotPath) await supabase.storage.from("compliance-docs").remove([packShotPath]);
     setPackShotPath(path);
     setSaved(false);
     setUploadingShot(false);
   }
 
+  /** Read the product's lab reports and offer the micro limits for review. */
+  async function pullMicroFromLabReports() {
+    setExtracting(true);
+    setError("");
+    setExtracted(null);
+    setExtractWarnings([]);
+    try {
+      const res = await fetch("/api/extract-micro-targets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_name: productName }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(body.error || "Couldn't read the lab reports.");
+        setExtracting(false);
+        return;
+      }
+      const tests = (body.extraction?.tests ?? []) as Omit<ExtractedMicro, "use">[];
+      if (tests.length === 0) {
+        setError("No microbiological results found in the lab reports for this product.");
+        setExtracting(false);
+        return;
+      }
+      // Pre-tick only rows that actually carry a limit — a result with no
+      // stated limit isn't a specification and shouldn't land in the table
+      // unreviewed.
+      setExtracted(tests.map(t => ({ ...t, use: Boolean(t.target?.trim()) })));
+      setExtractWarnings((body.extraction?.warnings ?? []) as string[]);
+    } catch {
+      setError("Couldn't read the lab reports — try again in a moment.");
+    }
+    setExtracting(false);
+  }
+
+  /** Replace the micro table with the ticked extracted rows. */
+  function applyExtracted() {
+    if (!extracted || !spec) return;
+    const rows: MicroRow[] = extracted
+      .filter(e => e.use)
+      .map(e => ({ test: e.test, target: e.target || e.result }));
+    if (rows.length) patchSpec({ micro: rows });
+    setExtracted(null);
+    setExtractWarnings([]);
+  }
+
   async function downloadPdf() {
-    if (!spec || !company) return;
+    if (!spec || !company || !orgId) return;
     setGenerating(true);
     setError("");
     try {
-      // Persist first so the sheet on disk always matches a saved state
       const ok = await save();
       if (!ok) { setGenerating(false); return; }
+
+      // Re-read the row so the organoleptic standard is whatever the
+      // Organoleptic tab last saved, not what was loaded when this tab opened.
+      const fresh = await loadSpecRow(orgId, productName);
+      const specForPdf: SpecData = { ...spec, organoleptic: { ...spec.organoleptic, ...(fresh.data.organoleptic ?? {}) } };
 
       const declarationParts: DeclarationPart[] = result.declaration.map(d => ({
         name: d.name,
@@ -257,7 +287,7 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
         <SpecDoc
           productName={productName}
           company={company}
-          spec={spec}
+          spec={specForPdf}
           declarationParts={declarationParts}
           nutritionRows={nutritionRows}
           contains={result.contains}
@@ -291,10 +321,14 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
   }
   if (!spec || !company) return null;
 
+  const organolepticSet = Object.values(spec.organoleptic).some(v => v.trim());
+
   const gaps: string[] = [];
   if (!result.declaration.length) gaps.push("No recipe found — the ingredient declaration will be blank. Build the production record's ingredients table first.");
   if (!result.per100g) gaps.push("Nutrition data is incomplete — the nutrition table will be left off. Fix the gaps on the Recipe & yields tab.");
   if (result.gaps.unmatched.length) gaps.push(`No raw material match (allergens unknown): ${result.gaps.unmatched.join(", ")}.`);
+  if (!companyIsComplete(company)) gaps.push("Company details are incomplete — fill them in under Account → Company details (once, for every product).");
+  if (!organolepticSet) gaps.push("No organoleptic standard set — add it on the Organoleptic tab and it appears here.");
 
   return (
     <div className="space-y-6">
@@ -305,24 +339,17 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
         </div>
       )}
 
-      <Section title="Company information">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Supplier name" value={company.supplierName} onChange={v => patchCompany({ supplierName: v })} />
-          <Field label="Telephone" value={company.telephone} onChange={v => patchCompany({ telephone: v })} />
-          <div className="sm:col-span-2">
-            <Field label="Address" textarea value={company.address} onChange={v => patchCompany({ address: v })} />
-          </div>
-          <Field label="Email" value={company.email} onChange={v => patchCompany({ email: v })} />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-          {(["commercial", "technical"] as const).map(kind => (
-            <div key={kind} className="rounded-lg border border-gray-200 p-3 space-y-3">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{kind === "commercial" ? "Commercial contact" : "Technical contact"}</p>
-              <Field label="Name" value={company[kind].name} onChange={v => patchCompany({ [kind]: { ...company[kind], name: v } } as Partial<CompanyDetails>)} />
-              <Field label="Telephone" value={company[kind].phone} onChange={v => patchCompany({ [kind]: { ...company[kind], phone: v } } as Partial<CompanyDetails>)} />
-              <Field label="Email" value={company[kind].email} onChange={v => patchCompany({ [kind]: { ...company[kind], email: v } } as Partial<CompanyDetails>)} />
-            </div>
-          ))}
+      <Section
+        title="Company information"
+        action={<Link href="/account/company" className="text-xs font-medium text-brown hover:underline">Edit in Account →</Link>}
+      >
+        <div className="divide-y divide-gray-100">
+          <PulledRow label="Supplier" value={company.supplierName} />
+          <PulledRow label="Address" value={company.address} />
+          <PulledRow label="Telephone" value={company.telephone} />
+          <PulledRow label="Email" value={company.email} />
+          <PulledRow label="Commercial" value={[company.commercial.name, company.commercial.phone, company.commercial.email].filter(Boolean).join(" · ")} />
+          <PulledRow label="Technical" value={[company.technical.name, company.technical.phone, company.technical.email].filter(Boolean).join(" · ")} />
         </div>
       </Section>
 
@@ -417,7 +444,56 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
         </div>
       </Section>
 
-      <Section title="Microbiological targets">
+      <Section
+        title="Microbiological targets"
+        action={
+          <button
+            type="button"
+            onClick={pullMicroFromLabReports}
+            disabled={extracting}
+            className="text-xs font-medium text-brown hover:underline disabled:opacity-50"
+          >
+            {extracting ? "Reading lab reports…" : "Read from lab reports"}
+          </button>
+        }
+      >
+        {extracted && (
+          <div className="mb-4 rounded-lg border border-brand-light bg-brand-cream/50 p-3 space-y-2">
+            <p className="text-xs font-semibold text-brown uppercase tracking-wide">Found in your lab reports — tick what to use</p>
+            {extractWarnings.map((w, i) => (
+              <p key={i} className="text-xs text-amber-800">{w}</p>
+            ))}
+            <div className="space-y-1">
+              {extracted.map((e, i) => (
+                <label key={i} className="flex items-center gap-2 text-sm text-gray-800">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300 text-brown focus:ring-brand/40"
+                    checked={e.use}
+                    onChange={ev => setExtracted(prev => prev!.map((x, j) => j === i ? { ...x, use: ev.target.checked } : x))}
+                  />
+                  <span className="font-medium">{e.test}</span>
+                  <span className="text-gray-700">{e.target || <span className="text-gray-400">no limit stated</span>}</span>
+                  {e.result && <span className="text-xs text-gray-400">result: {e.result}</span>}
+                  {e.source && <span className="text-xs text-gray-400">· {e.source}</span>}
+                </label>
+              ))}
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={applyExtracted}
+                className="rounded-lg bg-brown px-3 py-1.5 text-xs font-medium text-white hover:bg-brown/90"
+              >
+                Use these
+              </button>
+              <button type="button" onClick={() => { setExtracted(null); setExtractWarnings([]); }} className="text-xs text-gray-500 hover:text-gray-700">
+                Cancel
+              </button>
+              <span className="text-xs text-gray-400">Replaces the table below</span>
+            </div>
+          </div>
+        )}
         <div className="space-y-2">
           {spec.micro.map((m, i) => (
             <div key={i} className="flex gap-2 items-center">
@@ -445,12 +521,19 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
         </div>
       </Section>
 
-      <Section title="Organoleptic attributes">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Appearance" textarea value={spec.organoleptic.appearance} onChange={v => patchSpec({ organoleptic: { ...spec.organoleptic, appearance: v } })} />
-          <Field label="Aroma" value={spec.organoleptic.aroma} onChange={v => patchSpec({ organoleptic: { ...spec.organoleptic, aroma: v } })} />
-          <Field label="Texture" value={spec.organoleptic.texture} onChange={v => patchSpec({ organoleptic: { ...spec.organoleptic, texture: v } })} />
-          <Field label="Flavour" value={spec.organoleptic.flavour} onChange={v => patchSpec({ organoleptic: { ...spec.organoleptic, flavour: v } })} />
+      <Section
+        title="Organoleptic attributes"
+        action={
+          <Link href={`${pathname}?tab=organoleptic`} className="text-xs font-medium text-brown hover:underline">
+            Edit on Organoleptic tab →
+          </Link>
+        }
+      >
+        <div className="divide-y divide-gray-100">
+          <PulledRow label="Appearance" value={spec.organoleptic.appearance} />
+          <PulledRow label="Aroma" value={spec.organoleptic.aroma} />
+          <PulledRow label="Texture" value={spec.organoleptic.texture} />
+          <PulledRow label="Flavour" value={spec.organoleptic.flavour} />
         </div>
       </Section>
 
@@ -537,7 +620,7 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
       <div className="flex items-center gap-3 pb-2">
         <button
           type="button"
-          onClick={save}
+          onClick={() => save()}
           disabled={saving || generating}
           className="rounded-lg bg-brown px-3.5 py-2 text-sm font-medium text-white hover:bg-brown/90 disabled:opacity-50"
         >
