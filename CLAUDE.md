@@ -300,6 +300,19 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
     Same auth shape as
     `extract-spec-nutrition` (user's session → org from `organisation_members` → admin client with an
     explicit org assert).
+- **NEVER seed a spec-sheet field with a claim the business hasn't made** (Tom, 5 Aug 2026 — he
+  caught the micro limits, then the doc reference). A spec sheet goes to a customer, so a default
+  is only legitimate when it's derived from the org's own data or is a pure formatting convention.
+  Deliberately blank in `defaultSpecData`: `reference` (that's the org's own QMS form number —
+  "F3.6a" was Beacon's), `storage` (an ambient default mislabels a chilled/frozen product), `micro`,
+  and **every `suitability` row**. Suitability especially must NOT be inferred from recipe allergens:
+  meat, gelatine, honey and rennet aren't allergens, so allergen-based logic would print
+  "Suitable for Vegans: Yes" on a beef product, and the GM rows have no evidence behind them at all.
+  Kernel surfaces what it knows (a "recipe contains gluten" badge on the Coeliacs row) and lets a
+  human answer. Legitimate defaults are the derived ones: net quantity from the net weight, legal
+  name from the product name, primary packaging from the packing-runs mapping, completed-by from the
+  org + login. NB the In General / Warranty / Customer Approval boilerplate in `lib/spec-sheet.ts` is
+  still adapted from the Beacon sheet and is not user-editable — worth having Katie confirm the wording.
   Both tabs write DIFFERENT keys of the same `product_spec_sheets.data` jsonb via `saveSpecPatch`
   (`components/useProductSpecSheet.ts`), which re-reads and merges — the Spec sheet tab must never
   write `organoleptic`, and the PDF re-reads the row at download so it can't ship a stale standard.

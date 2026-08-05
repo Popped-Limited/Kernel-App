@@ -136,21 +136,23 @@ export interface SpecDefaultsInput {
 
 export function defaultSpecData(input: SpecDefaultsInput): SpecData {
   const { contains, mayContain } = input;
-  const has = (a: string) => contains.includes(a);
-  const hasAny = (a: string) => contains.includes(a) || mayContain.includes(a);
-
-  const suitability: Record<string, SuitabilityValue> = {
-    vegetarians:  { value: has("Fish") || has("Crustaceans") || has("Molluscs") ? "no" : "yes", certification: "" },
-    vegans:       { value: ["Fish", "Crustaceans", "Molluscs", "Milk", "Eggs"].some(has) ? "no" : "yes", certification: "" },
-    coeliacs:     { value: hasAny("Gluten") ? "no" : "yes", certification: "" },
-    gmFree:       { value: "yes", certification: "" },
-    geneTechFree: { value: "yes", certification: "" },
-    enzymeFree:   { value: "yes", certification: "" },
-    siteGmFree:   { value: "yes", certification: "" },
-  };
+  // Every suitability row starts UNSET. It's tempting to infer these from the
+  // recipe's allergens, but allergen data can't answer them: beef, gelatine,
+  // honey and rennet aren't allergens, so a meat product would default to
+  // "Suitable for Vegans: Yes". The GM rows have no evidence behind them at
+  // all. These are claims the business makes to its customer — Kernel shows
+  // what it knows (see the gluten hint on the Spec sheet tab) and lets a human
+  // answer.
+  const suitability: Record<string, SuitabilityValue> = Object.fromEntries(
+    SUITABILITY_ROWS.map(r => [r.key, { value: "" as const, certification: "" }]),
+  );
 
   return {
-    reference: "F3.6a",
+    // NOT pre-filled: the document reference is the org's own QMS form number
+    // (the example sheet's "F3.6a" is Beacon's, not every customer's), and
+    // storage conditions are a claim about this specific product — an ambient
+    // default would quietly mislabel a chilled or frozen one.
+    reference: "",
     updatedBy: input.userName,
     authorisedBy: input.userName,
     version: "1",
@@ -163,7 +165,7 @@ export function defaultSpecData(input: SpecDefaultsInput): SpecData {
     methodology: "Calculated",
     bbeText: "",
     bbeFormat: "DD/MM/YYYY",
-    storage: "Ambient",
+    storage: "",
     usage: "",
     // Recipe-contains ∪ may-contain is the sensible starting point for what
     // the site handles; editable from there.

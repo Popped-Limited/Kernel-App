@@ -333,6 +333,8 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
   if (result.gaps.unmatched.length) gaps.push(`No raw material match (allergens unknown): ${result.gaps.unmatched.join(", ")}.`);
   if (!companyIsComplete(company)) gaps.push("Company details are incomplete — fill them in under Account → Company details (once, for every product).");
   if (!organolepticSet) gaps.push("No organoleptic standard set — add it on the Organoleptic tab and it appears here.");
+  if (!Object.values(spec.suitability).some(v => v.value)) gaps.push("Product suitability is unanswered — every row prints blank until you set it.");
+  if (!spec.storage.trim()) gaps.push("Storage conditions not set.");
 
   return (
     <div className="space-y-6">
@@ -359,7 +361,7 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
 
       <Section title="Document control">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Field label="Reference" value={spec.reference} onChange={v => patchSpec({ reference: v })} />
+          <Field label="Reference" value={spec.reference} onChange={v => patchSpec({ reference: v })} placeholder="Your doc ref" />
           <Field label="Version" value={spec.version} onChange={v => patchSpec({ version: v })} />
           <Field label="Version date" value={spec.versionDate} onChange={v => patchSpec({ versionDate: v })} />
           <Field label="Issue date" value={spec.issueDate} onChange={v => patchSpec({ issueDate: v })} />
@@ -380,7 +382,7 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
           </div>
           <Field label="Best before / use by" value={spec.bbeText} onChange={v => patchSpec({ bbeText: v })} placeholder="e.g. 12 months from manufacture" />
           <Field label="Date format" value={spec.bbeFormat} onChange={v => patchSpec({ bbeFormat: v })} />
-          <Field label="Storage conditions" value={spec.storage} onChange={v => patchSpec({ storage: v })} />
+          <Field label="Storage conditions" value={spec.storage} onChange={v => patchSpec({ storage: v })} placeholder="e.g. Ambient" />
           <div>
             <label className="label">Nutrition methodology</label>
             <select className="input" value={spec.methodology} onChange={e => patchSpec({ methodology: e.target.value })}>
@@ -420,12 +422,21 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
       </Section>
 
       <Section title="Product suitability">
+        <p className="text-xs text-gray-500 mb-3">
+          Left blank until you answer — these are claims to your customer, and the recipe can&apos;t
+          establish them (meat, gelatine and honey aren&apos;t allergens).
+        </p>
         <div className="space-y-2">
           {SUITABILITY_ROWS.map(r => {
             const v = spec.suitability[r.key] ?? { value: "", certification: "" };
+            // The one thing the recipe CAN tell them, shown as context not as an answer.
+            const glutenNote = r.key === "coeliacs" && (result.contains.includes("Gluten") || result.mayContain.includes("Gluten"));
             return (
               <div key={r.key} className="grid grid-cols-1 sm:grid-cols-[1fr_7rem_1fr] gap-2 items-center">
-                <span className="text-sm text-gray-800">{r.label}</span>
+                <span className="text-sm text-gray-800">
+                  {r.label}
+                  {glutenNote && <span className="ml-2 badge bg-amber-100 text-amber-800">recipe contains gluten</span>}
+                </span>
                 <select
                   className="input"
                   value={v.value}
