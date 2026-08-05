@@ -311,8 +311,13 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   Kernel surfaces what it knows (a "recipe contains gluten" badge on the Coeliacs row) and lets a
   human answer. Legitimate defaults are the derived ones: net quantity from the net weight, legal
   name from the product name, primary packaging from the packing-runs mapping, completed-by from the
-  org + login. NB the In General / Warranty / Customer Approval boilerplate in `lib/spec-sheet.ts` is
-  still adapted from the Beacon sheet and is not user-editable — worth having Katie confirm the wording.
+  org + login. The In General / Warranty / Customer Approval boilerplate in `lib/spec-sheet.ts` is
+  hardcoded (not user-editable) and **Tom reviewed and accepted it on 5 Aug 2026** — the Warranty is
+  standard UK statutory wording (Food Safety Act 1990, EC 852/2004 as retained, EU 1169/2011 via the
+  Food Information Regulations 2014, CPA 1987, W&M Act 1985) and commits the business to nothing the
+  law doesn't already. Don't re-raise it. The only non-statutory line is the Customer Approval
+  deemed-acceptance clause ("not signed and returned within 7 days … assumed approved") — a
+  commercial term carried over from Beacon's template, left as-is by choice.
   Both tabs write DIFFERENT keys of the same `product_spec_sheets.data` jsonb via `saveSpecPatch`
   (`components/useProductSpecSheet.ts`), which re-reads and merges — the Spec sheet tab must never
   write `organoleptic`, and the PDF re-reads the row at download so it can't ship a stale standard.
