@@ -30,7 +30,6 @@ export interface SpecSheetPdfProps {
   spec: SpecData;
   declarationParts: DeclarationPart[];
   nutritionRows: NutritionRow[];   // empty when the calc is incomplete
-  contains: string[];              // short allergen names in the recipe
   packShotUrl: string | null;
 }
 
@@ -160,9 +159,9 @@ function DocHeader({ spec, productName }: { spec: SpecData; productName: string 
 }
 
 export function SpecSheetDocument(props: SpecSheetPdfProps) {
-  const { productName, company, spec, declarationParts, nutritionRows, contains, packShotUrl } = props;
-  const handled = new Set(spec.handledOnSite);
-  const inRecipe = new Set(contains);
+  const { productName, company, spec, declarationParts, nutritionRows, packShotUrl } = props;
+  const contains = new Set(spec.allergenContains);
+  const mayContain = new Set(spec.allergenMayContain);
 
   return (
     <Document title={`Product Spec — ${productName}`} author={company.supplierName}>
@@ -253,28 +252,36 @@ export function SpecSheetDocument(props: SpecSheetPdfProps) {
           <TRow last cells={[{ text: "Usage / Cooking Instructions:", bold: true }, { text: spec.usage, flex: 3 }]} />
         </View>
 
-        {/* ── Allergen Information ────────────────────────────────────── */}
+        {/* ── Allergen Information ──────────────────────────────────────
+            Three mutually-exclusive states per allergen: an ingredient
+            ("Contains"), a cross-contact risk from being handled on site
+            ("May Contain"), or neither ("Free From"). */}
         <View style={s.table} wrap={false}>
           <Band>Allergen Information</Band>
           <TRow cells={[
             { text: "", flex: 3 },
             { text: "Free From", bold: true, center: true, flex: 0.7 },
-            { text: "Recipe Contains", bold: true, center: true, flex: 0.7 },
-            { text: "Handled On Site", bold: true, center: true, flex: 0.7 },
+            { text: "Contains", bold: true, center: true, flex: 0.7 },
+            { text: "May Contain", bold: true, center: true, flex: 0.8 },
           ]} />
           {SPEC_ALLERGENS.map((a, i) => {
-            const has = inRecipe.has(a.key);
-            const onSite = handled.has(a.key);
+            const has = contains.has(a.key);
+            // "Contains" wins: an ingredient is never also a may-contain.
+            const may = !has && mayContain.has(a.key);
             return (
               <TRow key={a.key} last={i === SPEC_ALLERGENS.length - 1} cells={[
                 { text: a.legal, flex: 3 },
-                { text: !has && !onSite ? "X" : "", center: true, flex: 0.7 },
+                { text: !has && !may ? "X" : "", center: true, flex: 0.7 },
                 { text: has ? "X" : "", center: true, flex: 0.7 },
-                { text: onSite ? "X" : "", center: true, flex: 0.7 },
+                { text: may ? "X" : "", center: true, flex: 0.8 },
               ]} />
             );
           })}
         </View>
+        <Text style={{ fontSize: 7, color: "#555", marginTop: -4, marginBottom: 8 }}>
+          Contains = present as an ingredient. May Contain = not an ingredient, but handled on site
+          and subject to cross-contact.
+        </Text>
 
         {/* ── Product Suitability ─────────────────────────────────────── */}
         <View style={s.table} wrap={false}>

@@ -46,8 +46,14 @@ export interface SpecData {
   bbeFormat: string;         // e.g. "DD/MM/YYYY"
   storage: string;
   usage: string;
-  // Allergens handled on site (short names from the raw-materials list)
-  handledOnSite: string[];
+  // Allergens — two independent answers per allergen, both short names from the
+  // raw-materials list. These are different declarations and must not be merged:
+  //   allergenContains  = present as an ingredient, declared "Contains"
+  //   allergenMayContain = not an ingredient, but a cross-contact risk from
+  //                        being handled on site, declared "May contain"
+  // An allergen in neither list is Free From.
+  allergenContains: string[];
+  allergenMayContain: string[];
   suitability: Record<string, SuitabilityValue>;
   micro: MicroRow[];
   organoleptic: { appearance: string; aroma: string; texture: string; flavour: string };
@@ -172,9 +178,12 @@ export function defaultSpecData(input: SpecDefaultsInput): SpecData {
     bbeFormat: "DD/MM/YYYY",
     storage: "",
     usage: "",
-    // Recipe-contains ∪ may-contain is the sensible starting point for what
-    // the site handles; editable from there.
-    handledOnSite: Array.from(new Set([...contains, ...mayContain])).sort(),
+    // Seeded from the recipe, which already knows both: `contains` from the
+    // ingredients' own allergens, `mayContain` from their may-contain
+    // declarations. Both stay editable — the recipe can't know about
+    // cross-contact from other products sharing the kitchen.
+    allergenContains: [...contains].sort(),
+    allergenMayContain: mayContain.filter(a => !contains.includes(a)).sort(),
     suitability,
     micro: [],
     organoleptic: { appearance: "", aroma: "", texture: "", flavour: "" },
@@ -192,13 +201,26 @@ export function defaultSpecData(input: SpecDefaultsInput): SpecData {
  *  row was saved still appear (saved wins wherever it has a value). */
 export function mergeSpecData(defaults: SpecData, saved: Partial<SpecData> | null | undefined): SpecData {
   if (!saved || typeof saved !== "object") return defaults;
+  // Rows saved before allergens were split carried one `handledOnSite` list.
+  // That list meant "present on site", which is the may-contain question — so
+  // it migrates there, minus anything the recipe says is an actual ingredient.
+  const legacy = (saved as { handledOnSite?: unknown }).handledOnSite;
+  const legacyOnSite = Array.isArray(legacy) ? (legacy as string[]) : null;
+  const contains = Array.isArray(saved.allergenContains) ? saved.allergenContains : defaults.allergenContains;
+  const mayContain = Array.isArray(saved.allergenMayContain)
+    ? saved.allergenMayContain
+    : legacyOnSite
+      ? legacyOnSite.filter(a => !contains.includes(a))
+      : defaults.allergenMayContain;
+
   const merged: SpecData = {
     ...defaults,
     ...saved,
     organoleptic: { ...defaults.organoleptic, ...(saved.organoleptic ?? {}) },
     completedBy: { ...defaults.completedBy, ...(saved.completedBy ?? {}) },
     suitability: { ...defaults.suitability, ...(saved.suitability ?? {}) },
-    handledOnSite: Array.isArray(saved.handledOnSite) ? saved.handledOnSite : defaults.handledOnSite,
+    allergenContains: contains,
+    allergenMayContain: mayContain,
     micro: Array.isArray(saved.micro) && saved.micro.length ? saved.micro : defaults.micro,
     packaging: Array.isArray(saved.packaging) && saved.packaging.length ? saved.packaging : defaults.packaging,
     amendments: Array.isArray(saved.amendments) && saved.amendments.length ? saved.amendments : defaults.amendments,

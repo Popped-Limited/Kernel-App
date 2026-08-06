@@ -297,7 +297,6 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
           spec={specForPdf}
           declarationParts={declarationParts}
           nutritionRows={nutritionRows}
-          contains={result.contains}
           packShotUrl={packShotPath ? publicUrl(packShotPath) : null}
         />
       ).toBlob();
@@ -325,6 +324,9 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
   if (!spec || !company) return null;
 
   const organolepticSet = Object.values(spec.organoleptic).some(v => v.trim());
+  // Allergens the recipe says are ingredients but the spec doesn't declare —
+  // the sheet would contradict its own (auto-generated) ingredient declaration.
+  const missedByRecipe = result.contains.filter(a => !spec.allergenContains.includes(a));
 
   const gaps: string[] = [];
   if (!result.declaration.length) gaps.push("No recipe found — the ingredient declaration will be blank. Build the production record's ingredients table first.");
@@ -396,28 +398,75 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
         </div>
       </Section>
 
-      <Section title="Allergens handled on site">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {SPEC_ALLERGENS.map(a => {
-            const checked = spec.handledOnSite.includes(a.key);
-            const inRecipe = result.contains.includes(a.key);
-            return (
-              <label key={a.key} className="flex items-center gap-2 text-sm text-gray-800">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-gray-300 text-brown focus:ring-brand/40"
-                  checked={checked}
-                  onChange={e => patchSpec({
-                    handledOnSite: e.target.checked
-                      ? [...spec.handledOnSite, a.key].sort()
-                      : spec.handledOnSite.filter(x => x !== a.key),
-                  })}
-                />
-                {a.key}
-                {inRecipe && <span className="badge bg-brand-cream text-brown">in recipe</span>}
-              </label>
-            );
-          })}
+      <Section title="Allergens">
+        <p className="text-xs text-gray-500 mb-3">
+          <strong className="text-gray-700">Contains</strong> — the allergen is an ingredient.{" "}
+          <strong className="text-gray-700">May contain</strong> — it isn&apos;t an ingredient, but it&apos;s
+          handled on site and could cross-contaminate. Tick neither and the spec declares the product
+          free from it. Pre-filled from your recipe and raw materials; change anything the recipe
+          can&apos;t know.
+        </p>
+        {missedByRecipe.length > 0 && (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+            Your recipe says this product contains {missedByRecipe.join(", ")}, but that isn&apos;t ticked
+            under Contains — the ingredient declaration on the same sheet will still show it in bold.
+          </p>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-2 text-xs font-semibold text-gray-500">Allergen</th>
+                <th className="py-2 text-xs font-semibold text-gray-500 w-24 text-center">Contains</th>
+                <th className="py-2 text-xs font-semibold text-gray-500 w-28 text-center">May contain</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {SPEC_ALLERGENS.map(a => {
+                const isContains = spec.allergenContains.includes(a.key);
+                const isMay = spec.allergenMayContain.includes(a.key);
+                const recipeSays = result.contains.includes(a.key);
+                return (
+                  <tr key={a.key}>
+                    <td className="py-2 text-gray-800">
+                      {a.key}
+                      {recipeSays && <span className="ml-2 badge bg-brand-cream text-brown">in recipe</span>}
+                    </td>
+                    <td className="py-2 text-center">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 text-brown focus:ring-brand/40"
+                        checked={isContains}
+                        onChange={e => patchSpec({
+                          allergenContains: e.target.checked
+                            ? [...spec.allergenContains, a.key].sort()
+                            : spec.allergenContains.filter(x => x !== a.key),
+                          // An ingredient is never also a may-contain.
+                          allergenMayContain: e.target.checked
+                            ? spec.allergenMayContain.filter(x => x !== a.key)
+                            : spec.allergenMayContain,
+                        })}
+                      />
+                    </td>
+                    <td className="py-2 text-center">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 text-brown focus:ring-brand/40 disabled:opacity-30"
+                        checked={isMay}
+                        disabled={isContains}
+                        title={isContains ? "Already declared as an ingredient" : undefined}
+                        onChange={e => patchSpec({
+                          allergenMayContain: e.target.checked
+                            ? [...spec.allergenMayContain, a.key].sort()
+                            : spec.allergenMayContain.filter(x => x !== a.key),
+                        })}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </Section>
 

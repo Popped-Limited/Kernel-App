@@ -312,6 +312,15 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   alternative is re-typing the same data for every product:
   • Company information → **Account → Company details** (`/account/company`, org-singleton
     `spec_company_details`). Never edit it per product.
+  • Allergens are TWO independent declarations per allergen, never one list (Tom, 5 Aug 2026 — the
+    single "handled on site" tickbox conflated them and read as confusing): `allergenContains` =
+    present as an ingredient; `allergenMayContain` = not an ingredient but handled on site, so a
+    cross-contact risk. Neither ticked = Free From, and the PDF prints exactly one X per row.
+    Both seed from the recipe (`contains` / `may_contain_allergens` on raw materials) and stay
+    editable — the recipe can't know what else shares the kitchen. Ticking Contains clears and
+    disables May contain. If the ticks drop an allergen the recipe says is an ingredient, the panel
+    warns: the auto-generated ingredient declaration on the same sheet still bolds it, so the sheet
+    would contradict itself. `mergeSpecData` migrates pre-split rows (`handledOnSite` → may-contain).
   • Organoleptic standard (appearance/aroma/texture/flavour) → the **Organoleptic tab**, above the
     check history (the checks are pass/fail evidence; the standard is the definition the spec declares).
   • Micro limits → **"Read from lab reports"** (`/api/extract-micro-targets`): Claude reads the
