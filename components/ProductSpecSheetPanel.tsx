@@ -334,6 +334,7 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
   if (!organolepticSet) gaps.push("No organoleptic standard set — add it on the Organoleptic tab and it appears here.");
   if (!Object.values(spec.suitability).some(v => v.value)) gaps.push("Product suitability is unanswered — every row prints blank until you set it.");
   if (!spec.storage.trim()) gaps.push("Storage conditions not set.");
+  if (!spec.authorisedBy.trim()) gaps.push("Nobody has authorised this spec — set “Authorised by” before sending it to a customer.");
 
   return (
     <div className="space-y-6">
@@ -367,7 +368,7 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
           <Field label="Product code" value={spec.productCode} onChange={v => patchSpec({ productCode: v })} placeholder="e.g. SAUCE01" />
           <Field label="Updated by" value={spec.updatedBy} onChange={v => patchSpec({ updatedBy: v })} />
           <div className="col-span-2 sm:col-span-1">
-            <Field label="Authorised by" value={spec.authorisedBy} onChange={v => patchSpec({ authorisedBy: v })} />
+            <Field label="Authorised by" value={spec.authorisedBy} onChange={v => patchSpec({ authorisedBy: v })} placeholder="Who signs it off" />
           </div>
         </div>
       </Section>

@@ -154,7 +154,12 @@ export function defaultSpecData(input: SpecDefaultsInput): SpecData {
     // default would quietly mislabel a chilled or frozen one.
     reference: "",
     updatedBy: input.userName,
-    authorisedBy: input.userName,
+    // Blank on purpose: authorising is a sign-off, not a fact about who's
+    // logged in. Pre-filling it would put someone's name against an approval
+    // they haven't given, and it collapses the updated-by/authorised-by
+    // separation the form exists to record (an auditor expects two people
+    // once the business has two).
+    authorisedBy: "",
     version: "1",
     versionDate: todayUK(),
     productCode: "",

@@ -328,7 +328,9 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   is only legitimate when it's derived from the org's own data or is a pure formatting convention.
   Deliberately blank in `defaultSpecData`: `reference` (that's the org's own QMS form number —
   "F3.6a" was Beacon's), `storage` (an ambient default mislabels a chilled/frozen product), `micro`,
-  and **every `suitability` row**. Suitability especially must NOT be inferred from recipe allergens:
+  `authorisedBy` (authorising is a sign-off, not a fact about who's logged in — prefilling it also
+  collapses the updated-by/authorised-by separation an auditor expects), and **every `suitability`
+  row**. Suitability especially must NOT be inferred from recipe allergens:
   meat, gelatine, honey and rennet aren't allergens, so allergen-based logic would print
   "Suitable for Vegans: Yes" on a beef product, and the GM rows have no evidence behind them at all.
   Kernel surfaces what it knows (a "recipe contains gluten" badge on the Coeliacs row) and lets a
