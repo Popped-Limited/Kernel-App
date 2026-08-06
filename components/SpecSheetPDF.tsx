@@ -115,12 +115,12 @@ function TRow({ cells, last }: { cells: CellDef[]; last?: boolean }) {
 
 /** The doc-control header repeated at the top of every page. */
 function DocHeader({ spec, productName }: { spec: SpecData; productName: string }) {
+  // Version and date live in the left block's spec row, not here — carrying
+  // them in both halves of the header is what made this read as repetitive.
   const meta: [string, string][] = [
     ["Reference:", spec.reference],
     ["Updated By:", spec.updatedBy],
     ["Authorised By:", spec.authorisedBy],
-    ["Version:", spec.version],
-    ["Date:", spec.versionDate],
   ];
   return (
     <View style={s.header} fixed>
@@ -379,14 +379,17 @@ export function SpecSheetDocument(props: SpecSheetPdfProps) {
           <Text style={s.para}>{WARRANTY_TEXT}</Text>
         </View>
 
-        {/* ── Completed By ────────────────────────────────────────────── */}
+        {/* ── Completed By ──────────────────────────────────────────────
+            Entirely derived: the authoriser is the signatory, the company
+            comes from Account → Company details, the date is the issue date.
+            Signature is left blank for a wet signature after printing. */}
         <View style={s.table} wrap={false}>
           <Band>Completed By</Band>
-          <TRow cells={[{ text: "Completed By (Name):", bold: true }, { text: spec.completedBy.name, flex: 2.5 }]} />
-          <TRow cells={[{ text: "On Behalf of (Company):", bold: true }, { text: spec.completedBy.company, flex: 2.5 }]} />
-          <TRow cells={[{ text: "Position in Company:", bold: true }, { text: spec.completedBy.position, flex: 2.5 }]} />
-          <TRow cells={[{ text: "Signature:", bold: true }, { text: spec.completedBy.signature, flex: 2.5 }]} />
-          <TRow last cells={[{ text: "Date:", bold: true }, { text: spec.completedBy.date, flex: 2.5 }]} />
+          <TRow cells={[{ text: "Completed By (Name):", bold: true }, { text: spec.authorisedBy, flex: 2.5 }]} />
+          <TRow cells={[{ text: "On Behalf of (Company):", bold: true }, { text: company.supplierName, flex: 2.5 }]} />
+          <TRow cells={[{ text: "Position in Company:", bold: true }, { text: spec.authorisedPosition, flex: 2.5 }]} />
+          <TRow cells={[{ text: "Signature:", bold: true }, { text: "", flex: 2.5 }]} />
+          <TRow last cells={[{ text: "Date:", bold: true }, { text: spec.issueDate, flex: 2.5 }]} />
         </View>
 
         {/* ── Customer Approval ───────────────────────────────────────── */}

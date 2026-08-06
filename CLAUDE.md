@@ -346,8 +346,16 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
   "Suitable for Vegans: Yes" on a beef product, and the GM rows have no evidence behind them at all.
   Kernel surfaces what it knows (a "recipe contains gluten" badge on the Coeliacs row) and lets a
   human answer. Legitimate defaults are the derived ones: net quantity from the net weight, legal
-  name from the product name, primary packaging from the packing-runs mapping, completed-by from the
-  org + login. The In General / Warranty / Customer Approval boilerplate in `lib/spec-sheet.ts` is
+  name from the product name, primary packaging from the packing-runs mapping.
+- **Document control holds ONE of everything** (Tom, 5 Aug 2026 — the original carried three dates
+  and the signatory twice). `reference`, `productCode`, `version`, `issueDate`, `updatedBy`,
+  `authorisedBy`, `authorisedPosition` — nothing else. There is no separate Completed By block to
+  fill in: the PDF's derives name + position from the authoriser, company from
+  `spec_company_details`, date from `issueDate`, and leaves **Signature blank for a wet signature**.
+  Never add a typed signature field — Tom: *"this is either a signing box or nothing"*. If a real
+  one is ever wanted, Kernel already ships `react-signature-canvas` (the checklist `signature`
+  question type). `mergeSpecData` migrates pre-consolidation rows (`completedBy.position` →
+  `authorisedPosition`). The In General / Warranty / Customer Approval boilerplate in `lib/spec-sheet.ts` is
   hardcoded (not user-editable) and **Tom reviewed and accepted it on 5 Aug 2026** — the Warranty is
   standard UK statutory wording (Food Safety Act 1990, EC 852/2004 as retained, EU 1169/2011 via the
   Food Information Regulations 2014, CPA 1987, W&M Act 1985) and commits the business to nothing the

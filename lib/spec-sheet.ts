@@ -28,15 +28,15 @@ export interface SuitabilityValue { value: "yes" | "no" | ""; certification: str
 
 /** Per-product editable spec fields (product_spec_sheets.data). */
 export interface SpecData {
-  // Document control (top-right header block)
-  reference: string;
-  updatedBy: string;
-  authorisedBy: string;
+  // Document control. ONE of each — the sheet previously carried three dates
+  // and the signatory's name twice (header + a separate Completed By block).
+  reference: string;          // the org's own QMS doc ref
+  productCode: string;        // spec ref, e.g. SAUCE01
   version: string;
-  versionDate: string;
-  // Spec ref row
-  productCode: string;
-  issueDate: string;
+  issueDate: string;          // the single date for this version
+  updatedBy: string;          // who prepared it
+  authorisedBy: string;       // who signs it off — also the Completed By name
+  authorisedPosition: string; // their job title, for the sign-off block
   // Product information
   legalName: string;
   description: string;
@@ -58,7 +58,6 @@ export interface SpecData {
   micro: MicroRow[];
   organoleptic: { appearance: string; aroma: string; texture: string; flavour: string };
   packaging: PackagingRow[];
-  completedBy: { name: string; company: string; position: string; signature: string; date: string };
   amendments: AmendmentRow[];
 }
 
@@ -166,8 +165,8 @@ export function defaultSpecData(input: SpecDefaultsInput): SpecData {
     // separation the form exists to record (an auditor expects two people
     // once the business has two).
     authorisedBy: "",
+    authorisedPosition: "",
     version: "1",
-    versionDate: todayUK(),
     productCode: "",
     issueDate: todayUK(),
     legalName: input.productName,
@@ -192,7 +191,6 @@ export function defaultSpecData(input: SpecDefaultsInput): SpecData {
       { level: "Secondary", material: "", dimensions: "", weight: "" },
       { level: "Tertiary",  material: "", dimensions: "", weight: "" },
     ],
-    completedBy: { name: input.userName, company: input.orgName, position: "", signature: "", date: todayUK() },
     amendments: [{ date: todayUK(), reason: "New spec", version: "1", updatedBy: input.userName }],
   };
 }
@@ -213,11 +211,15 @@ export function mergeSpecData(defaults: SpecData, saved: Partial<SpecData> | nul
       ? legacyOnSite.filter(a => !contains.includes(a))
       : defaults.allergenMayContain;
 
+  // Pre-consolidation rows kept the signatory's job title on a separate
+  // completedBy block; carry it across to the single sign-off field.
+  const legacyCompleted = (saved as { completedBy?: { position?: string; name?: string } }).completedBy;
+
   const merged: SpecData = {
     ...defaults,
     ...saved,
     organoleptic: { ...defaults.organoleptic, ...(saved.organoleptic ?? {}) },
-    completedBy: { ...defaults.completedBy, ...(saved.completedBy ?? {}) },
+    authorisedPosition: saved.authorisedPosition ?? legacyCompleted?.position ?? defaults.authorisedPosition,
     suitability: { ...defaults.suitability, ...(saved.suitability ?? {}) },
     allergenContains: contains,
     allergenMayContain: mayContain,

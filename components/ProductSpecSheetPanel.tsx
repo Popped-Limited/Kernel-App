@@ -364,15 +364,16 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
       <Section title="Document control">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Field label="Reference" value={spec.reference} onChange={v => patchSpec({ reference: v })} placeholder="Your doc ref" />
-          <Field label="Version" value={spec.version} onChange={v => patchSpec({ version: v })} />
-          <Field label="Version date" value={spec.versionDate} onChange={v => patchSpec({ versionDate: v })} />
-          <Field label="Issue date" value={spec.issueDate} onChange={v => patchSpec({ issueDate: v })} />
           <Field label="Product code" value={spec.productCode} onChange={v => patchSpec({ productCode: v })} placeholder="e.g. SAUCE01" />
+          <Field label="Version" value={spec.version} onChange={v => patchSpec({ version: v })} />
+          <Field label="Issue date" value={spec.issueDate} onChange={v => patchSpec({ issueDate: v })} />
           <Field label="Updated by" value={spec.updatedBy} onChange={v => patchSpec({ updatedBy: v })} />
-          <div className="col-span-2 sm:col-span-1">
-            <Field label="Authorised by" value={spec.authorisedBy} onChange={v => patchSpec({ authorisedBy: v })} placeholder="Who signs it off" />
-          </div>
+          <Field label="Authorised by" value={spec.authorisedBy} onChange={v => patchSpec({ authorisedBy: v })} placeholder="Who signs it off" />
+          <Field label="Position" value={spec.authorisedPosition} onChange={v => patchSpec({ authorisedPosition: v })} placeholder="e.g. Director" />
         </div>
+        <p className="text-xs text-gray-500 mt-3">
+          The sign-off block on the PDF uses these, your company name, and leaves the signature blank to sign by hand.
+        </p>
       </Section>
 
       <Section title="Product details">
@@ -645,16 +646,6 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
           <p className="text-sm text-gray-400">No pack shot yet — upload a photo of the finished product as a PNG or JPEG.</p>
         )}
         {shotError && <p className="text-sm text-red-500 mt-2">{shotError}</p>}
-      </Section>
-
-      <Section title="Completed by">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Name" value={spec.completedBy.name} onChange={v => patchSpec({ completedBy: { ...spec.completedBy, name: v } })} />
-          <Field label="On behalf of (company)" value={spec.completedBy.company} onChange={v => patchSpec({ completedBy: { ...spec.completedBy, company: v } })} />
-          <Field label="Position in company" value={spec.completedBy.position} onChange={v => patchSpec({ completedBy: { ...spec.completedBy, position: v } })} />
-          <Field label="Signature (typed)" value={spec.completedBy.signature} onChange={v => patchSpec({ completedBy: { ...spec.completedBy, signature: v } })} />
-          <Field label="Date" value={spec.completedBy.date} onChange={v => patchSpec({ completedBy: { ...spec.completedBy, date: v } })} />
-        </div>
       </Section>
 
       <Section title="Amendment log">
