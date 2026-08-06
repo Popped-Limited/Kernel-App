@@ -318,7 +318,9 @@ behind a route (`/api/saq/`, `/api/submit`, `/api/accept-invite`), that route mu
     cross-contact risk. Neither ticked = Free From, and the PDF prints exactly one X per row.
     Both seed from the recipe (`contains` / `may_contain_allergens` on raw materials) and stay
     editable — the recipe can't know what else shares the kitchen. Ticking Contains clears and
-    disables May contain. If the ticks drop an allergen the recipe says is an ingredient, the panel
+    disables May contain. Don't define these terms in the UI or the PDF — the users are food-safety
+    professionals and the column headings say it; the only helper line worth having states
+    **provenance** ("All allergens are pulled from raw materials spec sheets"). If the ticks drop an allergen the recipe says is an ingredient, the panel
     warns: the auto-generated ingredient declaration on the same sheet still bolds it, so the sheet
     would contradict itself. `mergeSpecData` migrates pre-split rows (`handledOnSite` → may-contain).
   • Organoleptic standard (appearance/aroma/texture/flavour) → the **Organoleptic tab**, above the

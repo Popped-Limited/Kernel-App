@@ -399,13 +399,7 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
       </Section>
 
       <Section title="Allergens">
-        <p className="text-xs text-gray-500 mb-3">
-          <strong className="text-gray-700">Contains</strong> — the allergen is an ingredient.{" "}
-          <strong className="text-gray-700">May contain</strong> — it isn&apos;t an ingredient, but it&apos;s
-          handled on site and could cross-contaminate. Tick neither and the spec declares the product
-          free from it. Pre-filled from your recipe and raw materials; change anything the recipe
-          can&apos;t know.
-        </p>
+        <p className="text-xs text-gray-500 mb-3">All allergens are pulled from raw materials spec sheets.</p>
         {missedByRecipe.length > 0 && (
           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
             Your recipe says this product contains {missedByRecipe.join(", ")}, but that isn&apos;t ticked
@@ -471,10 +465,6 @@ export default function ProductSpecSheetPanel({ productName }: { productName: st
       </Section>
 
       <Section title="Product suitability">
-        <p className="text-xs text-gray-500 mb-3">
-          Left blank until you answer — these are claims to your customer, and the recipe can&apos;t
-          establish them (meat, gelatine and honey aren&apos;t allergens).
-        </p>
         <div className="space-y-2">
           {SUITABILITY_ROWS.map(r => {
             const v = spec.suitability[r.key] ?? { value: "", certification: "" };

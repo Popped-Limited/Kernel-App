@@ -278,10 +278,6 @@ export function SpecSheetDocument(props: SpecSheetPdfProps) {
             );
           })}
         </View>
-        <Text style={{ fontSize: 7, color: "#555", marginTop: -4, marginBottom: 8 }}>
-          Contains = present as an ingredient. May Contain = not an ingredient, but handled on site
-          and subject to cross-contact.
-        </Text>
 
         {/* ── Product Suitability ─────────────────────────────────────── */}
         <View style={s.table} wrap={false}>
